@@ -9,7 +9,7 @@ dependencies = [
 	"gunicorn==21.2.0",
 	"PyMySQL==1.1.2",
 	"SQLAlchemy==2.0.43",
-	"dill==0.4.0"
+	"dill==0.4.1"
 ]
 
 [project.optional-dependencies]
