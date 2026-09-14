@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 dependencies = [
 	"PyMuPDF>=1.21.1",
 	"Flask==3.0.3",
-	"gunicorn==21.2.0",
+	"gunicorn==26.2.0",
 	"PyMySQL==1.1.2",
 	"SQLAlchemy==2.0.43",
 	"dill==0.4.0"
