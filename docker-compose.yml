@@ -17,7 +17,7 @@ services:
       - DB_NAME=tatou
       - DB_USER=${MARIADB_USER}
       - DB_PASSWORD=${MARIADB_PASSWORD}
-      - FLAG_2=${FLAG_2}
+      - FLAG_1=${FLAG_1}
     depends_on:
       db:
         condition: service_healthy
@@ -35,7 +35,7 @@ services:
       - db-data:/var/lib/mysql
       - ./db/tatou.sql:/docker-entrypoint-initdb.d/10-tatou.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u root --password=$MARIADB_ROOT_PASSWORD --silent"]
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -u root --password=$$MARIADB_ROOT_PASSWORD --silent"]
       interval: 10s
       timeout: 5s
       retries: 5
