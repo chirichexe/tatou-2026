@@ -1,5 +1,24 @@
 # Tatou API Documentation
 
+## Request headers
+
+All state-changing requests under `/api/` (including login, signup, uploads,
+watermark operations, and deletion) require `X-CSRF-Protection: 1`.
+Missing or incorrect values return `403` before the endpoint runs.
+`GET`, `HEAD`, and `OPTIONS` do not require this header.
+
+Protected endpoints additionally require `Authorization: Bearer <token>`.
+The CSRF header is not an authentication token. This protection relies on
+restricting CORS: do not allow untrusted origins to send the custom header.
+
+For example, a document deletion uses both headers:
+
+```http
+DELETE /api/delete-document/42
+Authorization: Bearer <token>
+X-CSRF-Protection: 1
+```
+
 ---
 
 # Routes

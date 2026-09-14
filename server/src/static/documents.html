@@ -74,6 +74,7 @@
     function apiFetch(path, options = {}) {
       const headers = new Headers(options.headers || {});
       headers.set('Authorization', 'Bearer ' + token);
+      headers.set('X-CSRF-Protection', '1');
       return fetch(path, { ...options, headers });
     }
     function apiFetchJSON(path, method, obj){
@@ -150,8 +151,9 @@
 
     document.getElementById('uploadForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const uploadForm = e.currentTarget;
       statusEl.textContent = 'Uploading…';
-      const fd = new FormData(e.currentTarget);
+      const fd = new FormData(uploadForm);
       try {
         const resp = await apiFetch('/api/upload-document', { method: 'POST', body: fd });
         if (!resp.ok) {
@@ -159,7 +161,7 @@
           throw new Error(err.message || resp.statusText);
         }
         statusEl.textContent = 'Uploaded successfully';
-        e.currentTarget.reset();
+        uploadForm.reset();
         await loadDocuments();
       } catch (err) {
         statusEl.textContent = 'Upload failed: ' + err.message;
