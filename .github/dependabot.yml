@@ -1,0 +1,13 @@
+    version: 2
+    updates:
+      # python dependencies
+      - package-ecosystem: "pip"
+        directory: "/server"
+        schedule:
+          interval: "weekly"
+  
+      # base docker image    
+      - package-ecosystem: "docker"
+        directory: "/server"
+        schedule:
+          interval: "weekly"
