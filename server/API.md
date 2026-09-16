@@ -236,12 +236,13 @@ _None_
 
 **Specification**
  * Requires authentication
- 
- 
+ * Ownership MUST be checked against the authenticated user's numeric ID, not login name.
+ * Requests for another user's document or a nonexistent document return `200` with `{"versions": []}`.
+
  ## list-all-versions
  
 **Path**
-`GET /api/list-versions`
+`GET /api/list-all-versions`
 
 **Description**  
 This endpoint lists all versions of all PDF documents for the authenticated user stored in the system.
@@ -267,7 +268,8 @@ _None_
 
 **Specification**
  * Requires authentication
- 
+ * The response MUST contain only versions whose documents belong to the authenticated user's numeric ID, even when multiple accounts share a login name.
+
  ## get-document
  
 **Description**  
