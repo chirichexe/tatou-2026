@@ -21,7 +21,12 @@ def create_app():
     app = Flask(__name__)
 
     # --- Config ---
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+    secret_key = os.environ.get("SECRET_KEY", "").strip()
+
+    if not secret_key or secret_key == "dev-secret-change-me":
+        raise RuntimeError("Set SECRET_KEY to a private, randomly generated value")
+
+    app.config["SECRET_KEY"] = secret_key
     app.config["STORAGE_DIR"] = Path(os.environ.get("STORAGE_DIR", "./storage")).resolve()
     app.config["TOKEN_TTL_SECONDS"] = int(os.environ.get("TOKEN_TTL_SECONDS", "86400"))
 
