@@ -18,6 +18,7 @@ services:
       - DB_USER=${MARIADB_USER}
       - DB_PASSWORD=${MARIADB_PASSWORD}
       - FLAG_1=${FLAG_1}
+      - SECRET_KEY=${SECRET_KEY:?Set SECRET_KEY in .env}
     depends_on:
       db:
         condition: service_healthy

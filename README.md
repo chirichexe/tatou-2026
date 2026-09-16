@@ -29,6 +29,7 @@ python3 -m venv .venv
 python -m pip install -e ".[dev]"
 
 # Run the unit tests
+export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 python -m pytest
 ```
 
@@ -42,6 +43,9 @@ cp sample.env .env
 
 # Edit .env and pick the passwords you want
 
+# Generate a signing key, then paste it into SECRET_KEY in .env only.
+python3 -c 'import secrets; print(secrets.token_hex(32))'
+
 # Rebuild the docker image and deploy the containers
 docker compose up --build -d
 
@@ -53,6 +57,18 @@ http -v :5000/healthz
 
 # Open your browser at 127.0.0.1:5000 to check if the website is up.
 ```
+
+`SECRET_KEY` is required: Compose and the application reject an unset or empty
+key, and the application rejects the former public development key. Keep
+`sample.env` empty for this setting and never commit the real `.env` file.
+Each developer should generate a separate local key. Generate the university
+deployment's key once, store it privately on that server, and reuse it across
+restarts and all server workers. Changing it invalidates existing login tokens,
+so users must log in again.
+
+For direct Python runs, export `SECRET_KEY` in the process environment; the
+application does not load `.env` itself. The test command above creates a
+temporary test key and does not need the deployment key.
 
 
 
