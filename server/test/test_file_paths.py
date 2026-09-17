@@ -6,12 +6,48 @@ import subprocess
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import fitz
 import pytest
 from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy import create_engine, event, text
 
 
-PDF = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
+def make_pdf(*, encrypted=False):
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "Tatou upload validation fixture")
+    options = {}
+    if encrypted:
+        options = {
+            "encryption": fitz.PDF_ENCRYPT_AES_256,
+            "owner_pw": "owner-password",
+            "user_pw": "user-password",
+        }
+    data = document.tobytes(**options)
+    document.close()
+    return data
+
+
+def make_empty_pdf():
+    objects = [
+        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+        b"2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\n",
+    ]
+    parts = [b"%PDF-1.4\n"]
+    offsets = []
+    for item in objects:
+        offsets.append(sum(map(len, parts)))
+        parts.append(item)
+    xref_offset = sum(map(len, parts))
+    parts.extend([
+        b"xref\n0 3\n0000000000 65535 f \n",
+        b"".join(f"{offset:010d} 00000 n \n".encode() for offset in offsets),
+        f"trailer\n<< /Size 3 /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n".encode(),
+    ])
+    return b"".join(parts)
+
+
+PDF = make_pdf()
 WATERMARK = {"method": "toy-eof", "intended_for": "reader", "secret": "secret", "key": "key"}
 OPERATIONS = [
     ("GET", "/api/get-document/42", {}),
@@ -78,7 +114,7 @@ def file_app(tmp_path, monkeypatch):
         }
 
     yield SimpleNamespace(
-        client=app.test_client(), engine=engine, storage=storage, original=original,
+        app=app, client=app.test_client(), engine=engine, storage=storage, original=original,
         outside=outside, headers=headers, server=server,
     )
     engine.dispose()
@@ -170,12 +206,59 @@ def test_upload_uses_numeric_owner_and_generated_name(file_app, filename, login)
     assert path.parent == env.storage / "files" / "7"
     assert len(path.stem) == 32
     assert path.read_bytes() == PDF
+    assert not any(item.name.startswith(".upload-") for item in path.parent.iterdir())
     assert env.outside.read_bytes() == b"outside sentinel"
 
 
 def test_empty_sanitized_filename_is_rejected(file_app):
-    assert upload(file_app, filename="..").status_code == 400
+    response = upload(file_app, filename="..")
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "lowercase .pdf extension required"}
     assert not (file_app.storage / "files").exists()
+
+
+@pytest.mark.parametrize("filename", [
+    "document.PDF", "document.Pdf", "document", ".pdf",
+    "document.pdf.exe", "document.pdf.txt", "document.exe.pdf",
+    "document.pdf.pdf",
+])
+def test_upload_requires_exact_lowercase_pdf_extension(file_app, filename):
+    response = upload(file_app, filename=filename)
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "lowercase .pdf extension required"}
+    assert not (file_app.storage / "files").exists()
+
+
+@pytest.mark.parametrize("content", [
+    b"cos\n(S'payload)\nsystem\n.",
+    b"<html><body>not a PDF</body></html>",
+    b"",
+    b"%PDF-",
+    b"%PDF-1.7\nmalformed",
+    make_empty_pdf(),
+    make_pdf(encrypted=True),
+])
+def test_upload_rejects_invalid_pdf_content_without_residue(file_app, content):
+    response = upload(file_app, filename="payload.pdf", content=content)
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "invalid PDF document"}
+    user_dir = file_app.storage / "files" / "7"
+    assert not user_dir.exists() or list(user_dir.iterdir()) == []
+    with file_app.engine.connect() as conn:
+        assert conn.execute(text("SELECT COUNT(*) FROM Documents")).scalar_one() == 1
+
+
+def test_upload_removes_published_file_when_database_insert_fails(file_app):
+    failing_engine = Mock()
+    failing_engine.begin.side_effect = RuntimeError("database unavailable")
+    file_app.app.config["_ENGINE"] = failing_engine
+
+    response = upload(file_app)
+
+    assert response.status_code == 503
+    user_dir = file_app.storage / "files" / "7"
+    assert user_dir.is_dir()
+    assert list(user_dir.iterdir()) == []
 
 
 @pytest.mark.parametrize("operation", ["upload", "watermark"])
@@ -201,7 +284,7 @@ def test_upload_does_not_overwrite_existing_file(file_app, monkeypatch):
     first = upload(env)
     assert first.status_code == 201
     path = document_path(env, first.get_json()["id"])
-    assert upload(env, content=b"replacement").status_code == 500
+    assert upload(env, content=PDF).status_code == 500
     assert path.read_bytes() == PDF
 
 

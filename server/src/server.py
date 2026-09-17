@@ -5,6 +5,7 @@ from pathlib import Path
 from functools import wraps
 from uuid import uuid4
 
+import fitz
 from flask import Flask, jsonify, request, g, send_file
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -82,6 +83,36 @@ def create_app():
             for chunk in iter(lambda: f.read(1024 * 1024), b""):
                 h.update(chunk)
         return h.hexdigest()
+
+    def _is_valid_pdf(path: Path) -> bool:
+        try:
+            if path.stat().st_size == 0:
+                return False
+            with path.open("rb") as source:
+                if source.read(5) != b"%PDF-":
+                    return False
+            with fitz.open(str(path)) as document:
+                if document.needs_pass or document.is_encrypted:
+                    return False
+                if document.page_count < 1:
+                    return False
+                for page_number in range(document.page_count):
+                    try:
+                        document.load_page(page_number)
+                        return True
+                    except (RuntimeError, ValueError):
+                        continue
+                return False
+        except (fitz.EmptyFileError, fitz.FileDataError, OSError, RuntimeError, ValueError):
+            return False
+
+    def _remove_file(path: Path | None) -> None:
+        if path is None:
+            return
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            app.logger.warning("Failed to remove file: %s", path)
 
     @app.before_request
     def protect_state_changing_requests():
@@ -181,28 +212,52 @@ def create_app():
             return jsonify({"error": "empty filename"}), 400
 
         fname = secure_filename(file.filename)
-        if not fname:
-            return jsonify({"error": "invalid filename"}), 400
+        if (
+            not fname.endswith(".pdf")
+            or not fname[:-4]
+            or fname.count(".") != 1
+        ):
+            return jsonify({"error": "lowercase .pdf extension required"}), 400
 
         final_name = request.form.get("name") or fname
         storage_root = app.config["STORAGE_DIR"]
+        temporary_path = None
+        stored_path = None
+        stored_path_reserved = False
         try:
             user_dir = _safe_resolve_under_storage(
                 storage_root / "files" / str(int(g.user["id"])),
                 storage_root,
             )
             user_dir.mkdir(parents=True, exist_ok=True)
-            stored_name = f"{uuid4().hex}.pdf"
+            upload_id = uuid4().hex
+            temporary_path = _safe_resolve_under_storage(
+                user_dir / f".upload-{upload_id}.tmp", user_dir,
+            )
+            with temporary_path.open("xb") as output:
+                file.save(output)
+
+            if not _is_valid_pdf(temporary_path):
+                _remove_file(temporary_path)
+                return jsonify({"error": "invalid PDF document"}), 400
+
+            sha_hex = _sha256_file(temporary_path)
+            size = temporary_path.stat().st_size
+            stored_name = f"{upload_id}.pdf"
             stored_path = _safe_resolve_under_storage(
                 user_dir / stored_name, user_dir,
             )
-            with stored_path.open("xb") as output:
-                file.save(output)
+            # A same-filesystem hard link publishes the complete validated
+            # file atomically and refuses to overwrite an existing UUID path.
+            os.link(temporary_path, stored_path)
+            stored_path_reserved = True
+            temporary_path.unlink()
+            temporary_path = None
         except (RuntimeError, ValueError, OSError):
+            _remove_file(temporary_path)
+            if stored_path_reserved:
+                _remove_file(stored_path)
             return jsonify({"error": "could not store document"}), 500
-
-        sha_hex = _sha256_file(stored_path)
-        size = stored_path.stat().st_size
 
         try:
             with get_engine().begin() as conn:
@@ -229,6 +284,7 @@ def create_app():
                     {"id": did},
                 ).one()
         except Exception as e:
+            _remove_file(stored_path)
             return jsonify({"error": f"database error: {str(e)}"}), 503
 
         return jsonify({
@@ -803,4 +859,3 @@ app = create_app()
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
