@@ -1,5 +1,6 @@
 import hashlib
 import os
+import sqlite3
 from functools import wraps
 from pathlib import Path
 from uuid import uuid4
@@ -8,6 +9,7 @@ import fitz
 import watermarking_utils as WMUtils
 from flask import Flask, g, jsonify, request, send_file
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from login_rate_limit import LoginRateLimited, LoginRateLimiter
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
@@ -50,6 +52,9 @@ def create_app():
     app.config["DB_NAME"] = os.environ.get("DB_NAME", "tatou")
 
     app.config["STORAGE_DIR"].mkdir(parents=True, exist_ok=True)
+    login_limiter = LoginRateLimiter(
+        app.config["STORAGE_DIR"] / ".auth" / "login-attempts.sqlite3", secret_key,
+    )
 
     # --- DB engine only (no Table metadata) ---
     def db_url() -> str:
@@ -238,8 +243,13 @@ def create_app():
     @app.post("/api/login")
     def login():
         payload = request.get_json(silent=True) or {}
-        email = (payload.get("email") or "").strip()
-        password = payload.get("password") or ""
+        if not isinstance(payload, dict):
+            return jsonify({"error": "email and password must be strings"}), 400
+        email = payload.get("email", "")
+        password = payload.get("password", "")
+        if not isinstance(email, str) or not isinstance(password, str):
+            return jsonify({"error": "email and password must be strings"}), 400
+        email = email.strip().lower()
         if not email or not password:
             return jsonify({"error": "email and password are required"}), 400
 
@@ -255,8 +265,27 @@ def create_app():
                 "service temporarily unavailable", 503,
             )
 
-        if not row or not check_password_hash(row.hpassword, password):
-            return jsonify({"error": "invalid credentials"}), 401
+        # Known accounts use their numeric ID, including database-collation
+        # aliases of the email. Unknown accounts receive the same failure budget.
+        account = f"user:{row.id}" if row else f"email:{email.casefold()}"
+        try:
+            # The deployment connects directly to Gunicorn. Do not trust
+            # client-supplied X-Forwarded-For / X-Real-IP headers.
+            with login_limiter.attempt(account, request.remote_addr or "unknown") as attempt:
+                if not row or not check_password_hash(row.hpassword, password):
+                    attempt.failed = True
+                    return jsonify({"error": "invalid credentials"}), 401
+        except LoginRateLimited as error:
+            response = jsonify({"error": "too many login attempts; try again shortly"})
+            response.status_code = 429
+            response.headers["Retry-After"] = str(error.retry_after)
+            response.headers["Cache-Control"] = "no-store"
+            return response
+        except (sqlite3.Error, OSError) as error:
+            # A failed limiter must not silently permit unlimited guesses.
+            return _internal_error_response(
+                "login rate-limit storage", error, "service temporarily unavailable", 503,
+            )
 
         token = _serializer().dumps({"uid": int(row.id), "login": row.login, "email": row.email})
         return jsonify({"token": token, "token_type": "bearer", "expires_in": app.config["TOKEN_TTL_SECONDS"]}), 200
