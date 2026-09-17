@@ -88,7 +88,11 @@ deployment's key once, store it privately on that server, and reuse it across
 restarts and all server workers. Changing it invalidates existing login tokens,
 so users must log in again.
 
+PDF uploads are limited to 64 MiB by default. Set `MAX_UPLOAD_SIZE_BYTES` in
+the local `.env` file to a different positive byte value when the deployment
+requires another limit. Requests or documents above the configured limit are
+rejected with HTTP `413` before PDF processing or database insertion.
+
 For direct Python runs, export `SECRET_KEY` in the process environment; the
 application does not load `.env` itself. The test command above creates a
 temporary test key and does not need the deployment key.
-

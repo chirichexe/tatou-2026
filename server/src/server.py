@@ -10,11 +10,20 @@ from flask import Flask, g, jsonify, request, send_file
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from werkzeug.exceptions import HTTPException
+from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
 
 #from watermarking_utils import METHODS, apply_watermark, read_watermark, explore_pdf, is_watermarking_applicable, get_method
+
+
+DEFAULT_MAX_UPLOAD_SIZE_BYTES = 64 * 1024 * 1024
+MULTIPART_OVERHEAD_BYTES = 1024 * 1024
+
+
+class UploadTooLargeError(Exception):
+    """Raised when an uploaded document exceeds the configured byte limit."""
+
 
 def create_app():
     app = Flask(__name__)
@@ -28,6 +37,11 @@ def create_app():
     app.config["SECRET_KEY"] = secret_key
     app.config["STORAGE_DIR"] = Path(os.environ.get("STORAGE_DIR", "./storage")).resolve()
     app.config["TOKEN_TTL_SECONDS"] = int(os.environ.get("TOKEN_TTL_SECONDS", "86400"))
+    app.config["MAX_UPLOAD_SIZE_BYTES"] = int(os.environ.get(
+        "MAX_UPLOAD_SIZE_BYTES", str(DEFAULT_MAX_UPLOAD_SIZE_BYTES),
+    ))
+    if app.config["MAX_UPLOAD_SIZE_BYTES"] <= 0:
+        raise RuntimeError("MAX_UPLOAD_SIZE_BYTES must be a positive integer")
 
     app.config["DB_USER"] = os.environ.get("DB_USER", "tatou")
     app.config["DB_PASSWORD"] = os.environ.get("DB_PASSWORD", "tatou")
@@ -96,6 +110,18 @@ def create_app():
                 h.update(chunk)
         return h.hexdigest()
 
+    def _save_upload_with_limit(file, path: Path) -> None:
+        remaining = app.config["MAX_UPLOAD_SIZE_BYTES"]
+        with path.open("xb") as output:
+            while True:
+                chunk = file.stream.read(min(1024 * 1024, remaining + 1))
+                if not chunk:
+                    return
+                if len(chunk) > remaining:
+                    raise UploadTooLargeError
+                output.write(chunk)
+                remaining -= len(chunk)
+
     def _is_valid_pdf(path: Path) -> bool:
         try:
             if path.stat().st_size == 0:
@@ -128,6 +154,8 @@ def create_app():
 
     @app.errorhandler(Exception)
     def handle_unexpected_error(error: Exception):
+        if isinstance(error, RequestEntityTooLarge):
+            return jsonify({"error": "document exceeds maximum upload size"}), 413
         if isinstance(error, HTTPException):
             if not request.path.startswith("/api/"):
                 return error
@@ -237,6 +265,9 @@ def create_app():
     @app.post("/api/upload-document")
     @require_auth
     def upload_document():
+        request.max_content_length = (
+            app.config["MAX_UPLOAD_SIZE_BYTES"] + MULTIPART_OVERHEAD_BYTES
+        )
         if "file" not in request.files:
             return jsonify({"error": "file is required (multipart/form-data)"}), 400
         file = request.files["file"]
@@ -266,8 +297,7 @@ def create_app():
             temporary_path = _safe_resolve_under_storage(
                 user_dir / f".upload-{upload_id}.tmp", user_dir,
             )
-            with temporary_path.open("xb") as output:
-                file.save(output)
+            _save_upload_with_limit(file, temporary_path)
 
             if not _is_valid_pdf(temporary_path):
                 _remove_file(temporary_path)
@@ -285,6 +315,9 @@ def create_app():
             stored_path_reserved = True
             temporary_path.unlink()
             temporary_path = None
+        except UploadTooLargeError:
+            _remove_file(temporary_path)
+            return jsonify({"error": "document exceeds maximum upload size"}), 413
         except (RuntimeError, ValueError, OSError):
             _remove_file(temporary_path)
             if stored_path_reserved:
