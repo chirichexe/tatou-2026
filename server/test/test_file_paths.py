@@ -10,6 +10,7 @@ import fitz
 import pytest
 from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy import create_engine, event, text
+from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import BadRequest, InternalServerError
 
 
@@ -159,9 +160,11 @@ def make_symlink(link, target):
         # Windows junctions exercise directory redirects without symlink privileges.
         subprocess.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-             "$ErrorActionPreference = 'Stop'; "
-             "New-Item -ItemType Junction -Path $env:TATOU_TEST_LINK "
-             "-Target $env:TATOU_TEST_TARGET | Out-Null"],
+             (
+                 "$ErrorActionPreference = 'Stop'; "
+                 "New-Item -ItemType Junction -Path $env:TATOU_TEST_LINK "
+                 "-Target $env:TATOU_TEST_TARGET | Out-Null"
+             )],
             env={**os.environ, "TATOU_TEST_LINK": str(link), "TATOU_TEST_TARGET": str(target)},
             check=True, capture_output=True, text=True,
         )
@@ -260,7 +263,7 @@ def test_upload_rejects_invalid_pdf_content_without_residue(file_app, content):
 
 def test_upload_removes_published_file_when_database_insert_fails(file_app, caplog):
     failing_engine = Mock()
-    failing_engine.begin.side_effect = RuntimeError(SENSITIVE_CANARY)
+    failing_engine.begin.side_effect = SQLAlchemyError(SENSITIVE_CANARY)
     file_app.app.config["_ENGINE"] = failing_engine
 
     response = upload(file_app)
@@ -289,7 +292,7 @@ def test_database_errors_are_sanitized(
     file_app, caplog, method, url, payload,
 ):
     failing_engine = Mock()
-    failure = RuntimeError(SENSITIVE_CANARY)
+    failure = SQLAlchemyError(SENSITIVE_CANARY)
     failing_engine.connect.side_effect = failure
     failing_engine.begin.side_effect = failure
     file_app.app.config["_ENGINE"] = failing_engine
@@ -320,7 +323,7 @@ def test_database_errors_are_sanitized(
 def test_delete_database_error_is_sanitized_after_lookup(file_app, caplog):
     engine = SimpleNamespace(
         connect=file_app.engine.connect,
-        begin=Mock(side_effect=RuntimeError(SENSITIVE_CANARY)),
+        begin=Mock(side_effect=SQLAlchemyError(SENSITIVE_CANARY)),
     )
     file_app.app.config["_ENGINE"] = engine
 
@@ -341,7 +344,7 @@ def test_delete_database_error_is_sanitized_after_lookup(file_app, caplog):
 def test_version_insert_error_is_sanitized_and_removes_output(file_app, caplog):
     engine = SimpleNamespace(
         connect=file_app.engine.connect,
-        begin=Mock(side_effect=RuntimeError(SENSITIVE_CANARY)),
+        begin=Mock(side_effect=SQLAlchemyError(SENSITIVE_CANARY)),
     )
     file_app.app.config["_ENGINE"] = engine
 

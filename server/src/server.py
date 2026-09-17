@@ -741,7 +741,7 @@ def create_app():
             )
             if applicable is False:
                 return jsonify({"error": "invalid watermarking request"}), 400
-        except (TypeError, ValueError, OSError) as error:
+        except (TypeError, ValueError, OSError, RuntimeError) as error:
             return _internal_error_response(
                 "watermark applicability check", error,
                 "invalid watermarking request", 400,
@@ -887,7 +887,7 @@ def create_app():
                     """),
                     {"id": doc_id, "uid": int(g.user["id"])},
                 ).first()
-        except (ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError) as error:
+        except SQLAlchemyError as error:
             return _internal_error_response(
                 "watermark read document lookup", error,
                 "service temporarily unavailable", 503,
