@@ -133,6 +133,20 @@ This endpoint authenticates a user with their credentials and returns a session 
 **Specification**
  * The login endpoint MUST reject requests missing email or password.
  * The response MUST include a token string and its expiration date as an integer Time To Live in seconds.
+
+**Failed-login limit**
+
+Five failed logins are allowed per account and per connection IP in a rolling
+60-second window. Further attempts return `429` with
+`{"error": "too many login attempts; try again shortly"}` and a `Retry-After`
+header between 1 and 60 seconds. Blocked requests do not extend the wait.
+Successful logins do not consume the budget or clear earlier failures.
+In-flight attempts reserve a slot so concurrent requests cannot bypass the limit.
+Unknown accounts are also limited. Existing authentication tokens remain usable.
+
+Known accounts are identified by their database ID, so equivalent email spellings
+share a budget. The IP comes from the connection, not client-supplied forwarding
+headers. Clients sharing a NAT address share the IP budget.
  
  ## upload-document
 

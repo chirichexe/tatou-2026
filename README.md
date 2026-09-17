@@ -92,3 +92,21 @@ For direct Python runs, export `SECRET_KEY` in the process environment; the
 application does not load `.env` itself. The test command above creates a
 temporary test key and does not need the deployment key.
 
+Login allows five failed attempts per account and per connection IP in a rolling
+60-second window. The next attempt returns HTTP 429 and `Retry-After` (at most
+60 seconds); blocked retries never extend the cooldown. Successful logins do not
+consume the failure budget, and existing tokens continue to work.
+
+The counters use Python's built-in SQLite in
+`STORAGE_DIR/.auth/login-attempts.sqlite3`. The existing storage volume shares
+them across Gunicorn workers and preserves them across container recreation.
+Expired entries are removed on subsequent attempts. Account/IP keys are HMAC
+digests, and passwords are never stored in the counter database. Storage errors
+return a generic 503 rather than disabling throttling. No MariaDB migration or
+additional service is required. Multiple replicas must share this local storage;
+this implementation is intended for the single-host course deployment.
+
+IP limits use the direct connection address. Do not enable trust in arbitrary
+`X-Forwarded-For` headers. If a reverse proxy is introduced, configure trusted
+proxy handling explicitly; otherwise all clients behind it share one IP budget.
+
