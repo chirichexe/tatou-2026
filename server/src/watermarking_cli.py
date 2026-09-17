@@ -14,7 +14,7 @@ Explore a PDF and write a JSON node tree:
 Embed a secret using the default method (toy-eof) and write a new PDF:
     python -m watermarking_cli embed input.pdf output.pdf --key-prompt --secret "hello"
 
-Extract a secret:
+Verify that a watermark can be authenticated without revealing its secret:
     python -m watermarking_cli extract input.watermarked.pdf --key-prompt
 
 Exit codes
@@ -126,13 +126,8 @@ def cmd_embed(args: argparse.Namespace) -> int:
 
 def cmd_extract(args: argparse.Namespace) -> int:
     key = _resolve_key(args)
-    secret = read_watermark(method=args.method, pdf=args.input, key=key)
-    if args.out:
-        with open(args.out, "w", encoding="utf-8") as fh:
-            fh.write(secret)
-        print(f"Wrote secret -> {args.out}")
-    else:
-        print(secret)
+    read_watermark(method=args.method, pdf=args.input, key=key)
+    print("Watermark verified")
     return 0
 
 
@@ -191,7 +186,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_embed.set_defaults(func=cmd_embed)
 
     # extract
-    p_extract = sub.add_parser("extract", help="Extract a secret from a PDF")
+    p_extract = sub.add_parser(
+        "extract",
+        help="Verify a watermark without revealing its secret",
+    )
     p_extract.add_argument("input", help="Input PDF path (possibly watermarked)")
     p_extract.add_argument(
         "--method",
@@ -204,8 +202,6 @@ def build_parser() -> argparse.ArgumentParser:
     g_key2.add_argument("--key-file", help="Read key from text file")
     g_key2.add_argument("--key-stdin", action="store_true", help="Read key from stdin")
     g_key2.add_argument("--key-prompt", action="store_true", help="Prompt for key")
-
-    p_extract.add_argument("--out", help="Write recovered secret to file (default: stdout)")
 
     p_extract.set_defaults(func=cmd_extract)
 
@@ -228,17 +224,16 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    except SecretNotFoundError as e:
-        print(f"secret not found: {e}", file=sys.stderr)
+    except SecretNotFoundError:
+        print("secret not found", file=sys.stderr)
         return 3
-    except InvalidKeyError as e:
-        print(f"invalid key: {e}", file=sys.stderr)
+    except InvalidKeyError:
+        print("invalid key", file=sys.stderr)
         return 4
-    except WatermarkingError as e:
-        print(f"watermarking error: {e}", file=sys.stderr)
+    except WatermarkingError:
+        print("watermarking failed", file=sys.stderr)
         return 5
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
