@@ -46,6 +46,11 @@ cp sample.env .env
 # Generate a signing key, then paste it into SECRET_KEY in .env only.
 python3 -c 'import secrets; print(secrets.token_hex(32))'
 
+# When upgrading an existing deployment, stop and remove the old phpMyAdmin
+# container before applying this configuration.
+docker compose stop phpmyadmin
+docker compose rm -f phpmyadmin
+
 # Rebuild the docker image and deploy the containers
 docker compose up --build -d
 
@@ -58,6 +63,23 @@ http -v :5000/healthz
 # Open your browser at 127.0.0.1:5000 to check if the website is up.
 ```
 
+The standard deployment starts the application and MariaDB. MariaDB is
+available only to the application through Docker's internal backend network;
+it does not publish a port on the host.
+
+phpMyAdmin is an optional local administration tool. Start the local
+administration profile explicitly with:
+
+```bash
+docker compose --profile admin up -d phpmyadmin
+```
+
+phpMyAdmin is then available only at `http://127.0.0.1:8080`.
+
+For direct database administration without publishing MariaDB, use
+`docker compose exec db mariadb -u root -p` and enter the root password from
+the local `.env` file when prompted.
+
 `SECRET_KEY` is required: Compose and the application reject an unset or empty
 key, and the application rejects the former public development key. Keep
 `sample.env` empty for this setting and never commit the real `.env` file.
@@ -69,6 +91,4 @@ so users must log in again.
 For direct Python runs, export `SECRET_KEY` in the process environment; the
 application does not load `.env` itself. The test command above creates a
 temporary test key and does not need the deployment key.
-
-
 
