@@ -9,6 +9,7 @@ import fitz
 from flask import Flask, jsonify, request, g, send_file
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.exceptions import HTTPException
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 
 from sqlalchemy import create_engine, text
@@ -59,6 +60,20 @@ def create_app():
 
     def _auth_error(msg: str, code: int = 401):
         return jsonify({"error": msg}), code
+
+    def _log_internal_failure(context: str, error: Exception) -> None:
+        app.logger.warning(
+            "%s failed (%s)", context, type(error).__name__,
+        )
+
+    def _internal_error_response(
+        context: str,
+        error: Exception,
+        public_message: str,
+        status: int,
+    ):
+        _log_internal_failure(context, error)
+        return jsonify({"error": public_message}), status
 
     def require_auth(f):
         @wraps(f)
@@ -111,8 +126,22 @@ def create_app():
             return
         try:
             path.unlink(missing_ok=True)
-        except OSError:
-            app.logger.warning("Failed to remove file: %s", path)
+        except OSError as error:
+            _log_internal_failure("file cleanup", error)
+
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(error: Exception):
+        if isinstance(error, HTTPException):
+            if not request.path.startswith("/api/"):
+                return error
+            status = error.code or 500
+            message = (
+                "internal server error" if status >= 500 else "request failed"
+            )
+            _log_internal_failure("HTTP request", error)
+            return jsonify({"error": message}), status
+        _log_internal_failure("unhandled request", error)
+        return jsonify({"error": "internal server error"}), 500
 
     @app.before_request
     def protect_state_changing_requests():
@@ -172,8 +201,11 @@ def create_app():
                 ).one()
         except IntegrityError:
             return jsonify({"error": "email or login already exists"}), 409
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except Exception as error:
+            return _internal_error_response(
+                "create user database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         return jsonify({"id": row.id, "email": row.email, "login": row.login}), 201
 
@@ -192,8 +224,11 @@ def create_app():
                     text("SELECT id, email, login, hpassword FROM Users WHERE email = :email LIMIT 1"),
                     {"email": email},
                 ).first()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except Exception as error:
+            return _internal_error_response(
+                "login database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         if not row or not check_password_hash(row.hpassword, password):
             return jsonify({"error": "invalid credentials"}), 401
@@ -283,9 +318,12 @@ def create_app():
                     """),
                     {"id": did},
                 ).one()
-        except Exception as e:
+        except Exception as error:
             _remove_file(stored_path)
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+            return _internal_error_response(
+                "upload database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         return jsonify({
             "id": int(row.id),
@@ -310,8 +348,11 @@ def create_app():
                     """),
                     {"uid": int(g.user["id"])},
                 ).all()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except Exception as error:
+            return _internal_error_response(
+                "document list database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         docs = [{
             "id": int(r.id),
@@ -349,8 +390,11 @@ def create_app():
                     """),
                     {"uid": int(g.user["id"]), "did": document_id},
                 ).all()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except Exception as error:
+            return _internal_error_response(
+                "version list database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         versions = [{
             "id": int(r.id),
@@ -379,8 +423,11 @@ def create_app():
                     """),
                     {"uid": int(g.user["id"])},
                 ).all()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except Exception as error:
+            return _internal_error_response(
+                "all versions database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         versions = [{
             "id": int(r.id),
@@ -416,8 +463,11 @@ def create_app():
                     """),
                     {"id": document_id, "uid": int(g.user["id"])},
                 ).first()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except Exception as error:
+            return _internal_error_response(
+                "document lookup database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         # Don’t leak whether a doc exists for another user
         if not row:
@@ -465,8 +515,11 @@ def create_app():
                     """),
                     {"link": link},
                 ).first()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except Exception as error:
+            return _internal_error_response(
+                "version lookup database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         # Don’t leak whether a doc exists for another user
         if not row:
@@ -553,8 +606,11 @@ def create_app():
                         "uid": int(g.user["id"]),
                     },
                 ).first()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except Exception as error:
+            return _internal_error_response(
+                "delete lookup database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         if not row:
             # Don’t reveal others’ docs—just say not found
@@ -564,7 +620,7 @@ def create_app():
         storage_root = Path(app.config["STORAGE_DIR"])
         file_deleted = False
         file_missing = False
-        delete_error = None
+        delete_note = None
         try:
             fp = _safe_resolve_under_storage(row.path, storage_root)
             if fp.exists():
@@ -573,9 +629,9 @@ def create_app():
                 try:
                     fp.unlink()
                     file_deleted = True
-                except Exception as e:
-                    delete_error = f"failed to delete file: {e}"
-                    app.logger.warning("Failed to delete file %s for doc id=%s: %s", fp, row.id, e)
+                except Exception as error:
+                    delete_note = "file deletion failed"
+                    _log_internal_failure("document file deletion", error)
             else:
                 file_missing = True
         except (RuntimeError, ValueError, OSError):
@@ -598,15 +654,18 @@ def create_app():
                 if result.rowcount != 1:
                     return jsonify({"error": "document not found"}), 404
 
-        except Exception as e:
-            return jsonify({"error": f"database error during delete: {str(e)}"}), 503
+        except Exception as error:
+            return _internal_error_response(
+                "document delete database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         return jsonify({
             "deleted": True,
             "id": doc_id,
             "file_deleted": file_deleted,
             "file_missing": file_missing,
-            "note": delete_error,   # null/omitted if everything was fine
+            "note": delete_note,
         }), 200
         
         
@@ -658,8 +717,11 @@ def create_app():
                     """),
                     {"id": doc_id, "uid": int(g.user["id"])},
                 ).first()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except Exception as error:
+            return _internal_error_response(
+                "watermark document lookup", error,
+                "service temporarily unavailable", 503,
+            )
 
         if not row:
             return jsonify({"error": "document not found"}), 404
@@ -681,9 +743,12 @@ def create_app():
                 position=position
             )
             if applicable is False:
-                return jsonify({"error": "watermarking method not applicable"}), 400
-        except Exception as e:
-            return jsonify({"error": f"watermark applicability check failed: {e}"}), 400
+                return jsonify({"error": "invalid watermarking request"}), 400
+        except Exception as error:
+            return _internal_error_response(
+                "watermark applicability check", error,
+                "invalid watermarking request", 400,
+            )
 
         # apply watermark → bytes
         try:
@@ -695,9 +760,12 @@ def create_app():
                 position=position
             )
             if not isinstance(wm_bytes, (bytes, bytearray)) or len(wm_bytes) == 0:
-                return jsonify({"error": "watermarking produced no output"}), 500
-        except Exception as e:
-            return jsonify({"error": f"watermarking failed: {e}"}), 500
+                return jsonify({"error": "watermarking failed"}), 500
+        except Exception as error:
+            return _internal_error_response(
+                "watermark application", error,
+                "watermarking failed", 500,
+            )
 
         # Use safe name components and a unique suffix to prevent overwrites.
         base_name = secure_filename(
@@ -736,15 +804,18 @@ def create_app():
                     },
                 )
                 vid = int(conn.execute(text("SELECT LAST_INSERT_ID()")).scalar())
-        except Exception as e:
+        except Exception as error:
             # best-effort cleanup if DB insert fails
             try:
                 _safe_resolve_under_storage(
                     dest_path, app.config["STORAGE_DIR"],
                 ).unlink(missing_ok=True)
-            except Exception:
-                pass
-            return jsonify({"error": f"database error during version insert: {e}"}), 503
+            except Exception as cleanup_error:
+                _log_internal_failure("watermark file cleanup", cleanup_error)
+            return _internal_error_response(
+                "watermark version database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         return jsonify({
             "id": vid,
@@ -819,8 +890,11 @@ def create_app():
                     """),
                     {"id": doc_id, "uid": int(g.user["id"])},
                 ).first()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except Exception as error:
+            return _internal_error_response(
+                "watermark read document lookup", error,
+                "service temporarily unavailable", 503,
+            )
 
         if not row:
             return jsonify({"error": "document not found"}), 404
@@ -841,8 +915,11 @@ def create_app():
                 pdf=str(file_path),
                 key=key
             )
-        except Exception as e:
-            return jsonify({"error": f"Error when attempting to read watermark: {e}"}), 400
+        except Exception as error:
+            return _internal_error_response(
+                "watermark read", error,
+                "could not read watermark", 400,
+            )
         return jsonify({
             "documentid": doc_id,
             "secret": secret,

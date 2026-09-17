@@ -10,6 +10,7 @@ import fitz
 import pytest
 from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy import create_engine, event, text
+from werkzeug.exceptions import BadRequest, InternalServerError
 
 
 def make_pdf(*, encrypted=False):
@@ -49,6 +50,7 @@ def make_empty_pdf():
 
 PDF = make_pdf()
 WATERMARK = {"method": "toy-eof", "intended_for": "reader", "secret": "secret", "key": "key"}
+SENSITIVE_CANARY = "sensitive=/app/flag;key=do-not-log;sql=SELECT-secret"
 OPERATIONS = [
     ("GET", "/api/get-document/42", {}),
     ("GET", "/api/get-version/shared", {}),
@@ -138,6 +140,14 @@ def upload(env, filename="report.pdf", content=PDF, login="alice"):
         "/api/upload-document", headers=env.headers(login),
         data={"file": (io.BytesIO(content), filename)},
     )
+
+
+def assert_sanitized_failure(response, caplog, status, message):
+    assert response.status_code == status
+    assert response.get_json() == {"error": message}
+    assert SENSITIVE_CANARY not in response.get_data(as_text=True)
+    assert SENSITIVE_CANARY not in caplog.text
+    assert "Traceback" not in caplog.text
 
 
 def make_symlink(link, target):
@@ -248,17 +258,222 @@ def test_upload_rejects_invalid_pdf_content_without_residue(file_app, content):
         assert conn.execute(text("SELECT COUNT(*) FROM Documents")).scalar_one() == 1
 
 
-def test_upload_removes_published_file_when_database_insert_fails(file_app):
+def test_upload_removes_published_file_when_database_insert_fails(file_app, caplog):
     failing_engine = Mock()
-    failing_engine.begin.side_effect = RuntimeError("database unavailable")
+    failing_engine.begin.side_effect = RuntimeError(SENSITIVE_CANARY)
     file_app.app.config["_ENGINE"] = failing_engine
 
     response = upload(file_app)
 
-    assert response.status_code == 503
+    assert_sanitized_failure(
+        response, caplog, 503, "service temporarily unavailable",
+    )
     user_dir = file_app.storage / "files" / "7"
     assert user_dir.is_dir()
     assert list(user_dir.iterdir()) == []
+
+
+@pytest.mark.parametrize("method,url,payload", [
+    ("POST", "/api/create-user", "user"),
+    ("POST", "/api/login", "login"),
+    ("GET", "/api/list-documents", None),
+    ("GET", "/api/list-versions/42", None),
+    ("GET", "/api/list-all-versions", None),
+    ("GET", "/api/get-document/42", None),
+    ("GET", "/api/get-version/shared", None),
+    ("DELETE", "/api/delete-document/42", None),
+    ("POST", "/api/create-watermark/42", "create-watermark"),
+    ("POST", "/api/read-watermark/42", "read-watermark"),
+])
+def test_database_errors_are_sanitized(
+    file_app, caplog, method, url, payload,
+):
+    failing_engine = Mock()
+    failure = RuntimeError(SENSITIVE_CANARY)
+    failing_engine.connect.side_effect = failure
+    failing_engine.begin.side_effect = failure
+    file_app.app.config["_ENGINE"] = failing_engine
+    kwargs = {}
+    if payload == "user":
+        kwargs["json"] = {
+            "email": "canary@example.test", "login": "canary",
+            "password": "password",
+        }
+    elif payload == "login":
+        kwargs["json"] = {
+            "email": "canary@example.test", "password": "password",
+        }
+    elif payload == "create-watermark":
+        kwargs["json"] = WATERMARK
+    elif payload == "read-watermark":
+        kwargs["json"] = {"method": "toy-eof", "key": "key"}
+
+    response = file_app.client.open(
+        url, method=method, headers=file_app.headers(), **kwargs,
+    )
+
+    assert_sanitized_failure(
+        response, caplog, 503, "service temporarily unavailable",
+    )
+
+
+def test_delete_database_error_is_sanitized_after_lookup(file_app, caplog):
+    engine = SimpleNamespace(
+        connect=file_app.engine.connect,
+        begin=Mock(side_effect=RuntimeError(SENSITIVE_CANARY)),
+    )
+    file_app.app.config["_ENGINE"] = engine
+
+    response = file_app.client.delete(
+        "/api/delete-document/42", headers=file_app.headers(),
+    )
+
+    assert_sanitized_failure(
+        response, caplog, 503, "service temporarily unavailable",
+    )
+    assert not file_app.original.exists()
+    with file_app.engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT COUNT(*) FROM Documents WHERE id = 42")
+        ).scalar_one() == 1
+
+
+def test_version_insert_error_is_sanitized_and_removes_output(file_app, caplog):
+    engine = SimpleNamespace(
+        connect=file_app.engine.connect,
+        begin=Mock(side_effect=RuntimeError(SENSITIVE_CANARY)),
+    )
+    file_app.app.config["_ENGINE"] = engine
+
+    response = file_app.client.post(
+        "/api/create-watermark/42", headers=file_app.headers(), json=WATERMARK,
+    )
+
+    assert_sanitized_failure(
+        response, caplog, 503, "service temporarily unavailable",
+    )
+    output_dir = file_app.original.parent / "watermarks"
+    assert output_dir.is_dir()
+    assert list(output_dir.iterdir()) == []
+
+
+@pytest.mark.parametrize("failure_kind,status,message", [
+    ("applicability", 400, "invalid watermarking request"),
+    ("application", 500, "watermarking failed"),
+    ("read", 400, "could not read watermark"),
+])
+def test_watermark_exceptions_are_sanitized(
+    file_app, monkeypatch, caplog, failure_kind, status, message,
+):
+    if failure_kind == "applicability":
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "is_watermarking_applicable",
+            Mock(side_effect=RuntimeError(SENSITIVE_CANARY)),
+        )
+        url = "/api/create-watermark/42"
+        payload = WATERMARK
+    elif failure_kind == "application":
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "is_watermarking_applicable", Mock(return_value=True),
+        )
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "apply_watermark",
+            Mock(side_effect=RuntimeError(SENSITIVE_CANARY)),
+        )
+        url = "/api/create-watermark/42"
+        payload = WATERMARK
+    else:
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "read_watermark",
+            Mock(side_effect=RuntimeError(SENSITIVE_CANARY)),
+        )
+        url = "/api/read-watermark/42"
+        payload = {"method": "toy-eof", "key": "key"}
+
+    response = file_app.client.post(
+        url, headers=file_app.headers(), json=payload,
+    )
+
+    assert_sanitized_failure(response, caplog, status, message)
+
+
+@pytest.mark.parametrize("failure_kind,status,message", [
+    ("not-applicable", 400, "invalid watermarking request"),
+    ("empty-output", 500, "watermarking failed"),
+])
+def test_watermark_failure_details_are_generic(
+    file_app, monkeypatch, failure_kind, status, message,
+):
+    if failure_kind == "not-applicable":
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "is_watermarking_applicable", Mock(return_value=False),
+        )
+    else:
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "is_watermarking_applicable", Mock(return_value=True),
+        )
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "apply_watermark", Mock(return_value=b""),
+        )
+
+    response = file_app.client.post(
+        "/api/create-watermark/42", headers=file_app.headers(), json=WATERMARK,
+    )
+
+    assert response.status_code == status
+    assert response.get_json() == {"error": message}
+
+
+def test_delete_file_error_uses_generic_note_and_log(
+    file_app, monkeypatch, caplog,
+):
+    original_unlink = Path.unlink
+
+    def fail_original(path, *args, **kwargs):
+        if path == file_app.original:
+            raise OSError(SENSITIVE_CANARY)
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", fail_original)
+    response = file_app.client.delete(
+        "/api/delete-document/42", headers=file_app.headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "deleted": True, "id": 42, "file_deleted": False,
+        "file_missing": False, "note": "file deletion failed",
+    }
+    assert file_app.original.exists()
+    assert SENSITIVE_CANARY not in response.get_data(as_text=True)
+    assert SENSITIVE_CANARY not in caplog.text
+    assert str(file_app.original) not in caplog.text
+    with file_app.engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT COUNT(*) FROM Documents WHERE id = 42")
+        ).scalar_one() == 0
+
+
+@pytest.mark.parametrize("error,status,message", [
+    (RuntimeError(SENSITIVE_CANARY), 500, "internal server error"),
+    (InternalServerError(description=SENSITIVE_CANARY), 500, "internal server error"),
+    (BadRequest(description=SENSITIVE_CANARY), 400, "request failed"),
+])
+def test_unhandled_api_exception_is_sanitized(
+    file_app, monkeypatch, caplog, error, status, message,
+):
+    def fail_unexpectedly():
+        raise error
+
+    monkeypatch.setitem(
+        file_app.app.view_functions,
+        "get_watermarking_methods",
+        fail_unexpectedly,
+    )
+
+    response = file_app.client.get("/api/get-watermarking-methods")
+
+    assert_sanitized_failure(response, caplog, status, message)
 
 
 @pytest.mark.parametrize("operation", ["upload", "watermark"])
