@@ -1,8 +1,8 @@
 import hashlib
 import io
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 

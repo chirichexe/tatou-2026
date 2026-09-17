@@ -1,14 +1,12 @@
 import json
 
 import pytest
-
 import watermarking_cli as cli
 from watermarking_method import (
     InvalidKeyError,
     SecretNotFoundError,
     WatermarkingError,
 )
-
 
 SENSITIVE_CANARY = "secret-canary-do-not-disclose"
 

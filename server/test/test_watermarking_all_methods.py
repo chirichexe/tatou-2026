@@ -1,16 +1,17 @@
 # tests/test_watermarking_all_methods.py
 from __future__ import annotations
+
 import importlib
 import inspect
 from pathlib import Path
-import pytest
 
+import pytest
 
 # --------- collect all methods from the registry ----------
 try:
     wm = importlib.import_module("watermarking_utils")
     METHODS = getattr(wm, "METHODS", {})
-except Exception:  # registry/module missing
+except ModuleNotFoundError:  # registry/module missing
     METHODS = {}
 
 CASES: list[tuple[str, object]] = []

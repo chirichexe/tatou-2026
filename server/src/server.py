@@ -1,22 +1,19 @@
-import os
-import io
 import hashlib
-from pathlib import Path
+import os
 from functools import wraps
+from pathlib import Path
 from uuid import uuid4
 
 import fitz
-from flask import Flask, jsonify, request, g, send_file
-from werkzeug.utils import secure_filename
-from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.exceptions import HTTPException
-from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import IntegrityError
-
-
 import watermarking_utils as WMUtils
+from flask import Flask, g, jsonify, request, send_file
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from werkzeug.exceptions import HTTPException
+from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
+
 #from watermarking_utils import METHODS, apply_watermark, read_watermark, explore_pdf, is_watermarking_applicable, get_method
 
 def create_app():
@@ -172,7 +169,7 @@ def create_app():
             with get_engine().connect() as conn:
                 conn.execute(text("SELECT 1"))
             db_ok = True
-        except Exception:
+        except SQLAlchemyError:
             db_ok = False
         return jsonify({"message": "The server is up and running.", "db_connected": db_ok}), 200
 
@@ -201,7 +198,7 @@ def create_app():
                 ).one()
         except IntegrityError:
             return jsonify({"error": "email or login already exists"}), 409
-        except Exception as error:
+        except SQLAlchemyError as error:
             return _internal_error_response(
                 "create user database operation", error,
                 "service temporarily unavailable", 503,
@@ -224,7 +221,7 @@ def create_app():
                     text("SELECT id, email, login, hpassword FROM Users WHERE email = :email LIMIT 1"),
                     {"email": email},
                 ).first()
-        except Exception as error:
+        except SQLAlchemyError as error:
             return _internal_error_response(
                 "login database operation", error,
                 "service temporarily unavailable", 503,
@@ -318,7 +315,7 @@ def create_app():
                     """),
                     {"id": did},
                 ).one()
-        except Exception as error:
+        except SQLAlchemyError as error:
             _remove_file(stored_path)
             return _internal_error_response(
                 "upload database operation", error,
@@ -348,7 +345,7 @@ def create_app():
                     """),
                     {"uid": int(g.user["id"])},
                 ).all()
-        except Exception as error:
+        except SQLAlchemyError as error:
             return _internal_error_response(
                 "document list database operation", error,
                 "service temporarily unavailable", 503,
@@ -390,7 +387,7 @@ def create_app():
                     """),
                     {"uid": int(g.user["id"]), "did": document_id},
                 ).all()
-        except Exception as error:
+        except SQLAlchemyError as error:
             return _internal_error_response(
                 "version list database operation", error,
                 "service temporarily unavailable", 503,
@@ -423,7 +420,7 @@ def create_app():
                     """),
                     {"uid": int(g.user["id"])},
                 ).all()
-        except Exception as error:
+        except SQLAlchemyError as error:
             return _internal_error_response(
                 "all versions database operation", error,
                 "service temporarily unavailable", 503,
@@ -463,7 +460,7 @@ def create_app():
                     """),
                     {"id": document_id, "uid": int(g.user["id"])},
                 ).first()
-        except Exception as error:
+        except SQLAlchemyError as error:
             return _internal_error_response(
                 "document lookup database operation", error,
                 "service temporarily unavailable", 503,
@@ -515,7 +512,7 @@ def create_app():
                     """),
                     {"link": link},
                 ).first()
-        except Exception as error:
+        except SQLAlchemyError as error:
             return _internal_error_response(
                 "version lookup database operation", error,
                 "service temporarily unavailable", 503,
@@ -584,7 +581,7 @@ def create_app():
             if isinstance(document_id, bool) or not isinstance(
                 document_id, (str, int)
             ):
-                raise ValueError
+                raise TypeError
             doc_id = int(document_id)
             if doc_id <= 0:
                 raise ValueError
@@ -606,7 +603,7 @@ def create_app():
                         "uid": int(g.user["id"]),
                     },
                 ).first()
-        except Exception as error:
+        except SQLAlchemyError as error:
             return _internal_error_response(
                 "delete lookup database operation", error,
                 "service temporarily unavailable", 503,
@@ -629,7 +626,7 @@ def create_app():
                 try:
                     fp.unlink()
                     file_deleted = True
-                except Exception as error:
+                except OSError as error:
                     delete_note = "file deletion failed"
                     _log_internal_failure("document file deletion", error)
             else:
@@ -654,7 +651,7 @@ def create_app():
                 if result.rowcount != 1:
                     return jsonify({"error": "document not found"}), 404
 
-        except Exception as error:
+        except SQLAlchemyError as error:
             return _internal_error_response(
                 "document delete database operation", error,
                 "service temporarily unavailable", 503,
@@ -717,7 +714,7 @@ def create_app():
                     """),
                     {"id": doc_id, "uid": int(g.user["id"])},
                 ).first()
-        except Exception as error:
+        except SQLAlchemyError as error:
             return _internal_error_response(
                 "watermark document lookup", error,
                 "service temporarily unavailable", 503,
@@ -744,7 +741,7 @@ def create_app():
             )
             if applicable is False:
                 return jsonify({"error": "invalid watermarking request"}), 400
-        except Exception as error:
+        except (TypeError, ValueError, OSError) as error:
             return _internal_error_response(
                 "watermark applicability check", error,
                 "invalid watermarking request", 400,
@@ -761,7 +758,7 @@ def create_app():
             )
             if not isinstance(wm_bytes, (bytes, bytearray)) or len(wm_bytes) == 0:
                 return jsonify({"error": "watermarking failed"}), 500
-        except Exception as error:
+        except (TypeError, ValueError, OSError, RuntimeError) as error:
             return _internal_error_response(
                 "watermark application", error,
                 "watermarking failed", 500,
@@ -804,13 +801,13 @@ def create_app():
                     },
                 )
                 vid = int(conn.execute(text("SELECT LAST_INSERT_ID()")).scalar())
-        except Exception as error:
+        except SQLAlchemyError as error:
             # best-effort cleanup if DB insert fails
             try:
                 _safe_resolve_under_storage(
                     dest_path, app.config["STORAGE_DIR"],
                 ).unlink(missing_ok=True)
-            except Exception as cleanup_error:
+            except (OSError, ValueError) as cleanup_error:
                 _log_internal_failure("watermark file cleanup", cleanup_error)
             return _internal_error_response(
                 "watermark version database operation", error,
@@ -890,7 +887,7 @@ def create_app():
                     """),
                     {"id": doc_id, "uid": int(g.user["id"])},
                 ).first()
-        except Exception as error:
+        except (ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError) as error:
             return _internal_error_response(
                 "watermark read document lookup", error,
                 "service temporarily unavailable", 503,
@@ -915,7 +912,7 @@ def create_app():
                 pdf=str(file_path),
                 key=key
             )
-        except Exception as error:
+        except (ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError) as error:
             return _internal_error_response(
                 "watermark read", error,
                 "could not read watermark", 400,
@@ -934,5 +931,5 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)

@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from io import BytesIO
-from pathlib import Path
 
 import pytest
-
 from unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
 from watermarking_method import SecretNotFoundError, WatermarkingError
 from watermarking_utils import METHODS
-
 
 PDF = (
     b"%PDF-1.4\n"
@@ -32,7 +29,7 @@ def test_round_trip_unicode_secret(method):
 
 
 def test_reads_legacy_document(method):
-    legacy = PDF + "legacy-secret".encode("utf-8")
+    legacy = PDF + b"legacy-secret"
 
     assert method.read_secret(legacy, key="ignored") == "legacy-secret"
 
@@ -76,7 +73,7 @@ def test_supports_every_pdf_source(method, tmp_path, source_factory):
 
 
 def test_uses_final_eof_marker(method):
-    incrementally_updated = PDF + b"older\n%%EOF\r\n" + "newest".encode("utf-8")
+    incrementally_updated = PDF + b"older\n%%EOF\r\n" + b"newest"
 
     assert method.read_secret(incrementally_updated, key="ignored") == "newest"
 

@@ -28,27 +28,26 @@ To enable the richer exploration, install PyMuPDF:
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Final, Iterable, List, Mapping
-import base64
 import hashlib
-import io
-import json
-import os
+import logging
 import re
+from typing import Any, Final
 
+from add_after_eof import AddAfterEOF
+from unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
 from watermarking_method import (
     PdfSource,
     WatermarkingMethod,
     load_pdf_bytes,
 )
-from add_after_eof import AddAfterEOF
-from unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
+
+logger = logging.getLogger(__name__)
 
 # --------------------
 # Method registry
 # --------------------
 
-METHODS: Dict[str, WatermarkingMethod] = {
+METHODS: dict[str, WatermarkingMethod] = {
     AddAfterEOF.name: AddAfterEOF(),
     UnsafeBashBridgeAppendEOF.name: UnsafeBashBridgeAppendEOF()
 }
@@ -130,7 +129,7 @@ def _sha1(b: bytes) -> str:
     return hashlib.sha1(b).hexdigest()
 
 
-def explore_pdf(pdf: PdfSource) -> Dict[str, Any]:
+def explore_pdf(pdf: PdfSource) -> dict[str, Any]:
     """Return a JSON-serializable *tree* describing the PDF's nodes.
 
     The structure is deterministic for a given set of input bytes. When
@@ -157,7 +156,7 @@ def explore_pdf(pdf: PdfSource) -> Dict[str, Any]:
     """
     data = load_pdf_bytes(pdf)
 
-    root: Dict[str, Any] = {
+    root: dict[str, Any] = {
         "id": f"pdf:{_sha1(data)}",
         "type": "Document",
         "size": len(data),
@@ -183,7 +182,7 @@ def explore_pdf(pdf: PdfSource) -> Dict[str, Any]:
         for xref in range(1, xref_len):
             try:
                 s = doc.xref_object(xref, compressed=False) or ""
-            except Exception:
+            except (RuntimeError, ValueError, AttributeError):
                 s = ""
             s_bytes = s.encode("latin-1", "replace") if isinstance(s, str) else b""
             # Type detection
@@ -200,12 +199,12 @@ def explore_pdf(pdf: PdfSource) -> Dict[str, Any]:
 
         doc.close()
         return root
-    except Exception:
+    except (ImportError, RuntimeError, ValueError, AttributeError) as exc:
         # Fallback: regex-based object scanning (no third-party deps)
-        pass
+        logger.warning("PyMuPDF exploration failed; using regex fallback: %s", exc)
 
     # Regex fallback: enumerate uncompressed objects
-    children: List[Dict[str, Any]] = []
+    children: list[dict[str, Any]] = []
     for m in _OBJ_RE.finditer(data):
         obj_num = int(m.group(1))
         gen_num = int(m.group(2))
@@ -242,11 +241,11 @@ def explore_pdf(pdf: PdfSource) -> Dict[str, Any]:
 
 __all__ = [
     "METHODS",
-    "register_method",
-    "get_method",
     "apply_watermark",
-    "read_watermark",
     "explore_pdf",
-    "is_watermarking_applicable"
+    "get_method",
+    "is_watermarking_applicable",
+    "read_watermark",
+    "register_method"
 ]
 
