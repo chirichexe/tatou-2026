@@ -1,4 +1,6 @@
 import json
+import sys
+from types import SimpleNamespace
 
 import pytest
 import watermarking_cli as cli
@@ -51,7 +53,7 @@ def test_extract_parser_preserves_key_options(key_option):
 
 
 def test_extract_rejects_removed_output_option(tmp_path, capsys):
-    output_path = tmp_path / "secret.txt"
+    output_path = tmp_path / f"{SENSITIVE_CANARY}.txt"
 
     with pytest.raises(SystemExit) as error:
         cli.main([
@@ -63,6 +65,7 @@ def test_extract_rejects_removed_output_option(tmp_path, capsys):
     assert error.value.code == 2
     assert not output_path.exists()
     assert SENSITIVE_CANARY not in captured.out + captured.err
+    assert captured.err.endswith("pdfwm: error: invalid arguments\n")
 
 
 @pytest.mark.parametrize("exception,status,message", [
@@ -84,6 +87,93 @@ def test_extract_errors_do_not_reveal_exception_text(
     assert result == status
     assert output.out == ""
     assert output.err == message
+    assert SENSITIVE_CANARY not in output.out + output.err
+
+
+@pytest.mark.parametrize("exception", [
+    FileNotFoundError(f"missing /private/{SENSITIVE_CANARY}.pdf"),
+    PermissionError(f"denied /private/{SENSITIVE_CANARY}.pdf"),
+    ValueError(f"invalid key {SENSITIVE_CANARY}"),
+    KeyError(f"unknown method {SENSITIVE_CANARY}"),
+    EOFError(SENSITIVE_CANARY),
+])
+def test_input_errors_do_not_reveal_exception_text(
+    monkeypatch, capsys, exception,
+):
+    def fail_explore(_path):
+        raise exception
+
+    monkeypatch.setattr(cli, "explore_pdf", fail_explore)
+
+    result = cli.main(["explore", f"/private/{SENSITIVE_CANARY}.pdf"])
+
+    output = capsys.readouterr()
+    assert result == 2
+    assert output.out == ""
+    assert output.err == "invalid input\n"
+    assert SENSITIVE_CANARY not in output.out + output.err
+
+
+@pytest.mark.parametrize("exception", [
+    RuntimeError(SENSITIVE_CANARY),
+    TypeError(SENSITIVE_CANARY),
+])
+def test_unexpected_processing_errors_do_not_reveal_exception_text(
+    monkeypatch, capsys, exception,
+):
+    def fail_explore(_path):
+        raise exception
+
+    monkeypatch.setattr(cli, "explore_pdf", fail_explore)
+
+    result = cli.main(["explore", "document.pdf"])
+
+    output = capsys.readouterr()
+    assert result == 5
+    assert output.out == ""
+    assert output.err == "watermarking failed\n"
+    assert SENSITIVE_CANARY not in output.out + output.err
+
+
+def test_explore_fallback_log_does_not_reveal_exception_text(
+    monkeypatch, capsys, caplog, tmp_path,
+):
+    input_path = tmp_path / "document.pdf"
+    input_path.write_bytes(b"%PDF-1.4\n%%EOF\n")
+
+    def fail_open(**_kwargs):
+        raise RuntimeError(SENSITIVE_CANARY)
+
+    monkeypatch.setitem(sys.modules, "fitz", SimpleNamespace(open=fail_open))
+
+    result = cli.main(["explore", str(input_path)])
+
+    output = capsys.readouterr()
+    assert result == 0
+    assert json.loads(output.out)["type"] == "Document"
+    assert SENSITIVE_CANARY not in output.out + output.err + caplog.text
+
+
+def test_non_applicable_embed_does_not_reveal_arguments(
+    monkeypatch, capsys, tmp_path,
+):
+    output_path = tmp_path / f"{SENSITIVE_CANARY}.pdf"
+    monkeypatch.setattr(
+        cli, "is_watermarking_applicable", lambda **_kwargs: False,
+    )
+
+    result = cli.main([
+        "embed", "document.pdf", str(output_path),
+        "--method", SENSITIVE_CANARY,
+        "--position", SENSITIVE_CANARY,
+        "--secret", SENSITIVE_CANARY,
+        "--key", SENSITIVE_CANARY,
+    ])
+
+    output = capsys.readouterr()
+    assert result == 5
+    assert output.out == ""
+    assert output.err == "watermarking failed\n"
     assert SENSITIVE_CANARY not in output.out + output.err
 
 

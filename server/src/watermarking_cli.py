@@ -44,6 +44,16 @@ from watermarking_utils import (
 
 __version__ = "0.1.0"
 
+
+class SafeArgumentParser(argparse.ArgumentParser):
+    """Reject invalid arguments without echoing their values."""
+
+    def error(self, message: str) -> None:
+        del message
+        self.print_usage(sys.stderr)
+        self.exit(2, f"{self.prog}: error: invalid arguments\n")
+
+
 # --------------------
 # Helpers
 # --------------------
@@ -109,7 +119,7 @@ def cmd_embed(args: argparse.Namespace) -> int:
     key = _resolve_key(args)
     secret = _resolve_secret(args)
     if not is_watermarking_applicable(method=args.method,pdf=args.input, position=args.position):
-        print(f"Method {args.method} is not applicable on {args.output} at {args.position}.")
+        print("watermarking failed", file=sys.stderr)
         return 5
 
     pdf_bytes = apply_watermark(
@@ -137,7 +147,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
 # --------------------
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
+    p = SafeArgumentParser(
         prog="pdfwm",
         description="PDF watermarking utilities (embed/extract/explore)"
     )
@@ -219,11 +229,8 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     try:
         return int(args.func(args))
-    except FileNotFoundError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 2
-    except ValueError as e:
-        print(f"error: {e}", file=sys.stderr)
+    except (OSError, ValueError, KeyError, EOFError):
+        print("invalid input", file=sys.stderr)
         return 2
     except SecretNotFoundError:
         print("secret not found", file=sys.stderr)
@@ -232,6 +239,9 @@ def main(argv: Iterable[str] | None = None) -> int:
         print("invalid key", file=sys.stderr)
         return 4
     except WatermarkingError:
+        print("watermarking failed", file=sys.stderr)
+        return 5
+    except Exception:  # noqa: BLE001 - CLI boundary must not emit tracebacks.
         print("watermarking failed", file=sys.stderr)
         return 5
 

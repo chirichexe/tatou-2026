@@ -201,7 +201,10 @@ def explore_pdf(pdf: PdfSource) -> dict[str, Any]:
         return root
     except (ImportError, RuntimeError, ValueError, AttributeError) as exc:
         # Fallback: regex-based object scanning (no third-party deps)
-        logger.warning("PyMuPDF exploration failed; using regex fallback: %s", exc)
+        logger.warning(
+            "PyMuPDF exploration failed; using regex fallback (%s)",
+            type(exc).__name__,
+        )
 
     # Regex fallback: enumerate uncompressed objects
     children: list[dict[str, Any]] = []
@@ -248,4 +251,3 @@ __all__ = [
     "read_watermark",
     "register_method"
 ]
-
