@@ -117,6 +117,7 @@ def test_locked_account_skips_password_verification(login_env, monkeypatch):
 
 def test_limiter_storage_failure_is_sanitized_and_fails_closed(login_env, monkeypatch, caplog):
     import sqlite3
+
     from login_rate_limit import LoginRateLimiter
 
     def unavailable(_):

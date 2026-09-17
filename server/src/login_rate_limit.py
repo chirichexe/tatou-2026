@@ -33,7 +33,7 @@ class LoginRateLimiter:
     def _key(self, scope: str, value: str) -> str:
         # Avoid storing account identifiers and IP addresses in clear text.
         return hmac.new(
-            self.secret_key, f"{scope}:{value}".encode("utf-8"), hashlib.sha256,
+            self.secret_key, f"{scope}:{value}".encode(), hashlib.sha256,
         ).hexdigest()
 
     def _connect(self):

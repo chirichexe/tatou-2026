@@ -261,6 +261,35 @@ def test_upload_rejects_invalid_pdf_content_without_residue(file_app, content):
         assert conn.execute(text("SELECT COUNT(*) FROM Documents")).scalar_one() == 1
 
 
+def test_upload_rejects_document_over_configured_size(file_app):
+    file_app.app.config["MAX_UPLOAD_SIZE_BYTES"] = len(PDF) - 1
+
+    response = upload(file_app)
+
+    assert response.status_code == 413
+    assert response.get_json() == {"error": "document exceeds maximum upload size"}
+    user_dir = file_app.storage / "files" / "7"
+    assert not user_dir.exists() or list(user_dir.iterdir()) == []
+    with file_app.engine.connect() as conn:
+        assert conn.execute(text("SELECT COUNT(*) FROM Documents")).scalar_one() == 1
+
+
+def test_upload_rejects_oversized_request_before_pdf_processing(
+    file_app, monkeypatch,
+):
+    file_app.app.config["MAX_UPLOAD_SIZE_BYTES"] = 1024
+    monkeypatch.setattr(file_app.server, "MULTIPART_OVERHEAD_BYTES", 128)
+    pdf_validator = Mock(side_effect=AssertionError("PDF validation must not run"))
+    monkeypatch.setattr(file_app.server, "fitz", pdf_validator)
+
+    response = upload(file_app, content=b"%PDF-" + b"x" * 2048)
+
+    assert response.status_code == 413
+    assert response.get_json() == {"error": "document exceeds maximum upload size"}
+    pdf_validator.assert_not_called()
+    assert not (file_app.storage / "files").exists()
+
+
 def test_upload_removes_published_file_when_database_insert_fails(file_app, caplog):
     failing_engine = Mock()
     failing_engine.begin.side_effect = SQLAlchemyError(SENSITIVE_CANARY)

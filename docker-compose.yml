@@ -19,6 +19,7 @@ services:
       - DB_PASSWORD=${MARIADB_PASSWORD}
       - FLAG_1=${FLAG_1}
       - SECRET_KEY=${SECRET_KEY:?Set SECRET_KEY in .env}
+      - MAX_UPLOAD_SIZE_BYTES=${MAX_UPLOAD_SIZE_BYTES:-67108864}
     depends_on:
       db:
         condition: service_healthy
