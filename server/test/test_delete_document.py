@@ -4,7 +4,6 @@ import pytest
 from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy import create_engine, text
 
-
 ROUTES = [
     ("DELETE", "/api/delete-document/42", {}),
     ("DELETE", "/api/delete-document?id=42", {}),

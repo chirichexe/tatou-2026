@@ -1,18 +1,57 @@
 import hashlib
 import io
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
+import fitz
 import pytest
 from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy import create_engine, event, text
+from sqlalchemy.exc import SQLAlchemyError
+from werkzeug.exceptions import BadRequest, InternalServerError
 
 
-PDF = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
+def make_pdf(*, encrypted=False):
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "Tatou upload validation fixture")
+    options = {}
+    if encrypted:
+        options = {
+            "encryption": fitz.PDF_ENCRYPT_AES_256,
+            "owner_pw": "owner-password",
+            "user_pw": "user-password",
+        }
+    data = document.tobytes(**options)
+    document.close()
+    return data
+
+
+def make_empty_pdf():
+    objects = [
+        b"1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n",
+        b"2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\n",
+    ]
+    parts = [b"%PDF-1.4\n"]
+    offsets = []
+    for item in objects:
+        offsets.append(sum(map(len, parts)))
+        parts.append(item)
+    xref_offset = sum(map(len, parts))
+    parts.extend([
+        b"xref\n0 3\n0000000000 65535 f \n",
+        b"".join(f"{offset:010d} 00000 n \n".encode() for offset in offsets),
+        f"trailer\n<< /Size 3 /Root 1 0 R >>\nstartxref\n{xref_offset}\n%%EOF\n".encode(),
+    ])
+    return b"".join(parts)
+
+
+PDF = make_pdf()
 WATERMARK = {"method": "toy-eof", "intended_for": "reader", "secret": "secret", "key": "key"}
+SENSITIVE_CANARY = "sensitive=/app/flag;key=do-not-log;sql=SELECT-secret"
 OPERATIONS = [
     ("GET", "/api/get-document/42", {}),
     ("GET", "/api/get-version/shared", {}),
@@ -78,7 +117,7 @@ def file_app(tmp_path, monkeypatch):
         }
 
     yield SimpleNamespace(
-        client=app.test_client(), engine=engine, storage=storage, original=original,
+        app=app, client=app.test_client(), engine=engine, storage=storage, original=original,
         outside=outside, headers=headers, server=server,
     )
     engine.dispose()
@@ -104,6 +143,14 @@ def upload(env, filename="report.pdf", content=PDF, login="alice"):
     )
 
 
+def assert_sanitized_failure(response, caplog, status, message):
+    assert response.status_code == status
+    assert response.get_json() == {"error": message}
+    assert SENSITIVE_CANARY not in response.get_data(as_text=True)
+    assert SENSITIVE_CANARY not in caplog.text
+    assert "Traceback" not in caplog.text
+
+
 def make_symlink(link, target):
     try:
         link.symlink_to(target, target_is_directory=target.is_dir())
@@ -113,9 +160,11 @@ def make_symlink(link, target):
         # Windows junctions exercise directory redirects without symlink privileges.
         subprocess.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command",
-             "$ErrorActionPreference = 'Stop'; "
-             "New-Item -ItemType Junction -Path $env:TATOU_TEST_LINK "
-             "-Target $env:TATOU_TEST_TARGET | Out-Null"],
+             (
+                 "$ErrorActionPreference = 'Stop'; "
+                 "New-Item -ItemType Junction -Path $env:TATOU_TEST_LINK "
+                 "-Target $env:TATOU_TEST_TARGET | Out-Null"
+             )],
             env={**os.environ, "TATOU_TEST_LINK": str(link), "TATOU_TEST_TARGET": str(target)},
             check=True, capture_output=True, text=True,
         )
@@ -170,12 +219,264 @@ def test_upload_uses_numeric_owner_and_generated_name(file_app, filename, login)
     assert path.parent == env.storage / "files" / "7"
     assert len(path.stem) == 32
     assert path.read_bytes() == PDF
+    assert not any(item.name.startswith(".upload-") for item in path.parent.iterdir())
     assert env.outside.read_bytes() == b"outside sentinel"
 
 
 def test_empty_sanitized_filename_is_rejected(file_app):
-    assert upload(file_app, filename="..").status_code == 400
+    response = upload(file_app, filename="..")
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "lowercase .pdf extension required"}
     assert not (file_app.storage / "files").exists()
+
+
+@pytest.mark.parametrize("filename", [
+    "document.PDF", "document.Pdf", "document", ".pdf",
+    "document.pdf.exe", "document.pdf.txt", "document.exe.pdf",
+    "document.pdf.pdf",
+])
+def test_upload_requires_exact_lowercase_pdf_extension(file_app, filename):
+    response = upload(file_app, filename=filename)
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "lowercase .pdf extension required"}
+    assert not (file_app.storage / "files").exists()
+
+
+@pytest.mark.parametrize("content", [
+    b"cos\n(S'payload)\nsystem\n.",
+    b"<html><body>not a PDF</body></html>",
+    b"",
+    b"%PDF-",
+    b"%PDF-1.7\nmalformed",
+    make_empty_pdf(),
+    make_pdf(encrypted=True),
+])
+def test_upload_rejects_invalid_pdf_content_without_residue(file_app, content):
+    response = upload(file_app, filename="payload.pdf", content=content)
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "invalid PDF document"}
+    user_dir = file_app.storage / "files" / "7"
+    assert not user_dir.exists() or list(user_dir.iterdir()) == []
+    with file_app.engine.connect() as conn:
+        assert conn.execute(text("SELECT COUNT(*) FROM Documents")).scalar_one() == 1
+
+
+def test_upload_removes_published_file_when_database_insert_fails(file_app, caplog):
+    failing_engine = Mock()
+    failing_engine.begin.side_effect = SQLAlchemyError(SENSITIVE_CANARY)
+    file_app.app.config["_ENGINE"] = failing_engine
+
+    response = upload(file_app)
+
+    assert_sanitized_failure(
+        response, caplog, 503, "service temporarily unavailable",
+    )
+    user_dir = file_app.storage / "files" / "7"
+    assert user_dir.is_dir()
+    assert list(user_dir.iterdir()) == []
+
+
+@pytest.mark.parametrize("method,url,payload", [
+    ("POST", "/api/create-user", "user"),
+    ("POST", "/api/login", "login"),
+    ("GET", "/api/list-documents", None),
+    ("GET", "/api/list-versions/42", None),
+    ("GET", "/api/list-all-versions", None),
+    ("GET", "/api/get-document/42", None),
+    ("GET", "/api/get-version/shared", None),
+    ("DELETE", "/api/delete-document/42", None),
+    ("POST", "/api/create-watermark/42", "create-watermark"),
+    ("POST", "/api/read-watermark/42", "read-watermark"),
+])
+def test_database_errors_are_sanitized(
+    file_app, caplog, method, url, payload,
+):
+    failing_engine = Mock()
+    failure = SQLAlchemyError(SENSITIVE_CANARY)
+    failing_engine.connect.side_effect = failure
+    failing_engine.begin.side_effect = failure
+    file_app.app.config["_ENGINE"] = failing_engine
+    kwargs = {}
+    if payload == "user":
+        kwargs["json"] = {
+            "email": "canary@example.test", "login": "canary",
+            "password": "password",
+        }
+    elif payload == "login":
+        kwargs["json"] = {
+            "email": "canary@example.test", "password": "password",
+        }
+    elif payload == "create-watermark":
+        kwargs["json"] = WATERMARK
+    elif payload == "read-watermark":
+        kwargs["json"] = {"method": "toy-eof", "key": "key"}
+
+    response = file_app.client.open(
+        url, method=method, headers=file_app.headers(), **kwargs,
+    )
+
+    assert_sanitized_failure(
+        response, caplog, 503, "service temporarily unavailable",
+    )
+
+
+def test_delete_database_error_is_sanitized_after_lookup(file_app, caplog):
+    engine = SimpleNamespace(
+        connect=file_app.engine.connect,
+        begin=Mock(side_effect=SQLAlchemyError(SENSITIVE_CANARY)),
+    )
+    file_app.app.config["_ENGINE"] = engine
+
+    response = file_app.client.delete(
+        "/api/delete-document/42", headers=file_app.headers(),
+    )
+
+    assert_sanitized_failure(
+        response, caplog, 503, "service temporarily unavailable",
+    )
+    assert not file_app.original.exists()
+    with file_app.engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT COUNT(*) FROM Documents WHERE id = 42")
+        ).scalar_one() == 1
+
+
+def test_version_insert_error_is_sanitized_and_removes_output(file_app, caplog):
+    engine = SimpleNamespace(
+        connect=file_app.engine.connect,
+        begin=Mock(side_effect=SQLAlchemyError(SENSITIVE_CANARY)),
+    )
+    file_app.app.config["_ENGINE"] = engine
+
+    response = file_app.client.post(
+        "/api/create-watermark/42", headers=file_app.headers(), json=WATERMARK,
+    )
+
+    assert_sanitized_failure(
+        response, caplog, 503, "service temporarily unavailable",
+    )
+    output_dir = file_app.original.parent / "watermarks"
+    assert output_dir.is_dir()
+    assert list(output_dir.iterdir()) == []
+
+
+@pytest.mark.parametrize("failure_kind,status,message", [
+    ("applicability", 400, "invalid watermarking request"),
+    ("application", 500, "watermarking failed"),
+    ("read", 400, "could not read watermark"),
+])
+def test_watermark_exceptions_are_sanitized(
+    file_app, monkeypatch, caplog, failure_kind, status, message,
+):
+    if failure_kind == "applicability":
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "is_watermarking_applicable",
+            Mock(side_effect=RuntimeError(SENSITIVE_CANARY)),
+        )
+        url = "/api/create-watermark/42"
+        payload = WATERMARK
+    elif failure_kind == "application":
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "is_watermarking_applicable", Mock(return_value=True),
+        )
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "apply_watermark",
+            Mock(side_effect=RuntimeError(SENSITIVE_CANARY)),
+        )
+        url = "/api/create-watermark/42"
+        payload = WATERMARK
+    else:
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "read_watermark",
+            Mock(side_effect=RuntimeError(SENSITIVE_CANARY)),
+        )
+        url = "/api/read-watermark/42"
+        payload = {"method": "toy-eof", "key": "key"}
+
+    response = file_app.client.post(
+        url, headers=file_app.headers(), json=payload,
+    )
+
+    assert_sanitized_failure(response, caplog, status, message)
+
+
+@pytest.mark.parametrize("failure_kind,status,message", [
+    ("not-applicable", 400, "invalid watermarking request"),
+    ("empty-output", 500, "watermarking failed"),
+])
+def test_watermark_failure_details_are_generic(
+    file_app, monkeypatch, failure_kind, status, message,
+):
+    if failure_kind == "not-applicable":
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "is_watermarking_applicable", Mock(return_value=False),
+        )
+    else:
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "is_watermarking_applicable", Mock(return_value=True),
+        )
+        monkeypatch.setattr(
+            file_app.server.WMUtils, "apply_watermark", Mock(return_value=b""),
+        )
+
+    response = file_app.client.post(
+        "/api/create-watermark/42", headers=file_app.headers(), json=WATERMARK,
+    )
+
+    assert response.status_code == status
+    assert response.get_json() == {"error": message}
+
+
+def test_delete_file_error_uses_generic_note_and_log(
+    file_app, monkeypatch, caplog,
+):
+    original_unlink = Path.unlink
+
+    def fail_original(path, *args, **kwargs):
+        if path == file_app.original:
+            raise OSError(SENSITIVE_CANARY)
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", fail_original)
+    response = file_app.client.delete(
+        "/api/delete-document/42", headers=file_app.headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.get_json() == {
+        "deleted": True, "id": 42, "file_deleted": False,
+        "file_missing": False, "note": "file deletion failed",
+    }
+    assert file_app.original.exists()
+    assert SENSITIVE_CANARY not in response.get_data(as_text=True)
+    assert SENSITIVE_CANARY not in caplog.text
+    assert str(file_app.original) not in caplog.text
+    with file_app.engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT COUNT(*) FROM Documents WHERE id = 42")
+        ).scalar_one() == 0
+
+
+@pytest.mark.parametrize("error,status,message", [
+    (RuntimeError(SENSITIVE_CANARY), 500, "internal server error"),
+    (InternalServerError(description=SENSITIVE_CANARY), 500, "internal server error"),
+    (BadRequest(description=SENSITIVE_CANARY), 400, "request failed"),
+])
+def test_unhandled_api_exception_is_sanitized(
+    file_app, monkeypatch, caplog, error, status, message,
+):
+    def fail_unexpectedly():
+        raise error
+
+    monkeypatch.setitem(
+        file_app.app.view_functions,
+        "get_watermarking_methods",
+        fail_unexpectedly,
+    )
+
+    response = file_app.client.get("/api/get-watermarking-methods")
+
+    assert_sanitized_failure(response, caplog, status, message)
 
 
 @pytest.mark.parametrize("operation", ["upload", "watermark"])
@@ -201,7 +502,7 @@ def test_upload_does_not_overwrite_existing_file(file_app, monkeypatch):
     first = upload(env)
     assert first.status_code == 201
     path = document_path(env, first.get_json()["id"])
-    assert upload(env, content=b"replacement").status_code == 500
+    assert upload(env, content=PDF).status_code == 500
     assert path.read_bytes() == PDF
 
 

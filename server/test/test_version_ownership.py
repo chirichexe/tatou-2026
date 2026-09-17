@@ -4,11 +4,21 @@ import io
 import secrets
 from types import SimpleNamespace
 
+import fitz
 import pytest
 from sqlalchemy import create_engine, event, text
 
 
-PDF = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
+def make_pdf():
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "Tatou ownership fixture")
+    data = document.tobytes()
+    document.close()
+    return data
+
+
+PDF = make_pdf()
 DOCUMENT_ROUTES = [
     "/api/list-versions/{id}",
     "/api/list-versions?id={id}",
