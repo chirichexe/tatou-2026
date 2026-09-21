@@ -1,0 +1,34 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'severity', 'name']
+  group_wait: 5s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'file-and-telegram'
+
+receivers:
+  - name: 'file-and-telegram'
+    webhook_configs:
+      - url: 'http://alert-logger:9095/alert'
+        send_resolved: true
+
+    # =========================================================================
+    # Configurazione per canale Telegram
+    # =========================================================================
+    # Per attivare le notifiche Telegram, decommenta le righe seguenti e inserisci:
+    # 1. bot_token: il token fornito da @BotFather
+    # 2. chat_id: l'ID del canale o gruppo (es. -1001234567890)
+    # =========================================================================
+    # telegram_configs:
+    #   - bot_token: '<YOUR_TELEGRAM_BOT_TOKEN>'
+    #     chat_id: <YOUR_TELEGRAM_CHAT_ID>
+    #     parse_mode: 'HTML'
+    #     send_resolved: true
+    #     message: |
+    #       <b>[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}</b>
+    #       <b>Severity:</b> {{ .CommonLabels.severity }}
+    #       <b>Target:</b> {{ or .CommonLabels.name .CommonLabels.instance .CommonLabels.compose_service "tatou" }}
+    #       <b>Summary:</b> {{ .CommonAnnotations.summary }}
+    #       <b>Description:</b> {{ .CommonAnnotations.description }}

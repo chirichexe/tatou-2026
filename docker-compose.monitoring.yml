@@ -12,7 +12,64 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml:ro
       - prometheus-data:/prometheus
+    depends_on:
+      - alertmanager
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+        reservations:
+          cpus: "0.10"
+          memory: 128M
+    networks:
+      - default
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: tatou-alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    depends_on:
+      - alert-logger
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
+        reservations:
+          cpus: "0.05"
+          memory: 32M
+    networks:
+      - default
+    restart: unless-stopped
+
+  alert-logger:
+    image: python:3.11-alpine
+    container_name: tatou-alert-logger
+    command: python /app/webhook.py
+    ports:
+      - "9095:9095"
+    volumes:
+      - ./monitoring/alertmanager/webhook.py:/app/webhook.py:ro
+      - ./monitoring/alertmanager/alerts.log:/alerts/alerts.log
+    deploy:
+      resources:
+        limits:
+          cpus: "0.10"
+          memory: 64M
+        reservations:
+          cpus: "0.02"
+          memory: 16M
     networks:
       - default
     restart: unless-stopped
@@ -26,6 +83,14 @@ services:
     volumes:
       - ./monitoring/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
       - loki-data:/loki
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+        reservations:
+          cpus: "0.10"
+          memory: 128M
     networks:
       - default
     restart: unless-stopped
@@ -42,6 +107,14 @@ services:
       - promtail-positions:/tmp
     depends_on:
       - loki
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+        reservations:
+          cpus: "0.05"
+          memory: 64M
     networks:
       - default
     restart: unless-stopped
@@ -60,6 +133,14 @@ services:
       - /dev/disk/:/dev/disk:ro
     ports:
       - "8081:8080"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.30"
+          memory: 256M
+        reservations:
+          cpus: "0.05"
+          memory: 64M
     networks:
       - default
     restart: unless-stopped
@@ -81,12 +162,22 @@ services:
     depends_on:
       - prometheus
       - loki
+      - alertmanager
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
+        reservations:
+          cpus: "0.10"
+          memory: 128M
     networks:
       - default
     restart: unless-stopped
 
 volumes:
   prometheus-data:
+  alertmanager-data:
   loki-data:
   promtail-positions:
   grafana-data:
