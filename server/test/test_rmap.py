@@ -3,14 +3,15 @@
 import secrets
 
 import fitz
+import pytest
 from rmap import RMAPClient
 from rmap.keygen import generate_keypair
 from sqlalchemy import create_engine, text
 from watermarking_utils import read_watermark
 
 
-def _write_keypair(directory, stem, name):
-    key = generate_keypair(name, f"{stem}@example.test")
+def _write_keypair(directory, stem, name, passphrase=None):
+    key = generate_keypair(name, f"{stem}@example.test", passphrase=passphrase)
     private = directory / f"{stem}_private.asc"
     public = directory / f"{stem}_public.asc"
     private.write_text(str(key))
@@ -29,15 +30,22 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
     key_dir = tmp_path / "keys"
     client_dir = key_dir / "clients"
     client_dir.mkdir(parents=True)
-    server_private, server_public = _write_keypair(key_dir, "server", "Server")
+    server_passphrase = "test-server-passphrase"
+    server_private, server_public = _write_keypair(
+        key_dir, "server", "Server", passphrase=server_passphrase,
+    )
     client_private, client_public = _write_keypair(key_dir, "group", "Group_01")
     (client_dir / "Group_01.asc").write_text(client_public.read_text())
+    passphrase_file = key_dir / "server_passphrase"
+    passphrase_file.write_text(server_passphrase)
+    passphrase_file.chmod(0o600)
 
     monkeypatch.setenv("SECRET_KEY", secrets.token_hex(32))
     monkeypatch.setenv("STORAGE_DIR", str(tmp_path / "storage"))
     monkeypatch.setenv("RMAP_SERVER_PUBLIC_KEY_PATH", str(server_public))
     monkeypatch.setenv("RMAP_SERVER_PRIVATE_KEY_PATH", str(server_private))
     monkeypatch.setenv("RMAP_CLIENT_KEYS_DIR", str(client_dir))
+    monkeypatch.setenv("RMAP_SERVER_KEY_PASSPHRASE_FILE", str(passphrase_file))
     monkeypatch.setenv("RMAP_DOCUMENT_ID", "1")
     monkeypatch.setenv("RMAP_WATERMARK_METHOD", "toy-eof")
     monkeypatch.setenv("RMAP_WATERMARK_KEY", "test-watermark-key")
@@ -127,6 +135,7 @@ def test_rmap_is_explicitly_unavailable_without_key_configuration(tmp_path, monk
     monkeypatch.delenv("RMAP_SERVER_PUBLIC_KEY_PATH", raising=False)
     monkeypatch.delenv("RMAP_SERVER_PRIVATE_KEY_PATH", raising=False)
     monkeypatch.delenv("RMAP_CLIENT_KEYS_DIR", raising=False)
+    monkeypatch.delenv("RMAP_SERVER_KEY_PASSPHRASE_FILE", raising=False)
     monkeypatch.delenv("RMAP_DOCUMENT_ID", raising=False)
     monkeypatch.delenv("RMAP_WATERMARK_METHOD", raising=False)
     monkeypatch.delenv("RMAP_WATERMARK_KEY", raising=False)
@@ -136,3 +145,22 @@ def test_rmap_is_explicitly_unavailable_without_key_configuration(tmp_path, monk
     response = app.test_client().post("/api/rmap-initiate", json={})
     assert response.status_code == 503
     assert response.get_json() == {"error": "RMAP is not configured"}
+
+
+def test_rmap_rejects_an_insecure_passphrase_file(tmp_path, monkeypatch):
+    passphrase_file = tmp_path / "server_passphrase"
+    passphrase_file.write_text("private-passphrase")
+    passphrase_file.chmod(0o644)
+    monkeypatch.setenv("SECRET_KEY", secrets.token_hex(32))
+    monkeypatch.setenv("STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("RMAP_SERVER_PUBLIC_KEY_PATH", str(tmp_path / "server_public.asc"))
+    monkeypatch.setenv("RMAP_SERVER_PRIVATE_KEY_PATH", str(tmp_path / "server_private.asc"))
+    monkeypatch.setenv("RMAP_CLIENT_KEYS_DIR", str(tmp_path / "clients"))
+    monkeypatch.setenv("RMAP_DOCUMENT_ID", "1")
+    monkeypatch.setenv("RMAP_WATERMARK_METHOD", "toy-eof")
+    monkeypatch.setenv("RMAP_WATERMARK_KEY", "test-watermark-key")
+    monkeypatch.setenv("RMAP_SERVER_KEY_PASSPHRASE_FILE", str(passphrase_file))
+    from server import create_app
+
+    with pytest.raises(RuntimeError, match="must not be group- or world-accessible"):
+        create_app()

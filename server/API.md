@@ -549,6 +549,8 @@ RMAP_WATERMARK_METHOD=my-robust-method
 RMAP_WATERMARK_KEY=<private-watermark-key>
 # Optional when the server private key is protected:
 RMAP_SERVER_KEY_PASSPHRASE=
+# Preferred alternative: a mode-600 file, mounted read-only in the container.
+RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 ```
 
 Client public-key files in `RMAP_CLIENT_KEYS_DIR` define the accepted
@@ -558,5 +560,7 @@ and session link, inserts the new version, and uses the resulting 32-character R
 `Versions.link`. The returned result is then fetched with
 `GET /api/get-version/<result>`.
 
-The Compose configuration mounts `./rmap-keys` read-only at
-`/app/rmap-keys`; the directory and private keys are ignored by Git.
+Compose mounts `RMAP_KEYS_HOST_DIR` (or `./rmap-keys` by default) read-only at
+`/app/rmap-keys`; the directory and private keys are ignored by Git. Use the
+passphrase file instead of the environment variable when the private key is
+protected, and do not set both variables.

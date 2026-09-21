@@ -133,7 +133,10 @@ Tatou uses the upstream [RMAP v1.0.2](https://github.com/nharrand/RMAP) package
 for the PGP challenge/response protocol. The feature stays disabled until its
 key paths are configured. Create the server keypair locally, then place the
 course-provided client public keys in `rmap-keys/clients`, named after their
-identities (for example, `Group_01.asc`). Keep private keys outside Git.
+identities (for example, `Group_01.asc`). Keep private keys outside Git. For a
+server deployment, keep the entire key directory outside the checkout and set
+`RMAP_KEYS_HOST_DIR` to that absolute host path; Compose mounts it read-only at
+`/app/rmap-keys`.
 
 ```bash
 mkdir -p rmap-keys/clients
@@ -151,6 +154,17 @@ RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
 RMAP_DOCUMENT_ID=42
 RMAP_WATERMARK_METHOD=my-robust-method
 RMAP_WATERMARK_KEY=<private-watermark-key>
+RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
+```
+
+For example, a server keeping its keys in `/home/softsec/secrets` can use:
+
+```dotenv
+RMAP_KEYS_HOST_DIR=/home/softsec/secrets
+RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/public_key.asc
+RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/private_key.asc
+RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
+RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 ```
 
 `RMAP_DOCUMENT_ID` is the confidential source document already stored in Tatou.
@@ -159,6 +173,12 @@ identity and session link, records it with the generated 32-character link,
 and returns that link. `RMAP_WATERMARK_METHOD` must name a registered
 watermarking method. The bundled `toy-eof` and `bash-bridge-eof` methods are
 easily stripped; configure the group's stronger method for the course document.
+
+When the server private key has a passphrase, create
+`rmap-keys/server_passphrase` locally with mode `600`, place the passphrase in
+that file, and keep `RMAP_SERVER_KEY_PASSPHRASE` empty. The container receives
+the key directory read-only and the passphrase is never included in the Compose
+environment.
 
 The upstream CLI can exercise the complete flow with the client keypair:
 

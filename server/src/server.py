@@ -1,6 +1,7 @@
 import hashlib
 import os
 import sqlite3
+import stat
 from functools import wraps
 from pathlib import Path
 from uuid import uuid4
@@ -63,6 +64,9 @@ def create_app():
     app.config["RMAP_SERVER_KEY_PASSPHRASE"] = os.environ.get(
         "RMAP_SERVER_KEY_PASSPHRASE"
     )
+    app.config["RMAP_SERVER_KEY_PASSPHRASE_FILE"] = os.environ.get(
+        "RMAP_SERVER_KEY_PASSPHRASE_FILE", ""
+    ).strip()
     app.config["RMAP_DOCUMENT_ID"] = os.environ.get("RMAP_DOCUMENT_ID", "").strip()
     app.config["RMAP_WATERMARK_METHOD"] = os.environ.get(
         "RMAP_WATERMARK_METHOD", ""
@@ -84,6 +88,29 @@ def create_app():
         app.config["RMAP_SERVER_PRIVATE_KEY_PATH"],
         app.config["RMAP_CLIENT_KEYS_DIR"],
     )
+    if any(rmap_key_settings):
+        if (
+            app.config["RMAP_SERVER_KEY_PASSPHRASE"]
+            and app.config["RMAP_SERVER_KEY_PASSPHRASE_FILE"]
+        ):
+            raise RuntimeError(
+                "Use either RMAP_SERVER_KEY_PASSPHRASE or "
+                "RMAP_SERVER_KEY_PASSPHRASE_FILE, not both"
+            )
+        if app.config["RMAP_SERVER_KEY_PASSPHRASE_FILE"]:
+            passphrase_path = Path(app.config["RMAP_SERVER_KEY_PASSPHRASE_FILE"])
+            try:
+                passphrase_mode = stat.S_IMODE(passphrase_path.stat().st_mode)
+                if passphrase_mode & (stat.S_IRWXG | stat.S_IRWXO):
+                    raise RuntimeError(
+                        "RMAP passphrase file must not be group- or world-accessible"
+                    )
+                passphrase = passphrase_path.read_text(encoding="utf-8").rstrip("\r\n")
+            except OSError as error:
+                raise RuntimeError("Could not read RMAP passphrase file") from error
+            if not passphrase:
+                raise RuntimeError("RMAP passphrase file must not be empty")
+            app.config["RMAP_SERVER_KEY_PASSPHRASE"] = passphrase
     if any(rmap_key_settings) and not all(rmap_key_settings):
         raise RuntimeError(
             "RMAP requires RMAP_SERVER_PUBLIC_KEY_PATH, "

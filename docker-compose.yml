@@ -8,10 +8,10 @@ services:
       context: server
       dockerfile: Dockerfile
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     volumes:
       - user-files:/app/storage
-      - ./rmap-keys:/app/rmap-keys:ro
+      - ${RMAP_KEYS_HOST_DIR:-./rmap-keys}:/app/rmap-keys:ro
     environment:
       - PYTHONUNBUFFERED=1
       # DB connection details for future use by the API
@@ -27,6 +27,7 @@ services:
       - RMAP_SERVER_PRIVATE_KEY_PATH=${RMAP_SERVER_PRIVATE_KEY_PATH:-}
       - RMAP_CLIENT_KEYS_DIR=${RMAP_CLIENT_KEYS_DIR:-}
       - RMAP_SERVER_KEY_PASSPHRASE=${RMAP_SERVER_KEY_PASSPHRASE:-}
+      - RMAP_SERVER_KEY_PASSPHRASE_FILE=${RMAP_SERVER_KEY_PASSPHRASE_FILE:-}
       - RMAP_DOCUMENT_ID=${RMAP_DOCUMENT_ID:-}
       - RMAP_WATERMARK_METHOD=${RMAP_WATERMARK_METHOD:-}
       - RMAP_WATERMARK_KEY=${RMAP_WATERMARK_KEY:-}
