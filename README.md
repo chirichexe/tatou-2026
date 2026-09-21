@@ -33,6 +33,15 @@ export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 python -m pytest
 ```
 
+### Add a watermarking method
+
+Put each concrete method in its own module under `server/src/watermarking_methods/`
+and implement the `WatermarkingMethod` interface in `server/src/watermarking_method.py`.
+Register the method explicitly in `server/src/watermarking_utils.py`; the server and
+CLI use that registry, and no modules are loaded dynamically. Keep method-specific
+tests in a matching file under `server/test/watermarking/`. Shared contract and CLI
+tests live there too. The old top-level EOF modules remain as compatibility imports.
+
 ### Deploy
 
 From the root of the directory:

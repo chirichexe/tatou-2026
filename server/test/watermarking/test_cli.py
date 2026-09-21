@@ -1,3 +1,5 @@
+"""Watermarking CLI behavior and error sanitization."""
+
 import json
 import sys
 from types import SimpleNamespace

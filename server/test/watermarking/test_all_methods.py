@@ -1,10 +1,11 @@
-# tests/test_watermarking_all_methods.py
+"""Shared contract checks for every registered watermarking method."""
 from __future__ import annotations
 
 import importlib
 import inspect
 from pathlib import Path
 
+import fitz
 import pytest
 
 # --------- collect all methods from the registry ----------
@@ -25,13 +26,12 @@ if not CASES:
 # --------- fixtures ----------
 @pytest.fixture(scope="session")
 def sample_pdf_path(tmp_path_factory) -> Path:
-    """Minimal but recognizable PDF bytes."""
+    """A valid one-page PDF usable by structural watermarking methods."""
     pdf = tmp_path_factory.mktemp("pdfs") / "sample.pdf"
-    pdf.write_bytes(
-        b"%PDF-1.4\n"
-        b"1 0 obj\n<< /Type /Catalog >>\nendobj\n"
-        b"%%EOF\n"
-    )
+    with fitz.open() as document:
+        page = document.new_page()
+        page.insert_text((72, 72), "Tatou watermark contract fixture")
+        document.save(pdf)
     return pdf
 
 @pytest.fixture(scope="session")
@@ -64,11 +64,12 @@ class TestAllWatermarkingMethods:
         wm_impl = _as_instance(impl)
         if not wm_impl.is_watermark_applicable(sample_pdf_path, position=None):
             pytest.skip(f"{method_name}: not applicable to the sample PDF")
-        original = sample_pdf_path.read_bytes()
         out_bytes = wm_impl.add_watermark(sample_pdf_path, secret=secret, key=key, position=None)
         assert isinstance(out_bytes, (bytes, bytearray)), f"{method_name}: add_watermark must return bytes"
-        assert len(out_bytes) >= len(original), f"{method_name}: watermarked bytes should not be smaller than input"
         assert out_bytes.startswith(b"%PDF-"), f"{method_name}: output should still look like a PDF"
+        with fitz.open(stream=out_bytes, filetype="pdf") as result:
+            assert result.page_count == 1, f"{method_name}: output should preserve the page"
+            result[0].get_pixmap()
 
     def test_read_secret_roundtrip(self, method_name: str, impl: object, sample_pdf_path: Path, secret: str, key: str, tmp_path: Path):
         wm_impl = _as_instance(impl)
