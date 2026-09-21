@@ -9,12 +9,18 @@ dependencies = [
 	"gunicorn==26.2.0",
 	"PyMySQL==1.2.3",
 	"SQLAlchemy==2.0.54",
+	"cryptography>=42,<51",
+	"Pillow>=10,<13",
+	"zxing-cpp==3.1.1",
 	"rmap @ git+https://github.com/nharrand/RMAP.git@v1.0.2"
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0"
+]
+experimental-watermark = [
+    "trustmark==0.9.2"
 ]
 
 [tool.pytest.ini_options]

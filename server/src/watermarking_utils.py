@@ -33,13 +33,14 @@ import logging
 import re
 from typing import Any, Final
 
-from watermarking_methods.add_after_eof import AddAfterEOF
-from watermarking_methods.unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
 from watermarking_method import (
     PdfSource,
     WatermarkingMethod,
     load_pdf_bytes,
 )
+from watermarking_methods.add_after_eof import AddAfterEOF
+from watermarking_methods.hybrid_page import HybridPageWatermark
+from watermarking_methods.unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +50,7 @@ logger = logging.getLogger(__name__)
 
 METHODS: dict[str, WatermarkingMethod] = {
     AddAfterEOF.name: AddAfterEOF(),
+    HybridPageWatermark.name: HybridPageWatermark(),
     UnsafeBashBridgeAppendEOF.name: UnsafeBashBridgeAppendEOF()
 }
 """Registry of available watermarking methods.

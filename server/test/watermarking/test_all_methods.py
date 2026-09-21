@@ -40,7 +40,7 @@ def secret() -> str:
 
 @pytest.fixture(scope="session")
 def key() -> str:
-    return "unit-test-key"
+    return "0123456789abcdef" * 4
 
 
 def _as_instance(impl: object) -> object:

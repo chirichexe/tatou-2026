@@ -1,7 +1,8 @@
 # Server image: minimal Flask + Gunicorn
 # RMAP v1.0.2 uses PGPy, which supports Python through 3.12 (Python 3.13+
 # removed stdlib imghdr, which PGPy imports).
-FROM python:3.12-slim
+# Use a patched Python 3.12 base image to avoid known Debian/OpenSSL CVEs.
+FROM python:3.12-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
@@ -9,7 +10,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git ca-certificates openssh-client \
+ && apt-get install -y --no-install-recommends git ca-certificates openssh-client fonts-dejavu-core \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy project description, to instal dependencies

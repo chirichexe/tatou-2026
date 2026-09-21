@@ -1,5 +1,6 @@
 import hashlib
 import os
+import secrets
 import sqlite3
 import stat
 from functools import wraps
@@ -77,6 +78,13 @@ def create_app():
     app.config["RMAP_WATERMARK_POSITION"] = os.environ.get(
         "RMAP_WATERMARK_POSITION", ""
     ).strip() or None
+    if app.config["RMAP_WATERMARK_METHOD"] == "hybrid-page":
+        try:
+            watermark_key = bytes.fromhex(app.config["RMAP_WATERMARK_KEY"])
+        except ValueError as exc:
+            raise RuntimeError("RMAP hybrid-page key must be 32 random bytes in hex") from exc
+        if len(watermark_key) != 32:
+            raise RuntimeError("RMAP hybrid-page key must be 32 random bytes in hex")
 
     app.config["STORAGE_DIR"].mkdir(parents=True, exist_ok=True)
     login_limiter = LoginRateLimiter(
@@ -366,7 +374,7 @@ def create_app():
             )
             if not source_path.is_file():
                 return jsonify({"error": "RMAP document missing on disk"}), 410
-            watermark_secret = f"{identity}:{expected_link}"
+            watermark_secret = secrets.token_urlsafe(16)
             wm_bytes = WMUtils.apply_watermark(
                 pdf=str(source_path),
                 secret=watermark_secret,

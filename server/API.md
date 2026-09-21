@@ -545,8 +545,8 @@ RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/server_public.asc
 RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/server_private.asc
 RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
 RMAP_DOCUMENT_ID=42
-RMAP_WATERMARK_METHOD=my-robust-method
-RMAP_WATERMARK_KEY=<private-watermark-key>
+RMAP_WATERMARK_METHOD=hybrid-page
+RMAP_WATERMARK_KEY=<64 random hexadecimal characters>
 # Optional when the server private key is protected:
 RMAP_SERVER_KEY_PASSPHRASE=
 # Preferred alternative: a mode-600 file, mounted read-only in the container.
@@ -556,9 +556,14 @@ RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 Client public-key files in `RMAP_CLIENT_KEYS_DIR` define the accepted
 identities: `Group_01.asc` registers `Group_01`. On each completed handshake,
 Tatou watermarks the configured source document with the authenticated identity
-and session link, inserts the new version, and uses the resulting 32-character RMAP link as its
+via a fresh opaque copy identifier, inserts the new version, and uses the resulting 32-character RMAP link as its
 `Versions.link`. The returned result is then fetched with
 `GET /api/get-version/<result>`.
+
+`hybrid-page` is the recommended method for the Group 13 document. Its
+`RMAP_WATERMARK_KEY` must be 32 random bytes encoded as 64 hex characters.
+See [WATERMARKING_HYBRID.md](WATERMARKING_HYBRID.md) for identification and
+the deliberately disabled TrustMark experiment.
 
 Compose mounts `RMAP_KEYS_HOST_DIR` (or `./rmap-keys` by default) read-only at
 `/app/rmap-keys`; the directory and private keys are ignored by Git. Use the

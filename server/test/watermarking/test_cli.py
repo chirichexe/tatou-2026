@@ -38,6 +38,15 @@ def test_extract_verifies_without_revealing_secret(monkeypatch, capsys):
     }]
 
 
+def test_extract_show_secret_requires_explicit_flag(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "read_watermark", lambda **_kwargs: "copy-id")
+    assert cli.main([
+        "extract", "marked.pdf", "--method", "hybrid-page",
+        "--key", "reader-key", "--show-secret",
+    ]) == 0
+    assert capsys.readouterr().out == "copy-id\n"
+
+
 @pytest.mark.parametrize("key_option", [
     ["--key", "reader-key"],
     ["--key-file", "key.txt"],

@@ -137,8 +137,11 @@ def cmd_embed(args: argparse.Namespace) -> int:
 
 def cmd_extract(args: argparse.Namespace) -> int:
     key = _resolve_key(args)
-    read_watermark(method=args.method, pdf=args.input, key=key)
-    print("Watermark verified")
+    secret = read_watermark(method=args.method, pdf=args.input, key=key)
+    if args.show_secret:
+        print(secret)
+    else:
+        print("Watermark verified")
     return 0
 
 
@@ -206,6 +209,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--method",
         default="toy-eof",
         help="Watermarking method name (default: toy-eof)"
+    )
+    p_extract.add_argument(
+        "--show-secret", action="store_true",
+        help="Print the recovered identifier for authorized forensic lookup",
     )
 
     g_key2 = p_extract.add_argument_group("key input")

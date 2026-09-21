@@ -26,7 +26,11 @@ def _pdf(path):
     document.close()
 
 
-def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeypatch):
+@pytest.mark.parametrize(
+    "method,key",
+    [("toy-eof", "test-watermark-key"), ("hybrid-page", "0123456789abcdef" * 4)],
+)
+def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeypatch, method, key):
     key_dir = tmp_path / "keys"
     client_dir = key_dir / "clients"
     client_dir.mkdir(parents=True)
@@ -47,8 +51,8 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
     monkeypatch.setenv("RMAP_CLIENT_KEYS_DIR", str(client_dir))
     monkeypatch.setenv("RMAP_SERVER_KEY_PASSPHRASE_FILE", str(passphrase_file))
     monkeypatch.setenv("RMAP_DOCUMENT_ID", "1")
-    monkeypatch.setenv("RMAP_WATERMARK_METHOD", "toy-eof")
-    monkeypatch.setenv("RMAP_WATERMARK_KEY", "test-watermark-key")
+    monkeypatch.setenv("RMAP_WATERMARK_METHOD", method)
+    monkeypatch.setenv("RMAP_WATERMARK_KEY", key)
     from server import create_app
 
     app = create_app()
@@ -100,12 +104,16 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
                     text("SELECT * FROM Versions WHERE link = :link"), {"link": link},
                 ).one()
             assert version.intended_for == "Group_01"
-            assert version.secret == f"Group_01:{link}"
-            assert read_watermark("toy-eof", version.path, "test-watermark-key") == version.secret
+            assert isinstance(version.secret, str)
+            assert len(version.secret) >= 20
+            assert link not in version.secret
+            assert link.encode("ascii") not in response.data
+            assert read_watermark(method, version.path, key) == version.secret
 
         assert links[0] != links[1]
         with engine.connect() as conn:
             assert conn.execute(text("SELECT COUNT(*) FROM Versions")).scalar_one() == 2
+            assert conn.execute(text("SELECT COUNT(DISTINCT secret) FROM Versions")).scalar_one() == 2
 
         replay = http.post("/api/rmap-get-link", json=client.build_msg2())
         assert replay.status_code == 409
