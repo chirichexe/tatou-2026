@@ -63,6 +63,18 @@ http -v :5000/healthz
 # Open your browser at 127.0.0.1:5000 to check if the website is up.
 ```
 
+### Monitoring Stack
+
+The project includes a monitoring and logging stack based on Prometheus, Grafana, Loki, Promtail, and cAdvisor:
+
+- **Grafana**: [http://127.0.0.1:3000](http://127.0.0.1:3000) (pre-configured with Prometheus & Loki datasources and the *Tatou Monitoring & Logs Overview* dashboard)
+- **Prometheus**: [http://127.0.0.1:9090](http://127.0.0.1:9090)
+- **Loki**: [http://127.0.0.1:3100](http://127.0.0.1:3100)
+- **cAdvisor**: [http://127.0.0.1:8081](http://127.0.0.1:8081)
+
+To browse logs, open Grafana at [http://127.0.0.1:3000](http://127.0.0.1:3000) and visit **Dashboards** > **Tatou Monitoring & Logs Overview**, or use **Explore** with the Loki data source. For more details, see [monitoring/README.md](monitoring/README.md).
+
+
 The standard deployment starts the application and MariaDB. MariaDB is
 available only to the application through Docker's internal backend network;
 it does not publish a port on the host.
