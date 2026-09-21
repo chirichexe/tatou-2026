@@ -126,3 +126,51 @@ this implementation is intended for the single-host course deployment.
 IP limits use the direct connection address. Do not enable trust in arbitrary
 `X-Forwarded-For` headers. If a reverse proxy is introduced, configure trusted
 proxy handling explicitly; otherwise all clients behind it share one IP budget.
+
+### Enable RMAP
+
+Tatou uses the upstream [RMAP v1.0.2](https://github.com/nharrand/RMAP) package
+for the PGP challenge/response protocol. The feature stays disabled until its
+key paths are configured. Create the server keypair locally, then place the
+course-provided client public keys in `rmap-keys/clients`, named after their
+identities (for example, `Group_01.asc`). Keep private keys outside Git.
+
+```bash
+mkdir -p rmap-keys/clients
+rmap-keygen --name "Tatou server" --email server@example.test \
+  --out-private rmap-keys/server_private.asc \
+  --out-public rmap-keys/server_public.asc
+```
+
+Set these values in `.env` for Compose:
+
+```dotenv
+RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/server_public.asc
+RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/server_private.asc
+RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
+RMAP_DOCUMENT_ID=42
+RMAP_WATERMARK_METHOD=my-robust-method
+RMAP_WATERMARK_KEY=<private-watermark-key>
+```
+
+`RMAP_DOCUMENT_ID` is the confidential source document already stored in Tatou.
+Every completed handshake produces a new version, watermarked with the peer's
+identity and session link, records it with the generated 32-character link,
+and returns that link. `RMAP_WATERMARK_METHOD` must name a registered
+watermarking method. The bundled `toy-eof` and `bash-bridge-eof` methods are
+easily stripped; configure the group's stronger method for the course document.
+
+The upstream CLI can exercise the complete flow with the client keypair:
+
+```bash
+rmap-client --url http://localhost:5000 --identity Group_01 \
+  --client-private-key path/to/group01_private.asc \
+  --server-public-key rmap-keys/server_public.asc \
+  --msg1-path /api/rmap-initiate --msg2-path /api/rmap-get-link \
+  --get-link-path /api/get-version --fetch-link
+```
+
+The reference `RMAPServer` keeps pending nonces in process memory. The
+provided Gunicorn command uses one worker; if you add workers or replicas,
+route both handshake messages to the same process or provide shared session
+state.

@@ -10,6 +10,7 @@ import watermarking_utils as WMUtils
 from flask import Flask, g, jsonify, request, send_file
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from login_rate_limit import LoginRateLimited, LoginRateLimiter
+from rmap import RMAPError, RMAPServer
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
@@ -50,11 +51,70 @@ def create_app():
     app.config["DB_HOST"] = os.environ.get("DB_HOST", "db")
     app.config["DB_PORT"] = int(os.environ.get("DB_PORT", "3306"))
     app.config["DB_NAME"] = os.environ.get("DB_NAME", "tatou")
+    app.config["RMAP_SERVER_PUBLIC_KEY_PATH"] = os.environ.get(
+        "RMAP_SERVER_PUBLIC_KEY_PATH", ""
+    ).strip()
+    app.config["RMAP_SERVER_PRIVATE_KEY_PATH"] = os.environ.get(
+        "RMAP_SERVER_PRIVATE_KEY_PATH", ""
+    ).strip()
+    app.config["RMAP_CLIENT_KEYS_DIR"] = os.environ.get(
+        "RMAP_CLIENT_KEYS_DIR", ""
+    ).strip()
+    app.config["RMAP_SERVER_KEY_PASSPHRASE"] = os.environ.get(
+        "RMAP_SERVER_KEY_PASSPHRASE"
+    )
+    app.config["RMAP_DOCUMENT_ID"] = os.environ.get("RMAP_DOCUMENT_ID", "").strip()
+    app.config["RMAP_WATERMARK_METHOD"] = os.environ.get(
+        "RMAP_WATERMARK_METHOD", ""
+    ).strip()
+    app.config["RMAP_WATERMARK_KEY"] = os.environ.get(
+        "RMAP_WATERMARK_KEY", ""
+    )
+    app.config["RMAP_WATERMARK_POSITION"] = os.environ.get(
+        "RMAP_WATERMARK_POSITION", ""
+    ).strip() or None
 
     app.config["STORAGE_DIR"].mkdir(parents=True, exist_ok=True)
     login_limiter = LoginRateLimiter(
         app.config["STORAGE_DIR"] / ".auth" / "login-attempts.sqlite3", secret_key,
     )
+
+    rmap_key_settings = (
+        app.config["RMAP_SERVER_PUBLIC_KEY_PATH"],
+        app.config["RMAP_SERVER_PRIVATE_KEY_PATH"],
+        app.config["RMAP_CLIENT_KEYS_DIR"],
+    )
+    if any(rmap_key_settings) and not all(rmap_key_settings):
+        raise RuntimeError(
+            "RMAP requires RMAP_SERVER_PUBLIC_KEY_PATH, "
+            "RMAP_SERVER_PRIVATE_KEY_PATH, and RMAP_CLIENT_KEYS_DIR"
+        )
+    if all(rmap_key_settings):
+        if not (
+            app.config["RMAP_DOCUMENT_ID"]
+            and app.config["RMAP_WATERMARK_METHOD"]
+            and app.config["RMAP_WATERMARK_KEY"]
+        ):
+            raise RuntimeError(
+                "RMAP requires RMAP_DOCUMENT_ID, RMAP_WATERMARK_METHOD, "
+                "and RMAP_WATERMARK_KEY"
+            )
+        try:
+            app.config["RMAP_DOCUMENT_ID"] = int(app.config["RMAP_DOCUMENT_ID"])
+        except ValueError as error:
+            raise RuntimeError("RMAP_DOCUMENT_ID must be a positive integer") from error
+        if app.config["RMAP_DOCUMENT_ID"] <= 0:
+            raise RuntimeError("RMAP_DOCUMENT_ID must be a positive integer")
+        rmap_server = RMAPServer(
+            server_public_key_path=app.config["RMAP_SERVER_PUBLIC_KEY_PATH"],
+            server_private_key_path=app.config["RMAP_SERVER_PRIVATE_KEY_PATH"],
+            passphrase=app.config["RMAP_SERVER_KEY_PASSPHRASE"],
+            logger=app.logger,
+        )
+        rmap_server.loadIdentities(app.config["RMAP_CLIENT_KEYS_DIR"])
+    else:
+        rmap_server = None
+    app.config["RMAP_SERVER"] = rmap_server
 
     # --- DB engine only (no Table metadata) ---
     def db_url() -> str:
@@ -178,6 +238,12 @@ def create_app():
         if not request.path.startswith("/api/"):
             return None
 
+        # RMAP is a PGP-authenticated machine-to-machine handshake, not a
+        # browser-cookie action.  Keeping it outside the browser CSRF scheme
+        # also lets the upstream rmap-client work without Tatou-specific headers.
+        if request.path in {"/api/rmap-initiate", "/api/rmap-get-link"}:
+            return None
+
         if request.method in {"GET", "HEAD", "OPTIONS"}:
             return None
 
@@ -205,6 +271,125 @@ def create_app():
         except SQLAlchemyError:
             db_ok = False
         return jsonify({"message": "The server is up and running.", "db_connected": db_ok}), 200
+
+    def _rmap_unavailable_response():
+        return jsonify({"error": "RMAP is not configured"}), 503
+
+    # RMAP message 1: encrypted {identity, nonceClient} -> encrypted
+    # {nonceClient, nonceServer}.  The RMAP package owns all PGP handling and
+    # handshake state; this application only exposes its HTTP boundary.
+    @app.post("/api/rmap-initiate")
+    def rmap_initiate():
+        if rmap_server is None:
+            return _rmap_unavailable_response()
+        message = request.get_json(silent=True)
+        if not isinstance(message, dict):
+            return jsonify({"error": "RMAP message must be a JSON object"}), 400
+        try:
+            _, response = rmap_server.receiveMsg1(message)
+        except (RMAPError, KeyError, TypeError, ValueError) as error:
+            _log_internal_failure("RMAP message 1", error)
+            return jsonify({"error": "invalid RMAP message"}), 400
+        return jsonify(response), 200
+
+    # RMAP message 2: create a fresh, watermarked copy of the confidential
+    # document and record it under the completed protocol link.
+    @app.post("/api/rmap-get-link")
+    def rmap_get_link():
+        if rmap_server is None:
+            return _rmap_unavailable_response()
+        message = request.get_json(silent=True)
+        if not isinstance(message, dict):
+            return jsonify({"error": "RMAP message must be a JSON object"}), 400
+        try:
+            identity, expected_link, response = rmap_server.receiveMsg2(message)
+        except (RMAPError, KeyError, TypeError, ValueError) as error:
+            _log_internal_failure("RMAP message 2", error)
+            return jsonify({"error": "invalid RMAP message"}), 400
+
+        try:
+            with get_engine().connect() as conn:
+                source = conn.execute(
+                    text("""
+                        SELECT id, name, path FROM Documents
+                        WHERE id = :id
+                        LIMIT 1
+                    """),
+                    {"id": app.config["RMAP_DOCUMENT_ID"]},
+                ).first()
+                link_exists = conn.execute(
+                    text("SELECT 1 FROM Versions WHERE link = :link LIMIT 1"),
+                    {"link": expected_link},
+                ).first()
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "RMAP document lookup", error,
+                "service temporarily unavailable", 503,
+            )
+        if not source:
+            return jsonify({"error": "RMAP document not found"}), 404
+        if link_exists:
+            return jsonify({"error": "RMAP session already completed"}), 409
+
+        output_path = None
+        output_path_reserved = False
+        try:
+            source_path = _safe_resolve_under_storage(
+                source.path, app.config["STORAGE_DIR"],
+            )
+            if not source_path.is_file():
+                return jsonify({"error": "RMAP document missing on disk"}), 410
+            watermark_secret = f"{identity}:{expected_link}"
+            wm_bytes = WMUtils.apply_watermark(
+                pdf=str(source_path),
+                secret=watermark_secret,
+                key=app.config["RMAP_WATERMARK_KEY"],
+                method=app.config["RMAP_WATERMARK_METHOD"],
+                position=app.config["RMAP_WATERMARK_POSITION"],
+            )
+            if not isinstance(wm_bytes, (bytes, bytearray)) or not wm_bytes:
+                raise RuntimeError("watermarking returned no document")
+            output_dir = _safe_resolve_under_storage(
+                source_path.parent / "rmap", app.config["STORAGE_DIR"],
+            )
+            output_dir.mkdir(parents=True, exist_ok=True)
+            filename = f"rmap-{expected_link}.pdf"
+            output_path = _safe_resolve_under_storage(output_dir / filename, output_dir)
+            with output_path.open("xb") as output:
+                output_path_reserved = True
+                output.write(wm_bytes)
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as error:
+            if output_path_reserved:
+                _remove_file(output_path)
+            return _internal_error_response(
+                "RMAP watermark creation", error, "could not create watermarked version", 500,
+            )
+
+        try:
+            with get_engine().begin() as conn:
+                conn.execute(
+                    text("""
+                        INSERT INTO Versions (documentid, link, intended_for, secret, method, position, path)
+                        VALUES (:documentid, :link, :intended_for, :secret, :method, :position, :path)
+                    """),
+                    {
+                        "documentid": int(source.id),
+                        "link": expected_link,
+                        "intended_for": identity,
+                        "secret": watermark_secret,
+                        "method": app.config["RMAP_WATERMARK_METHOD"],
+                        "position": app.config["RMAP_WATERMARK_POSITION"] or "",
+                        "path": str(output_path),
+                    },
+                )
+        except SQLAlchemyError as error:
+            _remove_file(output_path)
+            return _internal_error_response(
+                "RMAP version database operation", error,
+                "service temporarily unavailable", 503,
+            )
+
+        return jsonify(response), 200
 
     # POST /api/create-user {email, login, password}
     @app.post("/api/create-user")

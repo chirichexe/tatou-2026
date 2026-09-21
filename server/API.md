@@ -2,10 +2,15 @@
 
 ## Request headers
 
-All state-changing requests under `/api/` (including login, signup, uploads,
-watermark operations, and deletion) require `X-CSRF-Protection: 1`.
+All browser state-changing requests under `/api/` (including login, signup,
+uploads, watermark operations, and deletion) require `X-CSRF-Protection: 1`.
 Missing or incorrect values return `403` before the endpoint runs.
 `GET`, `HEAD`, and `OPTIONS` do not require this header.
+
+The two RMAP handshake endpoints are intentionally exempt: they authenticate
+the machine client through the encrypted PGP protocol rather than browser
+cookies, and are compatible with the upstream `rmap-client` without a
+Tatou-specific header.
 
 Protected endpoints additionally require `Authorization: Bearer <token>`.
 The CSRF header is not an authentication token. This protection relies on
@@ -530,3 +535,28 @@ should decrypt to:
 
 **Specification**
  * `get-version/<result>` SHOULD point to a watermarked version of a PDF specific to the group authenticated by the public key of the client.
+
+## RMAP configuration
+
+RMAP is disabled unless all of the following are set at startup:
+
+```dotenv
+RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/server_public.asc
+RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/server_private.asc
+RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
+RMAP_DOCUMENT_ID=42
+RMAP_WATERMARK_METHOD=my-robust-method
+RMAP_WATERMARK_KEY=<private-watermark-key>
+# Optional when the server private key is protected:
+RMAP_SERVER_KEY_PASSPHRASE=
+```
+
+Client public-key files in `RMAP_CLIENT_KEYS_DIR` define the accepted
+identities: `Group_01.asc` registers `Group_01`. On each completed handshake,
+Tatou watermarks the configured source document with the authenticated identity
+and session link, inserts the new version, and uses the resulting 32-character RMAP link as its
+`Versions.link`. The returned result is then fetched with
+`GET /api/get-version/<result>`.
+
+The Compose configuration mounts `./rmap-keys` read-only at
+`/app/rmap-keys`; the directory and private keys are ignored by Git.

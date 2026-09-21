@@ -1,0 +1,138 @@
+"""End-to-end coverage for the thin HTTP integration around RMAP."""
+
+import secrets
+
+import fitz
+from rmap import RMAPClient
+from rmap.keygen import generate_keypair
+from sqlalchemy import create_engine, text
+from watermarking_utils import read_watermark
+
+
+def _write_keypair(directory, stem, name):
+    key = generate_keypair(name, f"{stem}@example.test")
+    private = directory / f"{stem}_private.asc"
+    public = directory / f"{stem}_public.asc"
+    private.write_text(str(key))
+    public.write_text(str(key.pubkey))
+    return private, public
+
+
+def _pdf(path):
+    document = fitz.open()
+    document.new_page().insert_text((72, 72), "RMAP test document")
+    document.save(path)
+    document.close()
+
+
+def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeypatch):
+    key_dir = tmp_path / "keys"
+    client_dir = key_dir / "clients"
+    client_dir.mkdir(parents=True)
+    server_private, server_public = _write_keypair(key_dir, "server", "Server")
+    client_private, client_public = _write_keypair(key_dir, "group", "Group_01")
+    (client_dir / "Group_01.asc").write_text(client_public.read_text())
+
+    monkeypatch.setenv("SECRET_KEY", secrets.token_hex(32))
+    monkeypatch.setenv("STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("RMAP_SERVER_PUBLIC_KEY_PATH", str(server_public))
+    monkeypatch.setenv("RMAP_SERVER_PRIVATE_KEY_PATH", str(server_private))
+    monkeypatch.setenv("RMAP_CLIENT_KEYS_DIR", str(client_dir))
+    monkeypatch.setenv("RMAP_DOCUMENT_ID", "1")
+    monkeypatch.setenv("RMAP_WATERMARK_METHOD", "toy-eof")
+    monkeypatch.setenv("RMAP_WATERMARK_KEY", "test-watermark-key")
+    from server import create_app
+
+    app = create_app()
+    version_path = app.config["STORAGE_DIR"] / "version.pdf"
+    _pdf(version_path)
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        conn.execute(text("""
+            CREATE TABLE Documents (
+                id INTEGER PRIMARY KEY, name TEXT, path TEXT
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE Versions (
+                id INTEGER PRIMARY KEY, documentid INTEGER, link TEXT UNIQUE,
+                intended_for TEXT, secret TEXT, method TEXT, position TEXT, path TEXT
+            )
+        """))
+        conn.execute(
+            text("""
+                INSERT INTO Documents (id, name, path)
+                VALUES (1, 'confidential.pdf', :path)
+            """),
+            {"path": str(version_path)},
+        )
+    app.config.update(TESTING=True, _ENGINE=engine)
+
+    try:
+        http = app.test_client()
+        links = []
+        for _ in range(2):
+            client = RMAPClient("Group_01", client_private, server_public)
+            response = http.post("/api/rmap-initiate", json=client.build_msg1())
+            assert response.status_code == 200
+            client.process_resp1(response.get_json())
+
+            response = http.post("/api/rmap-get-link", json=client.build_msg2())
+            assert response.status_code == 200
+            link = client.process_resp2(response.get_json())
+            assert link == client.expected_link
+            links.append(link)
+
+            response = http.get(f"/api/get-version/{link}")
+            assert response.status_code == 200
+            assert response.mimetype == "application/pdf"
+
+            with engine.connect() as conn:
+                version = conn.execute(
+                    text("SELECT * FROM Versions WHERE link = :link"), {"link": link},
+                ).one()
+            assert version.intended_for == "Group_01"
+            assert version.secret == f"Group_01:{link}"
+            assert read_watermark("toy-eof", version.path, "test-watermark-key") == version.secret
+
+        assert links[0] != links[1]
+        with engine.connect() as conn:
+            assert conn.execute(text("SELECT COUNT(*) FROM Versions")).scalar_one() == 2
+
+        replay = http.post("/api/rmap-get-link", json=client.build_msg2())
+        assert replay.status_code == 409
+
+        unknown = RMAPClient("Unregistered", client_private, server_public)
+        assert http.post("/api/rmap-initiate", json=unknown.build_msg1()).status_code == 400
+
+        failing_client = RMAPClient("Group_01", client_private, server_public)
+        response = http.post("/api/rmap-initiate", json=failing_client.build_msg1())
+        assert response.status_code == 200
+        failing_client.process_resp1(response.get_json())
+        monkeypatch.setattr(
+            "server.WMUtils.apply_watermark",
+            lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("test failure")),
+        )
+        failed = http.post("/api/rmap-get-link", json=failing_client.build_msg2())
+        assert failed.status_code == 500
+        with engine.connect() as conn:
+            assert conn.execute(text("SELECT COUNT(*) FROM Versions")).scalar_one() == 2
+    finally:
+        engine.dispose()
+
+
+def test_rmap_is_explicitly_unavailable_without_key_configuration(tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", secrets.token_hex(32))
+    monkeypatch.setenv("STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.delenv("RMAP_SERVER_PUBLIC_KEY_PATH", raising=False)
+    monkeypatch.delenv("RMAP_SERVER_PRIVATE_KEY_PATH", raising=False)
+    monkeypatch.delenv("RMAP_CLIENT_KEYS_DIR", raising=False)
+    monkeypatch.delenv("RMAP_DOCUMENT_ID", raising=False)
+    monkeypatch.delenv("RMAP_WATERMARK_METHOD", raising=False)
+    monkeypatch.delenv("RMAP_WATERMARK_KEY", raising=False)
+    from server import create_app
+
+    app = create_app()
+    response = app.test_client().post("/api/rmap-initiate", json={})
+    assert response.status_code == 503
+    assert response.get_json() == {"error": "RMAP is not configured"}
