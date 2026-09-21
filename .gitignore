@@ -136,7 +136,10 @@ celerybeat.pid
 
 # Environments
 .env
+# Runtime secret material (never commit)
 rmap-keys/
+rmap-disabled/
+secrets/
 .envrc
 .venv
 env/
