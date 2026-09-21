@@ -138,6 +138,8 @@ celerybeat.pid
 .env
 # Runtime secret material (never commit)
 secrets/
+# Assigned confidential source document (never commit)
+Group_13.pdf
 .envrc
 .venv
 env/
