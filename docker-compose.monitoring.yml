@@ -59,6 +59,10 @@ services:
     command: python /app/webhook.py
     ports:
       - "9095:9095"
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN:-}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID:-}
+      - ALERT_LOG_PATH=/alerts/alerts.log
     volumes:
       - ./monitoring/alertmanager/webhook.py:/app/webhook.py:ro
       - ./monitoring/alertmanager/alerts.log:/alerts/alerts.log

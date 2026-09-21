@@ -1,10 +1,62 @@
+import html
 import http.server
 import json
 import os
 import sys
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 
 LOG_FILE = os.environ.get("ALERT_LOG_PATH", "/alerts/alerts.log")
+
+
+def get_telegram_config():
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+    return token, chat_id
+
+
+def send_telegram_alert(status, alert_name, severity, target, summary, description, now_str):
+    bot_token, chat_id = get_telegram_config()
+    if not bot_token or not chat_id:
+        return
+
+    icon = "🚨" if status == "FIRING" else "✅"
+    color_tag = "🔴" if severity == "CRITICAL" else "🟡"
+
+    msg_lines = [
+        f"{icon} <b>[{status}] {color_tag} {html.escape(alert_name)}</b>",
+        f"<b>Target:</b> <code>{html.escape(target)}</code>",
+        f"<b>Severity:</b> {html.escape(severity)}",
+        f"<b>Summary:</b> {html.escape(summary)}",
+        f"<b>Description:</b> {html.escape(description)}",
+        f"<b>Time:</b> {html.escape(now_str)}",
+    ]
+    message_text = "\n".join(msg_lines)
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = json.dumps({
+        "chat_id": chat_id,
+        "text": message_text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json"}
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status != 200:
+                sys.stderr.write(f"Telegram API response status {resp.status}: {resp.read()}\n")
+            else:
+                sys.stdout.write(f"Telegram notification sent for alert: {alert_name}\n")
+    except Exception as e:
+        sys.stderr.write(f"Failed to send Telegram alert: {e}\n")
+    sys.stdout.flush()
+    sys.stderr.flush()
 
 
 class AlertWebhookHandler(http.server.BaseHTTPRequestHandler):
@@ -43,6 +95,7 @@ class AlertWebhookHandler(http.server.BaseHTTPRequestHandler):
                     description = annotations.get("description", "No description provided")
                     target = labels.get("name") or labels.get("instance") or labels.get("compose_service") or "tatou"
 
+                    # 1. Log to file
                     log_line = (
                         f"[{now_str}] [{status}] [{severity}] "
                         f"Alert: {alert_name} | Target: {target} | "
@@ -50,6 +103,18 @@ class AlertWebhookHandler(http.server.BaseHTTPRequestHandler):
                     )
                     f.write(log_line)
                     sys.stdout.write(log_line)
+
+                    # 2. Forward to Telegram if configured in .env
+                    send_telegram_alert(
+                        status=status,
+                        alert_name=alert_name,
+                        severity=severity,
+                        target=target,
+                        summary=summary,
+                        description=description,
+                        now_str=now_str
+                    )
+
                 f.flush()
                 sys.stdout.flush()
 
@@ -72,6 +137,10 @@ class AlertWebhookHandler(http.server.BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "9095"))
-    print(f"Starting alert logger on port {port}, logging alerts to {LOG_FILE}", flush=True)
+    token, chat_id = get_telegram_config()
+    telegram_status = "ENABLED" if (token and chat_id) else "DISABLED (set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env)"
+    print(f"Starting alert logger on port {port}", flush=True)
+    print(f"Logging alerts to: {LOG_FILE}", flush=True)
+    print(f"Telegram notifications: {telegram_status}", flush=True)
     server = http.server.ThreadingHTTPServer(("0.0.0.0", port), AlertWebhookHandler)
     server.serve_forever()

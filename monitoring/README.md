@@ -76,32 +76,18 @@ Esempio di riga registrata:
 
 ## Come Collegare un Canale Telegram
 
-Per inviare le notifiche anche su Telegram:
+Le credenziali di Telegram vengono lette direttamente dal file `.env`:
 
-1. Apri [monitoring/alertmanager/alertmanager.yml](file:///home/davide/uni/softsec/tatou-2026/monitoring/alertmanager/alertmanager.yml).
-2. Decommenta il blocco `telegram_configs` all'interno del receiver `file-and-telegram`:
-   ```yaml
-   receivers:
-     - name: 'file-and-telegram'
-       webhook_configs:
-         - url: 'http://alert-logger:9095/alert'
-           send_resolved: true
-       telegram_configs:
-         - bot_token: '<IL_TUO_BOT_TOKEN>'
-           chat_id: <IL_TUO_CHAT_ID>
-           parse_mode: 'HTML'
-           send_resolved: true
-           message: |
-             <b>[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }}</b>
-             <b>Severity:</b> {{ .CommonLabels.severity }}
-             <b>Target:</b> {{ or .CommonLabels.name .CommonLabels.instance .CommonLabels.compose_service "tatou" }}
-             <b>Summary:</b> {{ .CommonAnnotations.summary }}
-             <b>Description:</b> {{ .CommonAnnotations.description }}
-   ```
-3. Ricarica la configurazione di Alertmanager senza fermare i container:
+1. Apri il file `.env` e imposta:
    ```bash
-   docker exec tatou-alertmanager kill -HUP 1
+   TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
+   TELEGRAM_CHAT_ID=-1001234567890
    ```
+2. Applica le modifiche:
+   ```bash
+   docker compose up -d alert-logger
+   ```
+   *(Il servizio `alert-logger` registra automaticamente gli alert sia su file che sul canale Telegram con formattazione HTML ricca di dettagli).*
 
 ---
 
