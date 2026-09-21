@@ -14,7 +14,7 @@ Explore a PDF and write a JSON node tree:
 Embed a secret using the default method (toy-eof) and write a new PDF:
     python -m watermarking_cli embed input.pdf output.pdf --key-prompt --secret "hello"
 
-Extract a secret:
+Verify that a watermark can be authenticated without revealing its secret:
     python -m watermarking_cli extract input.watermarked.pdf --key-prompt
 
 Exit codes
@@ -27,21 +27,32 @@ Exit codes
 """
 from __future__ import annotations
 
-from typing import Iterable, Optional
 import argparse
-import json
-import os
-import sys
 import getpass
+import json
+import sys
+from collections.abc import Iterable
 
-from watermarking_method import (
-    InvalidKeyError,
-    SecretNotFoundError,
-    WatermarkingError
+from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
+from watermarking_utils import (
+    METHODS,
+    apply_watermark,
+    explore_pdf,
+    is_watermarking_applicable,
+    read_watermark,
 )
-from watermarking_utils import METHODS, apply_watermark, read_watermark, explore_pdf, is_watermarking_applicable
 
 __version__ = "0.1.0"
+
+
+class SafeArgumentParser(argparse.ArgumentParser):
+    """Reject invalid arguments without echoing their values."""
+
+    def error(self, message: str) -> None:
+        del message
+        self.print_usage(sys.stderr)
+        self.exit(2, f"{self.prog}: error: invalid arguments\n")
+
 
 # --------------------
 # Helpers
@@ -108,7 +119,7 @@ def cmd_embed(args: argparse.Namespace) -> int:
     key = _resolve_key(args)
     secret = _resolve_secret(args)
     if not is_watermarking_applicable(method=args.method,pdf=args.input, position=args.position):
-        print(f"Method {args.method} is not applicable on {args.output} at {args.position}.")
+        print("watermarking failed", file=sys.stderr)
         return 5
 
     pdf_bytes = apply_watermark(
@@ -126,13 +137,8 @@ def cmd_embed(args: argparse.Namespace) -> int:
 
 def cmd_extract(args: argparse.Namespace) -> int:
     key = _resolve_key(args)
-    secret = read_watermark(method=args.method, pdf=args.input, key=key)
-    if args.out:
-        with open(args.out, "w", encoding="utf-8") as fh:
-            fh.write(secret)
-        print(f"Wrote secret -> {args.out}")
-    else:
-        print(secret)
+    read_watermark(method=args.method, pdf=args.input, key=key)
+    print("Watermark verified")
     return 0
 
 
@@ -141,7 +147,7 @@ def cmd_extract(args: argparse.Namespace) -> int:
 # --------------------
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
+    p = SafeArgumentParser(
         prog="pdfwm",
         description="PDF watermarking utilities (embed/extract/explore)"
     )
@@ -191,7 +197,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_embed.set_defaults(func=cmd_embed)
 
     # extract
-    p_extract = sub.add_parser("extract", help="Extract a secret from a PDF")
+    p_extract = sub.add_parser(
+        "extract",
+        help="Verify a watermark without revealing its secret",
+    )
     p_extract.add_argument("input", help="Input PDF path (possibly watermarked)")
     p_extract.add_argument(
         "--method",
@@ -205,8 +214,6 @@ def build_parser() -> argparse.ArgumentParser:
     g_key2.add_argument("--key-stdin", action="store_true", help="Read key from stdin")
     g_key2.add_argument("--key-prompt", action="store_true", help="Prompt for key")
 
-    p_extract.add_argument("--out", help="Write recovered secret to file (default: stdout)")
-
     p_extract.set_defaults(func=cmd_extract)
 
     return p
@@ -216,29 +223,28 @@ def build_parser() -> argparse.ArgumentParser:
 # Entrypoint
 # --------------------
 
-def main(argv: Optional[Iterable[str]] = None) -> int:
+def main(argv: Iterable[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
 
     try:
         return int(args.func(args))
-    except FileNotFoundError as e:
-        print(f"error: {e}", file=sys.stderr)
+    except (OSError, ValueError, KeyError, EOFError):
+        print("invalid input", file=sys.stderr)
         return 2
-    except ValueError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return 2
-    except SecretNotFoundError as e:
-        print(f"secret not found: {e}", file=sys.stderr)
+    except SecretNotFoundError:
+        print("secret not found", file=sys.stderr)
         return 3
-    except InvalidKeyError as e:
-        print(f"invalid key: {e}", file=sys.stderr)
+    except InvalidKeyError:
+        print("invalid key", file=sys.stderr)
         return 4
-    except WatermarkingError as e:
-        print(f"watermarking error: {e}", file=sys.stderr)
+    except WatermarkingError:
+        print("watermarking failed", file=sys.stderr)
+        return 5
+    except Exception:  # noqa: BLE001 - CLI boundary must not emit tracebacks.
+        print("watermarking failed", file=sys.stderr)
         return 5
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

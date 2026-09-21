@@ -21,14 +21,15 @@ used. (Other watermarking methods may use PyMuPDF / ``fitz``.)
 """
 from __future__ import annotations
 
-from typing import Final
 import base64
 import hashlib
 import hmac
 import json
+from typing import Final
 
 from watermarking_method import (
     InvalidKeyError,
+    PdfSource,
     SecretNotFoundError,
     WatermarkingError,
     WatermarkingMethod,
@@ -139,7 +140,7 @@ class AddAfterEOF(WatermarkingMethod):
         if not (isinstance(payload, dict) and payload.get("v") == 1):
             raise SecretNotFoundError("Unsupported watermark version or format")
         if payload.get("alg") != "HMAC-SHA256":
-            raise WatermarkingError("Unsupported MAC algorithm: %r" % payload.get("alg"))
+            raise WatermarkingError("Unsupported MAC algorithm: {!r}".format(payload.get("alg")))
 
         try:
             mac_hex = str(payload["mac"])  # stored as hex string

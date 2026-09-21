@@ -1,29 +1,49 @@
-import os
-import io
 import hashlib
-from pathlib import Path
+import os
+import sqlite3
 from functools import wraps
+from pathlib import Path
 from uuid import uuid4
 
-from flask import Flask, jsonify, request, g, send_file
-from werkzeug.utils import secure_filename
-from werkzeug.security import generate_password_hash, check_password_hash
-from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
-
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import IntegrityError
-
-
+import fitz
 import watermarking_utils as WMUtils
+from flask import Flask, g, jsonify, request, send_file
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from login_rate_limit import LoginRateLimited, LoginRateLimiter
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
+from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
+
 #from watermarking_utils import METHODS, apply_watermark, read_watermark, explore_pdf, is_watermarking_applicable, get_method
+
+
+DEFAULT_MAX_UPLOAD_SIZE_BYTES = 64 * 1024 * 1024
+MULTIPART_OVERHEAD_BYTES = 1024 * 1024
+
+
+class UploadTooLargeError(Exception):
+    """Raised when an uploaded document exceeds the configured byte limit."""
+
 
 def create_app():
     app = Flask(__name__)
 
     # --- Config ---
-    app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-secret-change-me")
+    secret_key = os.environ.get("SECRET_KEY", "").strip()
+
+    if not secret_key or secret_key == "dev-secret-change-me":
+        raise RuntimeError("Set SECRET_KEY to a private, randomly generated value")
+
+    app.config["SECRET_KEY"] = secret_key
     app.config["STORAGE_DIR"] = Path(os.environ.get("STORAGE_DIR", "./storage")).resolve()
     app.config["TOKEN_TTL_SECONDS"] = int(os.environ.get("TOKEN_TTL_SECONDS", "86400"))
+    app.config["MAX_UPLOAD_SIZE_BYTES"] = int(os.environ.get(
+        "MAX_UPLOAD_SIZE_BYTES", str(DEFAULT_MAX_UPLOAD_SIZE_BYTES),
+    ))
+    if app.config["MAX_UPLOAD_SIZE_BYTES"] <= 0:
+        raise RuntimeError("MAX_UPLOAD_SIZE_BYTES must be a positive integer")
 
     app.config["DB_USER"] = os.environ.get("DB_USER", "tatou")
     app.config["DB_PASSWORD"] = os.environ.get("DB_PASSWORD", "tatou")
@@ -32,6 +52,9 @@ def create_app():
     app.config["DB_NAME"] = os.environ.get("DB_NAME", "tatou")
 
     app.config["STORAGE_DIR"].mkdir(parents=True, exist_ok=True)
+    login_limiter = LoginRateLimiter(
+        app.config["STORAGE_DIR"] / ".auth" / "login-attempts.sqlite3", secret_key,
+    )
 
     # --- DB engine only (no Table metadata) ---
     def db_url() -> str:
@@ -53,6 +76,20 @@ def create_app():
 
     def _auth_error(msg: str, code: int = 401):
         return jsonify({"error": msg}), code
+
+    def _log_internal_failure(context: str, error: Exception) -> None:
+        app.logger.warning(
+            "%s failed (%s)", context, type(error).__name__,
+        )
+
+    def _internal_error_response(
+        context: str,
+        error: Exception,
+        public_message: str,
+        status: int,
+    ):
+        _log_internal_failure(context, error)
+        return jsonify({"error": public_message}), status
 
     def require_auth(f):
         @wraps(f)
@@ -77,6 +114,64 @@ def create_app():
             for chunk in iter(lambda: f.read(1024 * 1024), b""):
                 h.update(chunk)
         return h.hexdigest()
+
+    def _save_upload_with_limit(file, path: Path) -> None:
+        remaining = app.config["MAX_UPLOAD_SIZE_BYTES"]
+        with path.open("xb") as output:
+            while True:
+                chunk = file.stream.read(min(1024 * 1024, remaining + 1))
+                if not chunk:
+                    return
+                if len(chunk) > remaining:
+                    raise UploadTooLargeError
+                output.write(chunk)
+                remaining -= len(chunk)
+
+    def _is_valid_pdf(path: Path) -> bool:
+        try:
+            if path.stat().st_size == 0:
+                return False
+            with path.open("rb") as source:
+                if source.read(5) != b"%PDF-":
+                    return False
+            with fitz.open(str(path)) as document:
+                if document.needs_pass or document.is_encrypted:
+                    return False
+                if document.page_count < 1:
+                    return False
+                for page_number in range(document.page_count):
+                    try:
+                        document.load_page(page_number)
+                        return True
+                    except (RuntimeError, ValueError):
+                        continue
+                return False
+        except (fitz.EmptyFileError, fitz.FileDataError, OSError, RuntimeError, ValueError):
+            return False
+
+    def _remove_file(path: Path | None) -> None:
+        if path is None:
+            return
+        try:
+            path.unlink(missing_ok=True)
+        except OSError as error:
+            _log_internal_failure("file cleanup", error)
+
+    @app.errorhandler(Exception)
+    def handle_unexpected_error(error: Exception):
+        if isinstance(error, RequestEntityTooLarge):
+            return jsonify({"error": "document exceeds maximum upload size"}), 413
+        if isinstance(error, HTTPException):
+            if not request.path.startswith("/api/"):
+                return error
+            status = error.code or 500
+            message = (
+                "internal server error" if status >= 500 else "request failed"
+            )
+            _log_internal_failure("HTTP request", error)
+            return jsonify({"error": message}), status
+        _log_internal_failure("unhandled request", error)
+        return jsonify({"error": "internal server error"}), 500
 
     @app.before_request
     def protect_state_changing_requests():
@@ -107,7 +202,7 @@ def create_app():
             with get_engine().connect() as conn:
                 conn.execute(text("SELECT 1"))
             db_ok = True
-        except Exception:
+        except SQLAlchemyError:
             db_ok = False
         return jsonify({"message": "The server is up and running.", "db_connected": db_ok}), 200
 
@@ -136,8 +231,11 @@ def create_app():
                 ).one()
         except IntegrityError:
             return jsonify({"error": "email or login already exists"}), 409
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "create user database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         return jsonify({"id": row.id, "email": row.email, "login": row.login}), 201
 
@@ -145,8 +243,13 @@ def create_app():
     @app.post("/api/login")
     def login():
         payload = request.get_json(silent=True) or {}
-        email = (payload.get("email") or "").strip()
-        password = payload.get("password") or ""
+        if not isinstance(payload, dict):
+            return jsonify({"error": "email and password must be strings"}), 400
+        email = payload.get("email", "")
+        password = payload.get("password", "")
+        if not isinstance(email, str) or not isinstance(password, str):
+            return jsonify({"error": "email and password must be strings"}), 400
+        email = email.strip().lower()
         if not email or not password:
             return jsonify({"error": "email and password are required"}), 400
 
@@ -156,11 +259,33 @@ def create_app():
                     text("SELECT id, email, login, hpassword FROM Users WHERE email = :email LIMIT 1"),
                     {"email": email},
                 ).first()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "login database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
-        if not row or not check_password_hash(row.hpassword, password):
-            return jsonify({"error": "invalid credentials"}), 401
+        # Known accounts use their numeric ID, including database-collation
+        # aliases of the email. Unknown accounts receive the same failure budget.
+        account = f"user:{row.id}" if row else f"email:{email.casefold()}"
+        try:
+            # The deployment connects directly to Gunicorn. Do not trust
+            # client-supplied X-Forwarded-For / X-Real-IP headers.
+            with login_limiter.attempt(account, request.remote_addr or "unknown") as attempt:
+                if not row or not check_password_hash(row.hpassword, password):
+                    attempt.failed = True
+                    return jsonify({"error": "invalid credentials"}), 401
+        except LoginRateLimited as error:
+            response = jsonify({"error": "too many login attempts; try again shortly"})
+            response.status_code = 429
+            response.headers["Retry-After"] = str(error.retry_after)
+            response.headers["Cache-Control"] = "no-store"
+            return response
+        except (sqlite3.Error, OSError) as error:
+            # A failed limiter must not silently permit unlimited guesses.
+            return _internal_error_response(
+                "login rate-limit storage", error, "service temporarily unavailable", 503,
+            )
 
         token = _serializer().dumps({"uid": int(row.id), "login": row.login, "email": row.email})
         return jsonify({"token": token, "token_type": "bearer", "expires_in": app.config["TOKEN_TTL_SECONDS"]}), 200
@@ -169,6 +294,9 @@ def create_app():
     @app.post("/api/upload-document")
     @require_auth
     def upload_document():
+        request.max_content_length = (
+            app.config["MAX_UPLOAD_SIZE_BYTES"] + MULTIPART_OVERHEAD_BYTES
+        )
         if "file" not in request.files:
             return jsonify({"error": "file is required (multipart/form-data)"}), 400
         file = request.files["file"]
@@ -176,28 +304,54 @@ def create_app():
             return jsonify({"error": "empty filename"}), 400
 
         fname = secure_filename(file.filename)
-        if not fname:
-            return jsonify({"error": "invalid filename"}), 400
+        if (
+            not fname.endswith(".pdf")
+            or not fname[:-4]
+            or fname.count(".") != 1
+        ):
+            return jsonify({"error": "lowercase .pdf extension required"}), 400
 
         final_name = request.form.get("name") or fname
         storage_root = app.config["STORAGE_DIR"]
+        temporary_path = None
+        stored_path = None
+        stored_path_reserved = False
         try:
             user_dir = _safe_resolve_under_storage(
                 storage_root / "files" / str(int(g.user["id"])),
                 storage_root,
             )
             user_dir.mkdir(parents=True, exist_ok=True)
-            stored_name = f"{uuid4().hex}.pdf"
+            upload_id = uuid4().hex
+            temporary_path = _safe_resolve_under_storage(
+                user_dir / f".upload-{upload_id}.tmp", user_dir,
+            )
+            _save_upload_with_limit(file, temporary_path)
+
+            if not _is_valid_pdf(temporary_path):
+                _remove_file(temporary_path)
+                return jsonify({"error": "invalid PDF document"}), 400
+
+            sha_hex = _sha256_file(temporary_path)
+            size = temporary_path.stat().st_size
+            stored_name = f"{upload_id}.pdf"
             stored_path = _safe_resolve_under_storage(
                 user_dir / stored_name, user_dir,
             )
-            with stored_path.open("xb") as output:
-                file.save(output)
+            # A same-filesystem hard link publishes the complete validated
+            # file atomically and refuses to overwrite an existing UUID path.
+            os.link(temporary_path, stored_path)
+            stored_path_reserved = True
+            temporary_path.unlink()
+            temporary_path = None
+        except UploadTooLargeError:
+            _remove_file(temporary_path)
+            return jsonify({"error": "document exceeds maximum upload size"}), 413
         except (RuntimeError, ValueError, OSError):
+            _remove_file(temporary_path)
+            if stored_path_reserved:
+                _remove_file(stored_path)
             return jsonify({"error": "could not store document"}), 500
-
-        sha_hex = _sha256_file(stored_path)
-        size = stored_path.stat().st_size
 
         try:
             with get_engine().begin() as conn:
@@ -223,8 +377,12 @@ def create_app():
                     """),
                     {"id": did},
                 ).one()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except SQLAlchemyError as error:
+            _remove_file(stored_path)
+            return _internal_error_response(
+                "upload database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         return jsonify({
             "id": int(row.id),
@@ -249,8 +407,11 @@ def create_app():
                     """),
                     {"uid": int(g.user["id"])},
                 ).all()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "document list database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         docs = [{
             "id": int(r.id),
@@ -284,12 +445,15 @@ def create_app():
                         FROM Users u
                         JOIN Documents d ON d.ownerid = u.id
                         JOIN Versions v ON d.id = v.documentid
-                        WHERE u.login = :glogin AND d.id = :did
+                        WHERE d.ownerid = :uid AND d.id = :did
                     """),
-                    {"glogin": str(g.user["login"]), "did": document_id},
+                    {"uid": int(g.user["id"]), "did": document_id},
                 ).all()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "version list database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         versions = [{
             "id": int(r.id),
@@ -314,12 +478,15 @@ def create_app():
                         FROM Users u
                         JOIN Documents d ON d.ownerid = u.id
                         JOIN Versions v ON d.id = v.documentid
-                        WHERE u.login = :glogin
+                        WHERE d.ownerid = :uid
                     """),
-                    {"glogin": str(g.user["login"])},
+                    {"uid": int(g.user["id"])},
                 ).all()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "all versions database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         versions = [{
             "id": int(r.id),
@@ -355,8 +522,11 @@ def create_app():
                     """),
                     {"id": document_id, "uid": int(g.user["id"])},
                 ).first()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "document lookup database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         # Don’t leak whether a doc exists for another user
         if not row:
@@ -404,8 +574,11 @@ def create_app():
                     """),
                     {"link": link},
                 ).first()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "version lookup database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         # Don’t leak whether a doc exists for another user
         if not row:
@@ -470,7 +643,7 @@ def create_app():
             if isinstance(document_id, bool) or not isinstance(
                 document_id, (str, int)
             ):
-                raise ValueError
+                raise TypeError
             doc_id = int(document_id)
             if doc_id <= 0:
                 raise ValueError
@@ -492,8 +665,11 @@ def create_app():
                         "uid": int(g.user["id"]),
                     },
                 ).first()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "delete lookup database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         if not row:
             # Don’t reveal others’ docs—just say not found
@@ -503,7 +679,7 @@ def create_app():
         storage_root = Path(app.config["STORAGE_DIR"])
         file_deleted = False
         file_missing = False
-        delete_error = None
+        delete_note = None
         try:
             fp = _safe_resolve_under_storage(row.path, storage_root)
             if fp.exists():
@@ -512,9 +688,9 @@ def create_app():
                 try:
                     fp.unlink()
                     file_deleted = True
-                except Exception as e:
-                    delete_error = f"failed to delete file: {e}"
-                    app.logger.warning("Failed to delete file %s for doc id=%s: %s", fp, row.id, e)
+                except OSError as error:
+                    delete_note = "file deletion failed"
+                    _log_internal_failure("document file deletion", error)
             else:
                 file_missing = True
         except (RuntimeError, ValueError, OSError):
@@ -537,15 +713,18 @@ def create_app():
                 if result.rowcount != 1:
                     return jsonify({"error": "document not found"}), 404
 
-        except Exception as e:
-            return jsonify({"error": f"database error during delete: {str(e)}"}), 503
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "document delete database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         return jsonify({
             "deleted": True,
             "id": doc_id,
             "file_deleted": file_deleted,
             "file_missing": file_missing,
-            "note": delete_error,   # null/omitted if everything was fine
+            "note": delete_note,
         }), 200
         
         
@@ -597,8 +776,11 @@ def create_app():
                     """),
                     {"id": doc_id, "uid": int(g.user["id"])},
                 ).first()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "watermark document lookup", error,
+                "service temporarily unavailable", 503,
+            )
 
         if not row:
             return jsonify({"error": "document not found"}), 404
@@ -620,9 +802,12 @@ def create_app():
                 position=position
             )
             if applicable is False:
-                return jsonify({"error": "watermarking method not applicable"}), 400
-        except Exception as e:
-            return jsonify({"error": f"watermark applicability check failed: {e}"}), 400
+                return jsonify({"error": "invalid watermarking request"}), 400
+        except (TypeError, ValueError, OSError, RuntimeError) as error:
+            return _internal_error_response(
+                "watermark applicability check", error,
+                "invalid watermarking request", 400,
+            )
 
         # apply watermark → bytes
         try:
@@ -634,9 +819,12 @@ def create_app():
                 position=position
             )
             if not isinstance(wm_bytes, (bytes, bytearray)) or len(wm_bytes) == 0:
-                return jsonify({"error": "watermarking produced no output"}), 500
-        except Exception as e:
-            return jsonify({"error": f"watermarking failed: {e}"}), 500
+                return jsonify({"error": "watermarking failed"}), 500
+        except (TypeError, ValueError, OSError, RuntimeError) as error:
+            return _internal_error_response(
+                "watermark application", error,
+                "watermarking failed", 500,
+            )
 
         # Use safe name components and a unique suffix to prevent overwrites.
         base_name = secure_filename(
@@ -675,15 +863,18 @@ def create_app():
                     },
                 )
                 vid = int(conn.execute(text("SELECT LAST_INSERT_ID()")).scalar())
-        except Exception as e:
+        except SQLAlchemyError as error:
             # best-effort cleanup if DB insert fails
             try:
                 _safe_resolve_under_storage(
                     dest_path, app.config["STORAGE_DIR"],
                 ).unlink(missing_ok=True)
-            except Exception:
-                pass
-            return jsonify({"error": f"database error during version insert: {e}"}), 503
+            except (OSError, ValueError) as cleanup_error:
+                _log_internal_failure("watermark file cleanup", cleanup_error)
+            return _internal_error_response(
+                "watermark version database operation", error,
+                "service temporarily unavailable", 503,
+            )
 
         return jsonify({
             "id": vid,
@@ -758,8 +949,11 @@ def create_app():
                     """),
                     {"id": doc_id, "uid": int(g.user["id"])},
                 ).first()
-        except Exception as e:
-            return jsonify({"error": f"database error: {str(e)}"}), 503
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "watermark read document lookup", error,
+                "service temporarily unavailable", 503,
+            )
 
         if not row:
             return jsonify({"error": "document not found"}), 404
@@ -780,8 +974,11 @@ def create_app():
                 pdf=str(file_path),
                 key=key
             )
-        except Exception as e:
-            return jsonify({"error": f"Error when attempting to read watermark: {e}"}), 400
+        except (ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError) as error:
+            return _internal_error_response(
+                "watermark read", error,
+                "could not read watermark", 400,
+            )
         return jsonify({
             "documentid": doc_id,
             "secret": secret,
@@ -796,6 +993,5 @@ def create_app():
 app = create_app()
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
-
