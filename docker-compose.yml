@@ -43,19 +43,19 @@ services:
       - "3306:3306"
     restart: unless-stopped
 
-  phpmyadmin:
-    image: phpmyadmin:5.2
-    environment:
-      - PMA_HOST=db
-      - PMA_PORT=3306
-      - UPLOAD_LIMIT=64M     # <-- use a unit and quote if using YAML key:value form
-      - MEMORY_LIMIT=256M
-    ports:
-      - "8080:80"
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
+  #phpmyadmin:
+  #  image: phpmyadmin:5.2
+  #  environment:
+  #    - PMA_HOST=db
+  #    - PMA_PORT=3306
+  #    - UPLOAD_LIMIT=64M     # <-- use a unit and quote if using YAML key:value form
+  #    - MEMORY_LIMIT=256M
+  #  ports:
+  #    - "8080:80"
+  #  depends_on:
+  #    db:
+  #      condition: service_healthy
+  #  restart: unless-stopped
 
 volumes:
   db-data:
