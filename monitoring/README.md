@@ -14,7 +14,7 @@ This directory provides a lightweight monitoring and log aggregation stack for T
 
 | Service | URL | Default Credentials |
 | :--- | :--- | :--- |
-| **Grafana** | [http://localhost:3000](http://localhost:3000) | Anonymous Admin access enabled (or `admin` / `admin`) |
+| **Grafana** | [http://localhost:3000](http://localhost:3000) | Configured via `GF_USERNAME` and `GF_PASSWORD` in `.env` |
 | **Prometheus** | [http://localhost:9090](http://localhost:9090) | No auth required |
 | **Loki** | [http://localhost:3100](http://localhost:3100) | No auth required |
 | **cAdvisor** | [http://localhost:8081](http://localhost:8081) | No auth required |
