@@ -387,6 +387,22 @@ This endpoint reads information contain in a pdf document's watermark with the p
 }
 ```
 
+**Leak attribution (RMAP service account only)**
+If the authenticated user owns the document configured as `RMAP_DOCUMENT_ID`
+(the RMAP service account), the response also contains an `attribution`
+field. The recovered secret is looked up in `Versions` for that document:
+```json
+{
+    "documentid": <int>,
+    "secret": <string>,
+    "method": <string>,
+    "position": <string>,
+    "attribution": {"intended_for": <string>, "link": <string>} | null
+}
+```
+`attribution` is `null` when no RMAP version has that secret. For every other
+user the response is unchanged and has no `attribution` field.
+
 **Specification**
  * The endpoint MUST return the secret read in the document.
 
@@ -564,31 +580,3 @@ Compose mounts `RMAP_KEYS_HOST_DIR` (or `./rmap-keys` by default) read-only at
 `/app/rmap-keys`; the directory and private keys are ignored by Git. Use the
 passphrase file instead of the environment variable when the private key is
 protected, and do not set both variables.
-
-## attribute-leak
-
-**Description**
-Leak attribution (usage-scenario step V). Given a leaked PDF uploaded as a
-document, recover the RMAP watermark and identify the recipient group that
-received that copy. The watermark method and key are read from server-side
-RMAP configuration and are never accepted from the client, so this endpoint is
-not a public "is this watermarked?" oracle.
-
-**Path**
-`POST /api/attribute-leak` or `POST /api/attribute-leak/<document_id>`
-
-**Authentication**
-Requires `Authorization: Bearer <token>`. Only the account that owns the
-configured `RMAP_DOCUMENT_ID` (the RMAP service account) is authorized; every
-other caller receives `403`. RMAP must be configured, otherwise `503`.
-
-**Parameters**
-The leaked document id, taken from the path, `?id=`/`?documentid=`, or a JSON
-body `{ "id": <int> }`. The caller must own that document (upload the leaked
-PDF first via `upload-document`).
-
-**Responses**
-- `200` `{ "identity": "Group_07", "link": "<32-hex>", "documentid": <int> }`
-- `404` if no watermark can be recovered, or it matches no known version.
-- `403` if the caller is not the RMAP service account.
-- `503` if RMAP/attribution is not configured.
