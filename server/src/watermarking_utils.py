@@ -90,6 +90,15 @@ def get_method(method: str | WatermarkingMethod) -> WatermarkingMethod:
 # Public API helpers
 # --------------------
 
+def validate_secret_string(secret: str, max_bytes: int = 64) -> str:
+    """Validate that secret is a non-empty string and does not exceed max_bytes UTF-8."""
+    if not isinstance(secret, str) or not secret:
+        raise ValueError("Secret must be a non-empty string")
+    if len(secret.encode("utf-8")) > max_bytes:
+        raise ValueError(f"Secret must be 1-{max_bytes} UTF-8 bytes")
+    return secret
+
+
 def apply_watermark(
     method: str | WatermarkingMethod,
     pdf: PdfSource,
@@ -101,12 +110,13 @@ def apply_watermark(
     m = get_method(method)
     return m.add_watermark(pdf=pdf, secret=secret, key=key, position=position)
 
+
 def is_watermarking_applicable(
     method: str | WatermarkingMethod,
     pdf: PdfSource,
     position: str | None = None,
-) -> bytes:
-    """Apply a watermark using the specified method and return new PDF bytes."""
+) -> bool:
+    """Return True if the specified watermark method is applicable to the PDF."""
     m = get_method(method)
     return m.is_watermark_applicable(pdf=pdf, position=position)
 
@@ -253,5 +263,6 @@ __all__ = [
     "get_method",
     "is_watermarking_applicable",
     "read_watermark",
-    "register_method"
+    "register_method",
+    "validate_secret_string",
 ]

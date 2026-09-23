@@ -128,3 +128,51 @@ def test_trustmark_experiment_refuses_missing_models_before_engine(tmp_path, mon
     )
     with pytest.raises(RuntimeError, match="not preinstalled"):
         tm_experiment._ready_model()
+
+
+def test_layer_toggles_and_prerequisites(pdf_bytes, monkeypatch):
+    method = HybridPageWatermark()
+
+    # Base rasterization is mandatory
+    monkeypatch.setattr(HybridPageWatermark, "ENABLE_RASTER_BASE", False)
+    with pytest.raises(WatermarkingError, match="Base rasterization layer"):
+        method.add_watermark(pdf_bytes, "test-copy", KEY)
+    monkeypatch.undo()
+
+    # Disabling QR watermark prevents reading secret
+    monkeypatch.setattr(HybridPageWatermark, "ENABLE_QR_WATERMARK", False)
+    with pytest.raises(WatermarkingError, match="QR watermark layer is disabled"):
+        method.read_secret(pdf_bytes, KEY)
+    monkeypatch.undo()
+
+    # Disabling visible text still produces a readable QR watermark
+    monkeypatch.setattr(HybridPageWatermark, "ENABLE_VISIBLE_TEXT", False)
+    watermarked_no_text = method.add_watermark(pdf_bytes, "only-qr", KEY)
+    assert method.read_secret(watermarked_no_text, KEY) == "only-qr"
+    monkeypatch.undo()
+
+
+def test_modular_crypto_and_utils_exports():
+    from francesco_watermark import utils
+
+    # Verify that utils re-exports the modular helper functions
+    assert callable(utils.parse_hex_key)
+    assert callable(utils.derive_sub_key)
+    assert callable(utils.compute_visible_code)
+    assert callable(utils.encrypt_qr_payload)
+    assert callable(utils.decrypt_qr_payload)
+    assert callable(utils.rasterize_page)
+    assert callable(utils.assemble_pdf_from_images)
+
+    # Test modular crypto functions directly
+    key_bytes = utils.parse_hex_key(KEY)
+    assert len(key_bytes) == 32
+    sub_key = utils.derive_sub_key(KEY, b"test", 16)
+    assert len(sub_key) == 16
+    code = utils.compute_visible_code("hello", KEY)
+    assert len(code) == 16
+    payload = utils.encrypt_qr_payload("secret-val", KEY)
+    assert payload.startswith("TW1:")
+    recovered = utils.decrypt_qr_payload(payload, KEY)
+    assert recovered == "secret-val"
+
