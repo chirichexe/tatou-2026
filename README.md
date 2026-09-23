@@ -35,12 +35,11 @@ python -m pytest
 
 ### Add a watermarking method
 
-Put each concrete method in its own module under `server/src/watermarking_methods/`
-and implement the `WatermarkingMethod` interface in `server/src/watermarking_method.py`.
-Register the method explicitly in `server/src/watermarking_utils.py`; the server and
-CLI use that registry, and no modules are loaded dynamically. Keep method-specific
-tests in a matching file under `server/test/watermarking/`. Shared contract and CLI
-tests live there too. The old top-level EOF modules remain as compatibility imports.
+Implement the `WatermarkingMethod` interface in `server/src/watermarking_method.py`.
+Concrete methods can live in their own file or dedicated package under `server/src/`
+(e.g., `server/src/francesco_watermark/`). Register the method explicitly in
+`server/src/watermarking_utils.py`; the server and CLI use that registry, and no
+modules are loaded dynamically. Keep tests in matching files under `server/test/`.
 
 ### Deploy
 

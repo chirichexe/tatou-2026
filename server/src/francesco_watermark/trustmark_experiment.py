@@ -84,7 +84,7 @@ def read_assigned_pdf_tag(pdf: PdfSource) -> str | None:
     # The output is rasterized, so the original embedded-image rectangle is no
     # longer available as a PDF object.  These normalized bounds are the
     # measured layout of the assigned one-page document.
-    from watermarking_methods.hybrid_page import HybridPageWatermark
+    from .method import HybridPageWatermark
 
     with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as document:
         if document.page_count != 1:

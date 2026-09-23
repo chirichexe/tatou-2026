@@ -1,5 +1,3 @@
-"""Behavior and legacy compatibility of the bash-bridge EOF method."""
-
 from __future__ import annotations
 
 from io import BytesIO
@@ -7,9 +5,6 @@ from io import BytesIO
 import pytest
 from unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
 from watermarking_method import SecretNotFoundError, WatermarkingError
-from watermarking_methods.unsafe_bash_bridge_append_eof import (
-    UnsafeBashBridgeAppendEOF as PackagedUnsafeBashBridgeAppendEOF,
-)
 from watermarking_utils import METHODS
 
 PDF = (
@@ -98,7 +93,6 @@ def test_non_utf8_watermark_raises_watermarking_error(method):
 
 
 def test_method_remains_registered():
-    assert UnsafeBashBridgeAppendEOF is PackagedUnsafeBashBridgeAppendEOF
     assert METHODS["bash-bridge-eof"].name == "bash-bridge-eof"
 
 

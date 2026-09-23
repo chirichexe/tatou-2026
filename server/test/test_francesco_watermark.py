@@ -9,9 +9,9 @@ import pytest
 from PIL import Image
 
 from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
-from watermarking_methods.hybrid_page import HybridPageWatermark
-from watermarking_methods import trustmark_experiment as tm_experiment
-from watermarking_methods.trustmark_experiment import payload_for_copy
+from francesco_watermark.method import HybridPageWatermark
+from francesco_watermark import trustmark_experiment as tm_experiment
+from francesco_watermark.trustmark_experiment import payload_for_copy
 
 
 KEY = "0123456789abcdef" * 4

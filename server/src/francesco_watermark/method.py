@@ -81,7 +81,7 @@ class HybridPageWatermark(WatermarkingMethod):
     @classmethod
     def expected_photo_tag(cls, secret: str, key: str) -> str:
         """Experimental keyed tag to compare with a decoded photo tag."""
-        from watermarking_methods.trustmark_experiment import payload_for_copy
+        from .trustmark_experiment import payload_for_copy
 
         return payload_for_copy(secret, cls._derive(key, b"trustmark-tag", 32))
 
@@ -133,7 +133,7 @@ class HybridPageWatermark(WatermarkingMethod):
                             photo.x1 / page.rect.width, photo.y1 / page.rect.height,
                         )
                         if any(abs(actual - expected) > 0.02 for actual, expected in
-                               zip(ratios, cls.ASSIGNED_PHOTO_FRACTIONS)):
+                                zip(ratios, cls.ASSIGNED_PHOTO_FRACTIONS)):
                             return False
         except (fitz.FileDataError, ValueError, RuntimeError):
             return False
@@ -199,7 +199,7 @@ class HybridPageWatermark(WatermarkingMethod):
     def _mark_photo_experiment(
         cls, image: Image.Image, page: fitz.Page, secret: str, key: str,
     ) -> Image.Image:
-        from watermarking_methods.trustmark_experiment import embed_photo
+        from .trustmark_experiment import embed_photo
 
         rect = cls._photo_rect(page)
         if rect is None:

@@ -1,12 +1,10 @@
-"""Behavior and legacy compatibility of the toy EOF method."""
-
+"""Behavior of the toy EOF method."""
 from io import BytesIO
 
 import fitz
 import pytest
 from add_after_eof import AddAfterEOF
 from watermarking_method import InvalidKeyError, SecretNotFoundError
-from watermarking_methods.add_after_eof import AddAfterEOF as PackagedAddAfterEOF
 from watermarking_utils import METHODS
 
 
@@ -50,6 +48,5 @@ def test_embedding_is_deterministic(pdf_bytes):
     )
 
 
-def test_legacy_import_and_registry_are_compatible():
-    assert AddAfterEOF is PackagedAddAfterEOF
+def test_registry_is_compatible():
     assert isinstance(METHODS["toy-eof"], AddAfterEOF)

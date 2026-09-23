@@ -38,9 +38,9 @@ from watermarking_method import (
     WatermarkingMethod,
     load_pdf_bytes,
 )
-from watermarking_methods.add_after_eof import AddAfterEOF
-from watermarking_methods.hybrid_page import HybridPageWatermark
-from watermarking_methods.unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
+from add_after_eof import AddAfterEOF
+from francesco_watermark import HybridPageWatermark
+from unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
 
 logger = logging.getLogger(__name__)
 
