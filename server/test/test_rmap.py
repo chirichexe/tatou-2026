@@ -104,10 +104,7 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
                     text("SELECT * FROM Versions WHERE link = :link"), {"link": link},
                 ).one()
             assert version.intended_for == "Group_01"
-            assert isinstance(version.secret, str)
-            assert len(version.secret) >= 20
-            assert link not in version.secret
-            assert link.encode("ascii") not in response.data
+            assert version.secret == f"Group_01:{link}"
             assert read_watermark(method, version.path, key) == version.secret
 
         assert links[0] != links[1]

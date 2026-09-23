@@ -375,7 +375,7 @@ def create_app():
             )
             if not source_path.is_file():
                 return jsonify({"error": "RMAP document missing on disk"}), 410
-            watermark_secret = secrets.token_urlsafe(16)
+            watermark_secret = f"{identity}:{expected_link}"
             wm_bytes = WMUtils.apply_watermark(
                 pdf=str(source_path),
                 secret=watermark_secret,
