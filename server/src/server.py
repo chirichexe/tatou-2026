@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+from watermarking_method import WatermarkingError
 
 #from watermarking_utils import METHODS, apply_watermark, read_watermark, explore_pdf, is_watermarking_applicable, get_method
 
@@ -1023,7 +1024,7 @@ def create_app():
             )
             if applicable is False:
                 return jsonify({"error": "invalid watermarking request"}), 400
-        except (TypeError, ValueError, OSError, RuntimeError) as error:
+        except (TypeError, ValueError, OSError, RuntimeError, WatermarkingError) as error:
             return _internal_error_response(
                 "watermark applicability check", error,
                 "invalid watermarking request", 400,
@@ -1040,7 +1041,7 @@ def create_app():
             )
             if not isinstance(wm_bytes, (bytes, bytearray)) or len(wm_bytes) == 0:
                 return jsonify({"error": "watermarking failed"}), 500
-        except (TypeError, ValueError, OSError, RuntimeError) as error:
+        except (TypeError, ValueError, OSError, RuntimeError, WatermarkingError) as error:
             return _internal_error_response(
                 "watermark application", error,
                 "watermarking failed", 500,
@@ -1169,6 +1170,18 @@ def create_app():
                     """),
                     {"id": doc_id, "uid": int(g.user["id"])},
                 ).first()
+                # Only the RMAP service account (owner of RMAP_DOCUMENT_ID)
+                # gets leak attribution; everyone else keeps the plain response.
+                is_rmap_service = False
+                if rmap_server is not None:
+                    is_rmap_service = conn.execute(
+                        text("""
+                            SELECT 1 FROM Documents
+                            WHERE id = :id AND ownerid = :uid
+                            LIMIT 1
+                        """),
+                        {"id": app.config["RMAP_DOCUMENT_ID"], "uid": int(g.user["id"])},
+                    ).first() is not None
         except SQLAlchemyError as error:
             return _internal_error_response(
                 "watermark read document lookup", error,
@@ -1194,17 +1207,39 @@ def create_app():
                 pdf=str(file_path),
                 key=key
             )
-        except (ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError) as error:
+        except (ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError, WatermarkingError) as error:
             return _internal_error_response(
                 "watermark read", error,
                 "could not read watermark", 400,
             )
-        return jsonify({
+        result = {
             "documentid": doc_id,
             "secret": secret,
             "method": method,
             "position": position
-        }), 201
+        }
+        if is_rmap_service:
+            try:
+                with get_engine().connect() as conn:
+                    version = conn.execute(
+                        text("""
+                            SELECT intended_for, link
+                            FROM Versions
+                            WHERE documentid = :docid AND secret = :secret
+                            LIMIT 1
+                        """),
+                        {"docid": app.config["RMAP_DOCUMENT_ID"], "secret": secret},
+                    ).first()
+            except SQLAlchemyError as error:
+                return _internal_error_response(
+                    "watermark read attribution lookup", error,
+                    "service temporarily unavailable", 503,
+                )
+            result["attribution"] = (
+                {"intended_for": version.intended_for, "link": version.link}
+                if version else None
+            )
+        return jsonify(result), 201
 
     return app
     

@@ -387,6 +387,22 @@ This endpoint reads information contain in a pdf document's watermark with the p
 }
 ```
 
+**Leak attribution (RMAP service account only)**
+If the authenticated user owns the document configured as `RMAP_DOCUMENT_ID`
+(the RMAP service account), the response also contains an `attribution`
+field. The recovered secret is looked up in `Versions` for that document:
+```json
+{
+    "documentid": <int>,
+    "secret": <string>,
+    "method": <string>,
+    "position": <string>,
+    "attribution": {"intended_for": <string>, "link": <string>} | null
+}
+```
+`attribution` is `null` when no RMAP version has that secret. For every other
+user the response is unchanged and has no `attribution` field.
+
 **Specification**
  * The endpoint MUST return the secret read in the document.
 

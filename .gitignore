@@ -210,3 +210,6 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 .DS_Store
+
+# Local handoff notes for Claude Code (not for the shared repo)
+CLAUDE.md
