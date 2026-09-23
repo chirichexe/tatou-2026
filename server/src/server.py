@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+from watermarking_method import WatermarkingError
 
 #from watermarking_utils import METHODS, apply_watermark, read_watermark, explore_pdf, is_watermarking_applicable, get_method
 
@@ -1015,7 +1016,7 @@ def create_app():
             )
             if applicable is False:
                 return jsonify({"error": "invalid watermarking request"}), 400
-        except (TypeError, ValueError, OSError, RuntimeError) as error:
+        except (TypeError, ValueError, OSError, RuntimeError, WatermarkingError) as error:
             return _internal_error_response(
                 "watermark applicability check", error,
                 "invalid watermarking request", 400,
@@ -1032,7 +1033,7 @@ def create_app():
             )
             if not isinstance(wm_bytes, (bytes, bytearray)) or len(wm_bytes) == 0:
                 return jsonify({"error": "watermarking failed"}), 500
-        except (TypeError, ValueError, OSError, RuntimeError) as error:
+        except (TypeError, ValueError, OSError, RuntimeError, WatermarkingError) as error:
             return _internal_error_response(
                 "watermark application", error,
                 "watermarking failed", 500,
@@ -1186,7 +1187,7 @@ def create_app():
                 pdf=str(file_path),
                 key=key
             )
-        except (ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError) as error:
+        except (ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError, WatermarkingError) as error:
             return _internal_error_response(
                 "watermark read", error,
                 "could not read watermark", 400,
