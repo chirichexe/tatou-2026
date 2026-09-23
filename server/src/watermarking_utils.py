@@ -33,8 +33,8 @@ import logging
 import re
 from typing import Any, Final
 
-from add_after_eof import AddAfterEOF
-from unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
+from watermarking_methods.add_after_eof import AddAfterEOF
+from watermarking_methods.unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
 from watermarking_method import (
     PdfSource,
     WatermarkingMethod,

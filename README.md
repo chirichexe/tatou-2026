@@ -33,6 +33,15 @@ export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 python -m pytest
 ```
 
+### Add a watermarking method
+
+Put each concrete method in its own module under `server/src/watermarking_methods/`
+and implement the `WatermarkingMethod` interface in `server/src/watermarking_method.py`.
+Register the method explicitly in `server/src/watermarking_utils.py`; the server and
+CLI use that registry, and no modules are loaded dynamically. Keep method-specific
+tests in a matching file under `server/test/watermarking/`. Shared contract and CLI
+tests live there too. The old top-level EOF modules remain as compatibility imports.
+
 ### Deploy
 
 From the root of the directory:
@@ -126,3 +135,71 @@ this implementation is intended for the single-host course deployment.
 IP limits use the direct connection address. Do not enable trust in arbitrary
 `X-Forwarded-For` headers. If a reverse proxy is introduced, configure trusted
 proxy handling explicitly; otherwise all clients behind it share one IP budget.
+
+### Enable RMAP
+
+Tatou uses the upstream [RMAP v1.0.2](https://github.com/nharrand/RMAP) package
+for the PGP challenge/response protocol. The feature stays disabled until its
+key paths are configured. Create the server keypair locally, then place the
+course-provided client public keys in `rmap-keys/clients`, named after their
+identities (for example, `Group_01.asc`). Keep private keys outside Git. For a
+server deployment, keep the entire key directory outside the checkout and set
+`RMAP_KEYS_HOST_DIR` to that absolute host path; Compose mounts it read-only at
+`/app/rmap-keys`.
+
+```bash
+mkdir -p rmap-keys/clients
+rmap-keygen --name "Tatou server" --email server@example.test \
+  --out-private rmap-keys/server_private.asc \
+  --out-public rmap-keys/server_public.asc
+```
+
+Set these values in `.env` for Compose:
+
+```dotenv
+RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/server_public.asc
+RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/server_private.asc
+RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
+RMAP_DOCUMENT_ID=42
+RMAP_WATERMARK_METHOD=my-robust-method
+RMAP_WATERMARK_KEY=<private-watermark-key>
+RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
+```
+
+For example, a server keeping its keys in `/home/softsec/secrets` can use:
+
+```dotenv
+RMAP_KEYS_HOST_DIR=/home/softsec/secrets
+RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/public_key.asc
+RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/private_key.asc
+RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
+RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
+```
+
+`RMAP_DOCUMENT_ID` is the confidential source document already stored in Tatou.
+Every completed handshake produces a new version, watermarked with the peer's
+identity and session link, records it with the generated 32-character link,
+and returns that link. `RMAP_WATERMARK_METHOD` must name a registered
+watermarking method. The bundled `toy-eof` and `bash-bridge-eof` methods are
+easily stripped; configure the group's stronger method for the course document.
+
+When the server private key has a passphrase, create
+`rmap-keys/server_passphrase` locally with mode `600`, place the passphrase in
+that file, and keep `RMAP_SERVER_KEY_PASSPHRASE` empty. The container receives
+the key directory read-only and the passphrase is never included in the Compose
+environment.
+
+The upstream CLI can exercise the complete flow with the client keypair:
+
+```bash
+rmap-client --url http://localhost:5000 --identity Group_01 \
+  --client-private-key path/to/group01_private.asc \
+  --server-public-key rmap-keys/server_public.asc \
+  --msg1-path /api/rmap-initiate --msg2-path /api/rmap-get-link \
+  --get-link-path /api/get-version --fetch-link
+```
+
+The reference `RMAPServer` keeps pending nonces in process memory. The
+provided Gunicorn command uses one worker; if you add workers or replicas,
+route both handshake messages to the same process or provide shared session
+state.
