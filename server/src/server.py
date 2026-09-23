@@ -1199,6 +1199,113 @@ def create_app():
             "position": position
         }), 201
 
+    # POST /api/attribute-leak/<document_id>
+    # Leak attribution (scenario step V). The service account uploads the
+    # leaked PDF as one of its own documents, then calls this route. We read
+    # the RMAP watermark with the *server-side* method and key (never taken
+    # from the client) and map the recovered secret back to the recipient
+    # group via the Versions table.
+    #
+    # This is deliberately NOT a public "is this watermarked?" oracle: only
+    # the account that owns the RMAP source document may call it.
+    @app.post("/api/attribute-leak")
+    @app.post("/api/attribute-leak/<int:document_id>")
+    @require_auth
+    def attribute_leak(document_id: int | None = None):
+        if rmap_server is None:
+            return jsonify({"error": "leak attribution is not configured"}), 503
+        rmap_method = app.config["RMAP_WATERMARK_METHOD"]
+        rmap_key = app.config["RMAP_WATERMARK_KEY"]
+        rmap_doc_id = app.config["RMAP_DOCUMENT_ID"]  # int, validated at startup
+
+        # accept id from path, query (?id= / ?documentid=), or JSON body
+        if not document_id:
+            document_id = (
+                request.args.get("id")
+                or request.args.get("documentid")
+                or (request.is_json and (request.get_json(silent=True) or {}).get("id"))
+            )
+        try:
+            doc_id = int(document_id)
+        except (TypeError, ValueError):
+            return jsonify({"error": "document_id (int) is required"}), 400
+
+        # Authorization + document lookup. The caller must both own the RMAP
+        # source document (our service account) and own the leaked PDF they
+        # uploaded for analysis.
+        try:
+            with get_engine().connect() as conn:
+                source_owner = conn.execute(
+                    text("SELECT ownerid FROM Documents WHERE id = :id LIMIT 1"),
+                    {"id": rmap_doc_id},
+                ).first()
+                row = conn.execute(
+                    text("""
+                        SELECT id, path
+                        FROM Documents
+                        WHERE id = :id AND ownerid = :uid
+                        LIMIT 1
+                    """),
+                    {"id": doc_id, "uid": int(g.user["id"])},
+                ).first()
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "leak attribution lookup", error,
+                "service temporarily unavailable", 503,
+            )
+
+        if source_owner is None or int(source_owner.ownerid) != int(g.user["id"]):
+            return jsonify({"error": "not authorized"}), 403
+        if not row:
+            return jsonify({"error": "document not found"}), 404
+
+        try:
+            file_path = _safe_resolve_under_storage(
+                row.path, app.config["STORAGE_DIR"],
+            )
+        except (RuntimeError, ValueError, OSError):
+            return jsonify({"error": "document path invalid"}), 500
+        if not file_path.is_file():
+            return jsonify({"error": "file missing on disk"}), 410
+
+        # Recover the embedded secret with the server-side RMAP key/method.
+        try:
+            secret = WMUtils.read_watermark(
+                method=rmap_method,
+                pdf=str(file_path),
+                key=rmap_key,
+            )
+        except (ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError, WatermarkingError) as error:
+            _log_internal_failure("leak attribution read", error)
+            return jsonify({"error": "no recoverable watermark"}), 404
+
+        # Map the authenticated secret back to the recipient group.
+        try:
+            with get_engine().connect() as conn:
+                version = conn.execute(
+                    text("""
+                        SELECT intended_for, link
+                        FROM Versions
+                        WHERE documentid = :docid AND secret = :secret
+                        LIMIT 1
+                    """),
+                    {"docid": rmap_doc_id, "secret": secret},
+                ).first()
+        except SQLAlchemyError as error:
+            return _internal_error_response(
+                "leak attribution version lookup", error,
+                "service temporarily unavailable", 503,
+            )
+
+        if version is None:
+            return jsonify({"error": "watermark does not match any known version"}), 404
+
+        return jsonify({
+            "identity": version.intended_for,
+            "link": version.link,
+            "documentid": rmap_doc_id,
+        }), 200
+
     return app
     
 
