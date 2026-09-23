@@ -6,13 +6,11 @@ from types import SimpleNamespace
 
 import fitz
 import pytest
-from PIL import Image
-
-from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
-from francesco_watermark.method import HybridPageWatermark
 from francesco_watermark import trustmark_experiment as tm_experiment
+from francesco_watermark.method import HybridPageWatermark
 from francesco_watermark.trustmark_experiment import payload_for_copy
-
+from PIL import Image
+from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
 
 KEY = "0123456789abcdef" * 4
 OTHER_KEY = "fedcba9876543210" * 4

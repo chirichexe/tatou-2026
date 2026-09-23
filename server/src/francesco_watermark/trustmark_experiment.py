@@ -8,15 +8,14 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import importlib
 import importlib.metadata
 import importlib.util
 from pathlib import Path
 
 import fitz
 from PIL import Image
-
 from watermarking_method import PdfSource, load_pdf_bytes
-
 
 PACKAGE_VERSION = "0.9.2"
 # Checksums published in adobe/trustmark python/trustmark/trustmark.py for Q.
@@ -58,7 +57,8 @@ def _ready_model() -> None:
 
 def _engine():
     _ready_model()
-    from trustmark import TrustMark
+    trustmark_module = importlib.import_module("trustmark")
+    TrustMark = trustmark_module.TrustMark
 
     return TrustMark(
         verbose=False, model_type="Q", device="cpu",

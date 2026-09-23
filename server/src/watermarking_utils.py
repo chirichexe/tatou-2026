@@ -33,14 +33,14 @@ import logging
 import re
 from typing import Any, Final
 
+from add_after_eof import AddAfterEOF
+from francesco_watermark import HybridPageWatermark
+from unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
 from watermarking_method import (
     PdfSource,
     WatermarkingMethod,
     load_pdf_bytes,
 )
-from add_after_eof import AddAfterEOF
-from francesco_watermark import HybridPageWatermark
-from unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
 
 logger = logging.getLogger(__name__)
 

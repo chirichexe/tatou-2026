@@ -66,7 +66,7 @@ class TestAllWatermarkingMethods:
             pytest.skip(f"{method_name}: not applicable to the sample PDF")
         out_bytes = wm_impl.add_watermark(sample_pdf_path, secret=secret, key=key, position=None)
         assert isinstance(out_bytes, (bytes, bytearray)), f"{method_name}: add_watermark must return bytes"
-        assert len(out_bytes) >= len(original := sample_pdf_path.read_bytes()), f"{method_name}: watermarked bytes should not be smaller than input"
+        assert len(out_bytes) >= len(sample_pdf_path.read_bytes()), f"{method_name}: watermarked bytes should not be smaller than input"
         assert out_bytes.startswith(b"%PDF-"), f"{method_name}: output should still look like a PDF"
         with fitz.open(stream=out_bytes, filetype="pdf") as result:
             assert result.page_count == 1, f"{method_name}: output should preserve the page"
