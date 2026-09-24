@@ -47,22 +47,21 @@ JPEG_QUALITY = 92
 # ---------------------------------------------------------------- AES-SIV
 
 def _cipher(key: str) -> AESSIV:
-    # any string becomes a 64 byte AES-SIV key
-    return AESSIV(hashlib.sha512(b"tatou/davide-watermark/aes-siv-key/v1\0" + key.encode("utf-8")).digest())
+    # AES-SIV needs a 64 byte key, the configured key can be any string
+    return AESSIV(hashlib.sha512(key.encode("utf-8")).digest())
 
 
 def encrypt(secret: str, key: str) -> bytes:
     data = secret.encode("utf-8")
     if not 0 < len(data) <= MAX_SECRET_BYTES:
         raise ValueError(f"Secret must be 1-{MAX_SECRET_BYTES} bytes")
-    # "DWM1" is authenticated but not stored
-    return _cipher(key).encrypt(data, [b"DWM1"])
+    return _cipher(key).encrypt(data, None)
 
 
 def decrypt(ciphertext: bytes, key: str) -> str | None:
     """The secret, or None if the key, the length or any bit is wrong"""
     try:
-        return _cipher(key).decrypt(ciphertext, [b"DWM1"]).decode("utf-8")
+        return _cipher(key).decrypt(ciphertext, None).decode("utf-8")
     except (InvalidTag, UnicodeDecodeError):
         return None
 
@@ -91,6 +90,16 @@ def _images(doc) -> Iterator[tuple[int, Image.Image]]:
 
             budget -= width * height
             yield xref, img
+
+
+def _read_image(img: Image.Image, key: str) -> str | None:
+    votes = read_votes(img, key)
+    # the length is not stored: only the right one passes AES-SIV
+    for length in range(1, MAX_SECRET_BYTES + 1):
+        secret = decrypt(np.packbits(vote(votes, (length + TAG_BYTES) * 8)).tobytes(), key)
+        if secret is not None:
+            return secret
+    return None
 
 
 def _page_box(doc, xref: int) -> tuple[float, float, float, float] | None:
@@ -163,15 +172,14 @@ class DavideWatermark(WatermarkingMethod):
             raise InvalidKeyError("Key must not be empty")
 
         with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
-            for _, img in _images(doc):
-                votes = read_votes(img, key)
-                for length in range(1, MAX_SECRET_BYTES + 1):
-                    bits = vote(votes, (length + TAG_BYTES) * 8)
-                    secret = decrypt(np.packbits(bits).tobytes(), key)
-                    if secret is not None:
-                        return secret
+            found = {secret for _, img in _images(doc) if (secret := _read_image(img, key)) is not None}
 
-        raise SecretNotFoundError("No watermark found")
+        # images taken from two different copies: better no answer than a wrong one
+        if len(found) > 1:
+            raise WatermarkingError("Conflicting watermarks: the images come from different copies")
+        if not found:
+            raise SecretNotFoundError("No watermark found")
+        return found.pop()
 
     @classmethod
     def score_recipients(cls, pdf: PdfSource, original: PdfSource, key: str, secrets: list[str]) -> dict[str, float]:

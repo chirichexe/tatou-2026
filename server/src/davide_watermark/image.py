@@ -38,7 +38,7 @@ D = np.array([[np.sqrt((1 if k == 0 else 2) / 8) * np.cos((2 * n + 1) * k * np.p
 
 def _rng(key: str, label: bytes) -> np.random.Generator:
     # the writer and the reader get the same random numbers from the same key
-    seed = hmac.new(key.encode("utf-8"), b"tatou/davide-watermark/image/v1/" + label, hashlib.sha256).digest()
+    seed = hmac.new(key.encode("utf-8"), label, hashlib.sha256).digest()
     return np.random.default_rng(int.from_bytes(seed, "big"))
 
 

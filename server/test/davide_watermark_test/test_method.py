@@ -18,7 +18,7 @@ from PIL import Image
 import davide_watermark.method as method_module
 from attacks import ATTACKS, KNOWN_FAILURES, edit_image
 from davide_watermark.image import embed_payload, read_votes, vote
-from davide_watermark.method import DavideWatermark, _images, encrypt
+from davide_watermark.method import DavideWatermark, _images, _replace_image, encrypt
 from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
 from watermarking_utils import METHODS, apply_watermark, read_watermark
 
@@ -223,6 +223,22 @@ def test_every_image_carries_the_whole_watermark():
         second_only = doc.tobytes(garbage=3)
     assert DavideWatermark.read_secret(second_only, KEY) == LEAKER
     assert _accused(second_only, pdf) == {LEAKER}
+
+
+def test_images_from_two_copies_are_reported_as_conflicting():
+    pdf = photo_pdf([make_photo(640, 640, seed=1), make_photo(512, 512, seed=2)])
+    copy_a = DavideWatermark.add_watermark(pdf, LEAKER, KEY)
+    copy_b = DavideWatermark.add_watermark(pdf, OTHER, KEY)
+
+    # the leaker takes the first picture from A and the second from B
+    with fitz.open(stream=copy_a, filetype="pdf") as doc, fitz.open(stream=copy_b, filetype="pdf") as other:
+        (_, _), (xref_a, _) = list(_images(doc))
+        (_, _), (_, img_b) = list(_images(other))
+        _replace_image(doc, xref_a, img_b)
+        mixed = doc.tobytes(garbage=3)
+
+    with pytest.raises(WatermarkingError, match="Conflicting"):
+        DavideWatermark.read_secret(mixed, KEY)
 
 
 def test_stencil_masks_are_not_modified():
