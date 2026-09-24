@@ -1,7 +1,6 @@
-"""Tests for the image-based ``davide-watermark`` method.
+"""Tests for davide-watermark: encrypted secret, PDF handling and fingerprint
 
-Attacks are applied to the PDF the way a leaker would: by editing the image,
-re-rendering the page or converting the file with Ghostscript.
+The attacks in attacks.py edit the PDF the way a leaker would
 """
 
 from __future__ import annotations
@@ -9,59 +8,37 @@ from __future__ import annotations
 import io
 import shutil
 import subprocess
+from statistics import NormalDist
 
 import numpy as np
 import pymupdf as fitz
 import pytest
-from PIL import Image, ImageFilter
+from PIL import Image
 
 import davide_watermark.method as method_module
-from davide_watermark.crypto import build_payload
-from davide_watermark.encoding import bytes_to_bits
-from davide_watermark.image import embed_payload
-from davide_watermark.method import DavideWatermark, _images, _replace_image
+from attacks import ATTACKS, KNOWN_FAILURES, edit_image
+from davide_watermark.image import embed_payload, read_votes, vote
+from davide_watermark.method import DavideWatermark, _images, encrypt
 from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
 from watermarking_utils import METHODS, apply_watermark, read_watermark
 
 from photos import make_photo, photo_pdf
 
 KEY = "rmap-server-key"
-SECRETS = [f"Group_{i:02d}:{i:032x}" for i in range(1, 21)]
-LEAKER = SECRETS[6]
-OTHER = SECRETS[0]
+LEAKER = "Group_07:da0bb583c432fbfd078959ecc9b62902"
+OTHER = "Group_01:0123456789abcdef0123456789abcdef"
+INNOCENTS = [f"Group_{i % 100:02d}:{i:032x}" for i in range(50)]
 THRESHOLD = DavideWatermark.ATTRIBUTION_THRESHOLD
+
+# attacks the encrypted secret must survive
+PAYLOAD_SURVIVES = ["none", "jpeg-q90", "jpeg-q75", "jpeg-q50", "blur-0.8", "noise-3", "noise-8"]
 
 needs_ghostscript = pytest.mark.skipif(shutil.which("gs") is None, reason="Ghostscript not installed")
 
 
-# ---------------------------------------------------------------- helpers
-
-def _image(pdf: bytes, index: int = 0) -> Image.Image:
+def _image(pdf: bytes) -> Image.Image:
     with fitz.open(stream=pdf, filetype="pdf") as doc:
-        return list(_images(doc))[index][1]
-
-
-def _with_image(pdf: bytes, img: Image.Image) -> bytes:
-    """Return ``pdf`` with its first image replaced, as a leaker's edit would do."""
-    with fitz.open(stream=pdf, filetype="pdf") as doc:
-        _replace_image(doc, next(_images(doc))[0], img)
-        return doc.tobytes(garbage=3)
-
-
-def _jpeg(img: Image.Image, quality: int) -> Image.Image:
-    buf = io.BytesIO()
-    img.save(buf, "JPEG", quality=quality)
-    return Image.open(buf).convert("RGB")
-
-
-def _screenshot(pdf: bytes, dpi: int = 96) -> bytes:
-    """Rasterise the whole page and wrap the picture in a new PDF."""
-    with fitz.open(stream=pdf, filetype="pdf") as doc:
-        page = doc[0]
-        shot = page.get_pixmap(dpi=dpi).tobytes("png")
-        with fitz.open() as out:
-            out.new_page(width=page.rect.width, height=page.rect.height).insert_image(page.rect, stream=shot)
-            return out.tobytes()
+        return next(_images(doc))[1]
 
 
 def _ghostscript(pdf: bytes, tmp_path, *options: str) -> bytes:
@@ -71,11 +48,14 @@ def _ghostscript(pdf: bytes, tmp_path, *options: str) -> bytes:
     return dst.read_bytes()
 
 
-def _raw_images(pdf: bytes) -> list[tuple[str, bytes]]:
-    """(object dictionary without /Length, raw stream) of every image, in page order.
+def _average(a: bytes, b: bytes) -> bytes:
+    """Two recipients average their copies"""
+    mix = (np.asarray(_image(a), dtype=np.float64) + np.asarray(_image(b), dtype=np.float64)) / 2
+    return edit_image(a, lambda _: Image.fromarray(mix.round().astype(np.uint8)))
 
-    Object numbers are not compared: saving a PDF may renumber them.
-    """
+
+def _raw_images(pdf: bytes) -> list[tuple[str, bytes]]:
+    """(object without /Length, raw stream) of every image of page 1"""
     with fitz.open(stream=pdf, filetype="pdf") as doc:
         result = []
         for info in doc[0].get_images(full=True):
@@ -84,90 +64,96 @@ def _raw_images(pdf: bytes) -> list[tuple[str, bytes]]:
         return result
 
 
-def _average(a: bytes, b: bytes) -> bytes:
-    mix = (np.asarray(_image(a), dtype=np.float64) + np.asarray(_image(b), dtype=np.float64)) / 2
-    return _with_image(a, Image.fromarray(mix.round().astype(np.uint8)))
-
-
-def _attributed(scores: dict[str, float]) -> set[str]:
-    return {secret for secret, z in scores.items() if z > THRESHOLD}
+def _accused(leak: bytes, original: bytes, key: str = KEY) -> set[str]:
+    scores = DavideWatermark.score_recipients(leak, original, key, [LEAKER, OTHER, *INNOCENTS])
+    return {secret for secret, z in scores.items() if z >= THRESHOLD}
 
 
 @pytest.fixture(scope="module")
-def leaked(image_pdf) -> bytes:
-    return DavideWatermark.add_watermark(image_pdf, LEAKER, KEY)
+def original() -> bytes:
+    return photo_pdf([make_photo(640, 640)], text="Confidential photo")
 
 
 @pytest.fixture(scope="module")
-def other_copy(image_pdf) -> bytes:
-    return DavideWatermark.add_watermark(image_pdf, OTHER, KEY)
+def leaked(original) -> bytes:
+    return DavideWatermark.add_watermark(original, LEAKER, KEY)
+
+
+@pytest.fixture(scope="module")
+def other_copy(original) -> bytes:
+    return DavideWatermark.add_watermark(original, OTHER, KEY)
 
 
 # ---------------------------------------------------------------- interface
 
 def test_registered_under_its_name():
     assert isinstance(METHODS["davide-watermark"], DavideWatermark)
-    assert DavideWatermark.name == "davide-watermark"
 
 
-def test_input_validation(image_pdf):
+def test_input_validation(original):
     with pytest.raises(ValueError):
-        DavideWatermark.add_watermark(image_pdf, "", KEY)
-    with pytest.raises(InvalidKeyError):
-        DavideWatermark.add_watermark(image_pdf, "secret", "")
-    with pytest.raises(InvalidKeyError):
-        DavideWatermark.read_secret(image_pdf, "")
-    with pytest.raises(InvalidKeyError):
-        DavideWatermark.score_recipients(image_pdf, image_pdf, "", SECRETS)
+        DavideWatermark.add_watermark(original, "", KEY)
     with pytest.raises(ValueError):
-        DavideWatermark.add_watermark(image_pdf, "x" * 129, KEY)
+        DavideWatermark.add_watermark(original, "x" * 129, KEY)
+    with pytest.raises(InvalidKeyError):
+        DavideWatermark.add_watermark(original, "secret", "")
+    with pytest.raises(InvalidKeyError):
+        DavideWatermark.read_secret(original, "")
+    with pytest.raises(InvalidKeyError):
+        DavideWatermark.score_recipients(original, original, "", [LEAKER])
 
 
-# ---------------------------------------------------------------- blind layer
+# ---------------------------------------------------------------- encrypted secret
 
-@pytest.mark.parametrize("secret", [LEAKER, "Secrète été 🔐 日本語", "x" * 128])
-def test_blind_roundtrip_through_registry(image_pdf, tmp_path, secret):
-    watermarked = apply_watermark("davide-watermark", image_pdf, secret, KEY)
-    assert read_watermark("davide-watermark", watermarked, KEY) == secret
-
-    # Every PdfSource form: bytes, path, binary stream.
+@pytest.mark.parametrize("secret", [LEAKER, "Nicolas:" + "5a" * 16, "x", "Secrète 🔐 日本語", "x" * 128])
+def test_roundtrip_through_registry(original, tmp_path, secret):
+    marked = apply_watermark("davide-watermark", original, secret, KEY)
+    assert read_watermark("davide-watermark", marked, KEY) == secret
     path = tmp_path / "wm.pdf"
-    path.write_bytes(watermarked)
+    path.write_bytes(marked)
     assert read_watermark("davide-watermark", path, KEY) == secret
-    assert read_watermark("davide-watermark", io.BytesIO(watermarked), KEY) == secret
+    assert read_watermark("davide-watermark", io.BytesIO(marked), KEY) == secret
 
 
-def test_wrong_key_reads_nothing(leaked):
-    with pytest.raises(SecretNotFoundError):
-        DavideWatermark.read_secret(leaked, "wrong-key")
-
-
-def test_unmarked_pdf_reads_nothing(image_pdf):
-    with pytest.raises(SecretNotFoundError):
-        DavideWatermark.read_secret(image_pdf, KEY)
-
-
-def test_tampered_payload_is_rejected_not_misread(image_pdf):
-    # Embed a valid payload with a single flipped ciphertext bit: the QIM layer
-    # decodes it perfectly, so only AES-SIV authentication can catch it.
-    bits = bytes_to_bits(build_payload(LEAKER, KEY))
-    bits[80] ^= 1
-    with fitz.open(stream=image_pdf, filetype="pdf") as doc:
-        xref, img = next(_images(doc))
-        _replace_image(doc, xref, embed_payload(img, bits, KEY))
-        tampered = doc.tobytes()
-
-    with pytest.raises(SecretNotFoundError):
-        DavideWatermark.read_secret(tampered, KEY)
-
-
-def test_each_recipient_gets_a_distinct_readable_copy(leaked, other_copy):
+def test_each_recipient_gets_a_distinct_copy(leaked, other_copy):
     assert leaked != other_copy
     assert DavideWatermark.read_secret(leaked, KEY) == LEAKER
     assert DavideWatermark.read_secret(other_copy, KEY) == OTHER
 
 
-def test_blind_read_of_averaged_copies_never_returns_a_wrong_secret(leaked, other_copy):
+def test_wrong_key_or_unmarked_pdf_reads_nothing(original, leaked):
+    with pytest.raises(SecretNotFoundError):
+        DavideWatermark.read_secret(leaked, "wrong-key")
+    with pytest.raises(SecretNotFoundError):
+        DavideWatermark.read_secret(original, KEY)
+
+
+def test_tampered_payload_is_rejected_not_misread(original):
+    # a clean QIM layer with one flipped ciphertext bit: only AES-SIV can notice it
+    bits = np.unpackbits(np.frombuffer(encrypt(LEAKER, KEY), dtype=np.uint8))
+    bits[5] ^= 1
+    tampered = edit_image(original, lambda img: embed_payload(img, bits, KEY))
+    with pytest.raises(SecretNotFoundError):
+        DavideWatermark.read_secret(tampered, KEY)
+
+
+def test_only_the_ciphertext_is_embedded(leaked):
+    # voting with the ciphertext length gives back exactly AES-SIV(secret),
+    # so no header or plaintext is embedded
+    ciphertext = encrypt(LEAKER, KEY)
+    assert len(ciphertext) == len(LEAKER) + 16
+    bits = vote(read_votes(_image(leaked), KEY), len(ciphertext) * 8)
+    assert np.packbits(bits).tobytes() == ciphertext
+
+    identity, link = LEAKER.split(":")
+    with fitz.open(stream=leaked, filetype="pdf") as doc:
+        blobs = [leaked, str(doc.metadata).encode()]
+        for xref in range(1, doc.xref_length()):
+            blobs += [doc.xref_object(xref).encode(), doc.xref_stream(xref) or b""]
+    assert not any(needle in blob for blob in blobs for needle in (identity.encode(), link.encode()))
+
+
+def test_averaged_copies_never_read_as_a_wrong_secret(leaked, other_copy):
     try:
         secret = DavideWatermark.read_secret(_average(leaked, other_copy), KEY)
     except SecretNotFoundError:
@@ -175,32 +161,32 @@ def test_blind_read_of_averaged_copies_never_returns_a_wrong_secret(leaked, othe
     assert secret in {LEAKER, OTHER}
 
 
-def test_blind_layer_survives_jpeg_recompression(leaked):
-    assert DavideWatermark.read_secret(_with_image(leaked, _jpeg(_image(leaked), 50)), KEY) == LEAKER
+@pytest.mark.parametrize("name", PAYLOAD_SURVIVES)
+def test_secret_survives_mild_attacks(leaked, name):
+    assert DavideWatermark.read_secret(ATTACKS[name](leaked), KEY) == LEAKER
 
 
 @needs_ghostscript
-def test_blind_layer_survives_ghostscript_rewrite(leaked, tmp_path):
+def test_secret_survives_ghostscript_rewrite(leaked, tmp_path):
     assert DavideWatermark.read_secret(_ghostscript(leaked, tmp_path), KEY) == LEAKER
 
 
 # ---------------------------------------------------------------- PDF handling
 
-def test_image_is_replaced_in_place_and_page_kept(image_pdf, leaked):
+def test_image_is_replaced_in_place_and_page_kept(original, leaked):
     with fitz.open(stream=leaked, filetype="pdf") as doc:
-        # A single image object: no unmarked copy left in the file.
-        assert len(doc[0].get_images()) == 1
+        assert len(doc[0].get_images()) == 1  # no unmarked copy left
         assert "Confidential photo" in doc[0].get_text()
-
-    original = np.asarray(_image(image_pdf), dtype=np.float64)
-    marked = np.asarray(_image(leaked), dtype=np.float64)
-    psnr = 10 * np.log10(255 ** 2 / np.mean((original - marked) ** 2))
-    assert psnr > 32
+    before = np.asarray(_image(original), dtype=np.float64)
+    after = np.asarray(_image(leaked), dtype=np.float64)
+    assert 10 * np.log10(255 ** 2 / np.mean((before - after) ** 2)) > 32  # PSNR
 
 
-def test_pdf_without_usable_image_is_rejected(text_only_pdf):
-    tiny = photo_pdf([make_photo(64, 64)])
-    for pdf in (text_only_pdf, tiny):
+def test_pdf_without_usable_image_is_rejected():
+    with fitz.open() as doc:
+        doc.new_page().insert_text((72, 72), "Text only")
+        text_only = doc.tobytes()
+    for pdf in (text_only, photo_pdf([make_photo(64, 64)])):
         assert not DavideWatermark.is_watermark_applicable(pdf)
         with pytest.raises(WatermarkingError):
             DavideWatermark.add_watermark(pdf, LEAKER, KEY)
@@ -209,11 +195,7 @@ def test_pdf_without_usable_image_is_rejected(text_only_pdf):
 def test_images_above_the_pixel_limit_are_left_untouched():
     side = int(method_module._MAX_PIXELS ** 0.5) + 8
     big = make_photo(side, side, smooth=True)
-
-    only_big = photo_pdf([big])
-    assert not DavideWatermark.is_watermark_applicable(only_big)
-    with pytest.raises(WatermarkingError):
-        DavideWatermark.add_watermark(only_big, LEAKER, KEY)
+    assert not DavideWatermark.is_watermark_applicable(photo_pdf([big]))
 
     mixed = photo_pdf([big, make_photo(640, 640)])
     out = DavideWatermark.add_watermark(mixed, LEAKER, KEY)
@@ -224,26 +206,23 @@ def test_images_above_the_pixel_limit_are_left_untouched():
 
 
 def test_total_pixel_budget_bounds_the_work(monkeypatch):
-    # With a budget of two images, the third one is neither decoded nor marked.
     monkeypatch.setattr(method_module, "_MAX_TOTAL_PIXELS", 2 * 640 * 640)
     pdf = photo_pdf([make_photo(640, 640, seed=s) for s in (1, 2, 3)])
     with fitz.open(stream=pdf, filetype="pdf") as doc:
         assert len(list(_images(doc))) == 2
 
 
-def test_multiple_images_are_all_marked_and_each_carries_the_watermark():
+def test_every_image_carries_the_whole_watermark():
     pdf = photo_pdf([make_photo(640, 640, seed=1), make_photo(512, 512, seed=2)])
     out = DavideWatermark.add_watermark(pdf, LEAKER, KEY)
-
     for (_, before), (_, after) in zip(_raw_images(pdf), _raw_images(out), strict=True):
         assert before != after
 
-    # Remove the first image: the second one alone still carries both layers.
     with fitz.open(stream=out, filetype="pdf") as doc:
         doc[0].delete_image(doc[0].get_images()[0][0])
         second_only = doc.tobytes(garbage=3)
     assert DavideWatermark.read_secret(second_only, KEY) == LEAKER
-    assert _attributed(DavideWatermark.score_recipients(second_only, pdf, KEY, SECRETS)) == {LEAKER}
+    assert _accused(second_only, pdf) == {LEAKER}
 
 
 def test_stencil_masks_are_not_modified():
@@ -267,8 +246,7 @@ def test_stencil_masks_are_not_modified():
 
     out = DavideWatermark.add_watermark(pdf, LEAKER, KEY)
 
-    # The photo is marked; the stencil keeps its type and decoded pixels (the
-    # final save may recompress it losslessly, so raw bytes are not compared).
+    # the photo is marked, the stencil keeps its type and pixels
     with fitz.open(stream=pdf, filetype="pdf") as src, fitz.open(stream=out, filetype="pdf") as dst:
         (photo_before, mask_before), (photo_after, mask_after) = (
             [info[0] for info in d[0].get_images(full=True)] for d in (src, dst)
@@ -281,40 +259,40 @@ def test_stencil_masks_are_not_modified():
 
 # ---------------------------------------------------------------- fingerprint
 
-ATTACKS = {
-    "untouched": lambda pdf, tmp: pdf,
-    "crop": lambda pdf, tmp: _with_image(pdf, _image(pdf).crop((5, 3, 600, 620))),
-    "resize-40%": lambda pdf, tmp: _with_image(pdf, _image(pdf).resize((256, 256))),
-    "jpeg-q20": lambda pdf, tmp: _with_image(pdf, _jpeg(_image(pdf), 20)),
-    "blur": lambda pdf, tmp: _with_image(pdf, _image(pdf).filter(ImageFilter.GaussianBlur(1.5))),
-    "screenshot": lambda pdf, tmp: _screenshot(pdf),
-    "ghostscript-screen": pytest.param(
-        lambda pdf, tmp: _ghostscript(pdf, tmp, "-dPDFSETTINGS=/screen"), marks=needs_ghostscript,
-    ),
-}
+@pytest.mark.parametrize("name", list(ATTACKS))
+def test_fingerprint_names_the_leaker_and_nobody_else(original, leaked, name):
+    assert _accused(ATTACKS[name](leaked), original) == {LEAKER}
 
 
-@pytest.mark.parametrize("attack", list(ATTACKS.values()), ids=list(ATTACKS))
-def test_attacked_copy_is_attributed_to_its_recipient_only(image_pdf, leaked, tmp_path, attack):
-    scores = DavideWatermark.score_recipients(attack(leaked, tmp_path), image_pdf, KEY, SECRETS)
-    assert _attributed(scores) == {LEAKER}
+@needs_ghostscript
+def test_fingerprint_survives_ghostscript_screen(original, leaked, tmp_path):
+    assert _accused(_ghostscript(leaked, tmp_path, "-dPDFSETTINGS=/screen"), original) == {LEAKER}
 
 
-def test_two_copies_of_the_same_source_are_distinguishable(image_pdf, leaked, other_copy):
-    assert _attributed(DavideWatermark.score_recipients(leaked, image_pdf, KEY, SECRETS)) == {LEAKER}
-    assert _attributed(DavideWatermark.score_recipients(other_copy, image_pdf, KEY, SECRETS)) == {OTHER}
+@pytest.mark.xfail(strict=True, reason="large rotation or very strong blur")
+@pytest.mark.parametrize("name", list(KNOWN_FAILURES))
+def test_known_limits(original, leaked, name):
+    assert _accused(KNOWN_FAILURES[name](leaked), original) == {LEAKER}
 
 
-def test_averaged_copies_name_only_the_two_colluders(image_pdf, leaked, other_copy):
-    scores = DavideWatermark.score_recipients(_average(leaked, other_copy), image_pdf, KEY, SECRETS)
-    assert _attributed(scores) == {LEAKER, OTHER}
+def test_averaged_copies_name_only_the_two_colluders(original, leaked, other_copy):
+    assert _accused(_average(leaked, other_copy), original) == {LEAKER, OTHER}
 
 
-def test_unmarked_original_and_unrelated_pdf_are_not_attributed(image_pdf):
-    unrelated = photo_pdf([make_photo(640, 640, seed=99)])
-    for pdf in (image_pdf, unrelated):
-        assert _attributed(DavideWatermark.score_recipients(pdf, image_pdf, KEY, SECRETS)) == set()
+def test_no_watermark_means_no_accusation(original):
+    for pdf in (original, photo_pdf([make_photo(640, 640, seed=99)])):
+        assert _accused(pdf, original) == set()
 
 
-def test_fingerprint_needs_the_key(image_pdf, leaked):
-    assert _attributed(DavideWatermark.score_recipients(leaked, image_pdf, "wrong-key", SECRETS)) == set()
+def test_fingerprint_needs_the_key(original, leaked):
+    assert _accused(leaked, original, key="wrong-key") == set()
+
+
+def test_innocent_scores_follow_the_threshold_model(original, other_copy):
+    # an innocent score is the best of 4 comparisons of N(0, 1) values,
+    # so P(score >= t) <= 4 * Q(t)
+    innocents = [f"Group_{i % 100:02d}:{i:032x}" for i in range(1000)]
+    scores = DavideWatermark.score_recipients(ATTACKS["jpeg-q50"](other_copy), original, KEY, innocents)
+    values = np.array(list(scores.values()))
+    assert np.mean(values >= 3) <= 2 * 4 * (1 - NormalDist().cdf(3))
+    assert values.max() < THRESHOLD

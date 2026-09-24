@@ -1,33 +1,25 @@
-"""Davide Chirichella's PDF watermarking method for Tatou.
+"""davide-watermark: watermarks the pictures inside a PDF
 
-The watermark lives in the pixels of the PDF's images (see :mod:`.image`):
+Text, fonts and layout are not touched. Every large enough image gets:
+- the secret encrypted with AES-SIV, that read_secret reads with the key alone
+- a fingerprint of the recipient, that score_recipients recognises even when
+  the secret can't be read anymore (screenshot, resize, crop, rotation...)
 
-- a blind layer carrying the AES-SIV encrypted secret (see :mod:`.crypto`),
-  readable with the key alone: ``read_secret``;
-- a per-recipient fingerprint, detected against the original document and the
-  list of issued secrets: ``score_recipients``. It still attributes a leak
-  after cropping, rescaling, heavy recompression or a screenshot.
+Only AES-SIV(secret) is embedded, without any header: the reader tries every
+possible length and keeps the one whose tag verifies
 """
 
 from __future__ import annotations
 
+import hashlib
 import io
 from collections.abc import Iterator
-from typing import Final
 
+import numpy as np
 import pymupdf as fitz
+from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives.ciphers.aead import AESSIV
 from PIL import Image
-
-from .crypto import _MAX_SECRET_BYTES, build_payload, open_payload
-from .encoding import bits_to_bytes, bytes_to_bits
-from .image import (
-    embed_fingerprint,
-    embed_payload,
-    extract_header,
-    extract_payload,
-    fingerprint_scores,
-    payload_capacity,
-)
 
 from watermarking_method import (
     InvalidKeyError,
@@ -38,43 +30,60 @@ from watermarking_method import (
     load_pdf_bytes,
 )
 
+from .image import capacity, embed_fingerprint, embed_payload, fingerprint_scores, read_votes, vote
 
-NAME: Final[str] = "davide-watermark"
 
-# Bound memory and CPU on untrusted uploads (processing peaks at ~100 bytes
-# per pixel, and the server runs a single worker): images above the per-image
-# limit are skipped, and at most _MAX_TOTAL_PIXELS are processed per document.
-_MAX_PIXELS: Final[int] = 2048 * 2048
-_MAX_TOTAL_PIXELS: Final[int] = 4 * _MAX_PIXELS
+# the server runs a single worker: bigger images are skipped and every
+# document has a total budget of pixels
+_MAX_PIXELS = 2048 * 2048
+_MAX_TOTAL_PIXELS = 4 * _MAX_PIXELS
 
-# Every payload bit must be spread over at least this many slots.
-_MIN_REPETITIONS: Final[int] = 8
+MAX_SECRET_BYTES = 128
+TAG_BYTES = 16        # added by AES-SIV
+MIN_REPETITIONS = 8   # every bit is written at least this many times
+JPEG_QUALITY = 92
 
-_JPEG_QUALITY: Final[int] = 92
 
+# ---------------------------------------------------------------- AES-SIV
+
+def _cipher(key: str) -> AESSIV:
+    # any string becomes a 64 byte AES-SIV key
+    return AESSIV(hashlib.sha512(b"tatou/davide-watermark/aes-siv-key/v1\0" + key.encode("utf-8")).digest())
+
+
+def encrypt(secret: str, key: str) -> bytes:
+    data = secret.encode("utf-8")
+    if not 0 < len(data) <= MAX_SECRET_BYTES:
+        raise ValueError(f"Secret must be 1-{MAX_SECRET_BYTES} bytes")
+    # "DWM1" is authenticated but not stored
+    return _cipher(key).encrypt(data, [b"DWM1"])
+
+
+def decrypt(ciphertext: bytes, key: str) -> str | None:
+    """The secret, or None if the key, the length or any bit is wrong"""
+    try:
+        return _cipher(key).decrypt(ciphertext, [b"DWM1"]).decode("utf-8")
+    except (InvalidTag, UnicodeDecodeError):
+        return None
+
+
+# ---------------------------------------------------------------- PDF
 
 def _images(doc) -> Iterator[tuple[int, Image.Image]]:
-    """Yield every usable image of the document once, as (xref, RGB image).
-
-    Images are decoded one at a time, so only one is held in memory.
-    """
-
+    """(xref, image) of every image that can be marked, decoded one at a time"""
     seen = set()
     budget = _MAX_TOTAL_PIXELS
 
     for page in doc:
         for info in page.get_images(full=True):
             xref, width, height = info[0], info[2], info[3]
-
             if xref in seen or width * height > min(_MAX_PIXELS, budget):
                 continue
             seen.add(xref)
 
-            # Stencil masks are 1-bit shapes painted with the fill colour: they
-            # have no pixels to mark, and rewriting them as RGB would corrupt them.
+            # stencil masks are 1-bit shapes: nothing to mark, and RGB would break them
             if doc.xref_get_key(xref, "ImageMask")[1] == "true":
                 continue
-
             try:
                 img = Image.open(io.BytesIO(doc.extract_image(xref)["image"])).convert("RGB")
             except Exception:
@@ -85,145 +94,88 @@ def _images(doc) -> Iterator[tuple[int, Image.Image]]:
 
 
 def _page_box(doc, xref: int) -> tuple[float, float, float, float] | None:
-    """Where the image is drawn, as fractions of its page (x0, y0, x1, y1)."""
-
+    """Where the image is drawn on its page, as fractions of the page"""
     for page in doc:
         rects = page.get_image_rects(xref)
         if rects:
             r, p = rects[0], page.rect
-            return (r.x0 / p.width, r.y0 / p.height, r.x1 / p.width, r.y1 / p.height)
-
+            return r.x0 / p.width, r.y0 / p.height, r.x1 / p.width, r.y1 / p.height
     return None
 
 
 def _replace_image(doc, xref: int, img: Image.Image) -> None:
-    """Overwrite the image object in place: no unmarked copy stays in the file."""
-
+    """Overwrite the image object, so no unmarked copy stays in the file"""
     buf = io.BytesIO()
-    img.save(buf, "JPEG", quality=_JPEG_QUALITY, subsampling=0)
-
+    img.save(buf, "JPEG", quality=JPEG_QUALITY, subsampling=0)
     doc.update_stream(xref, buf.getvalue(), compress=False)
-    # The new stream is a plain RGB JPEG: reset the keys describing the old one.
-    doc.xref_set_key(xref, "Filter", "/DCTDecode")
-    doc.xref_set_key(xref, "DecodeParms", "null")
-    doc.xref_set_key(xref, "Decode", "null")
-    doc.xref_set_key(xref, "ColorSpace", "/DeviceRGB")
-    doc.xref_set_key(xref, "BitsPerComponent", "8")
-    doc.xref_set_key(xref, "Width", str(img.width))
-    doc.xref_set_key(xref, "Height", str(img.height))
+    for name, value in (("Filter", "/DCTDecode"), ("DecodeParms", "null"), ("Decode", "null"),
+                        ("ColorSpace", "/DeviceRGB"), ("BitsPerComponent", "8"),
+                        ("Width", str(img.width)), ("Height", str(img.height))):
+        doc.xref_set_key(xref, name, value)
 
+
+# ---------------------------------------------------------------- method
 
 class DavideWatermark(WatermarkingMethod):
-    name: Final[str] = NAME
+    name = "davide-watermark"
 
-    # Fingerprint z-score above which a recipient is considered the source of
-    # a leak. Innocent recipients score ~N(0, 1): 6 means ~1e-9 false positives.
-    ATTRIBUTION_THRESHOLD: Final[float] = 6.0
+    # innocent scores follow N(0, 1): with 64 recipients and 4 comparisons
+    # each, a threshold of 6 accuses an innocent less than once in 10^6 reads
+    ATTRIBUTION_THRESHOLD = 6.0
 
     @classmethod
     def get_usage(cls) -> str:
-        return "Embed an encrypted watermark and a recipient fingerprint in the PDF's images."
+        return "Embed an encrypted watermark and a recipient fingerprint in the PDF's images"
 
     @classmethod
-    def is_watermark_applicable(
-        cls,
-        pdf: PdfSource,
-        position: str | None = None,
-    ) -> bool:
-        """Return whether one image can hold a maximum-size secret."""
-
-        needed = (6 + _MAX_SECRET_BYTES + 16) * 8 * _MIN_REPETITIONS
-
+    def is_watermark_applicable(cls, pdf: PdfSource, position: str | None = None) -> bool:
+        # position is not used: at least one image must hold the longest secret
+        needed = (MAX_SECRET_BYTES + TAG_BYTES) * 8 * MIN_REPETITIONS
         try:
             with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
-                # "position" is not used by this method.
-                return not doc.is_encrypted and any(
-                    payload_capacity(img) >= needed for _, img in _images(doc)
-                )
+                return not doc.is_encrypted and any(capacity(img) >= needed for _, img in _images(doc))
         except Exception:
             return False
 
     @classmethod
-    def add_watermark(
-        cls,
-        pdf: PdfSource,
-        secret: str,
-        key: str,
-        position: str | None = None,
-    ) -> bytes:
-        """Embed the payload and the fingerprint into every large enough image."""
-
-        if not secret:
-            raise ValueError("Secret must not be empty")
-
+    def add_watermark(cls, pdf: PdfSource, secret: str, key: str, position: str | None = None) -> bytes:
         if not key:
             raise InvalidKeyError("Key must not be empty")
-
-        # 1. Encrypt and authenticate the secret, then turn it into bits.
-        bits = bytes_to_bits(build_payload(secret, key))
+        bits = np.unpackbits(np.frombuffer(encrypt(secret, key), dtype=np.uint8))
 
         with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
             marked = 0
-
             for xref, img in _images(doc):
-                # 2. Skip images without enough room for this payload.
-                if payload_capacity(img) < len(bits) * _MIN_REPETITIONS:
+                if capacity(img) < len(bits) * MIN_REPETITIONS:
                     continue
-
-                # 3. Mark the image with both layers and write it back.
-                img = embed_payload(img, bits, key)
-                img = embed_fingerprint(img, key, secret)
+                img = embed_fingerprint(embed_payload(img, bits, key), key, secret)
                 _replace_image(doc, xref, img)
                 marked += 1
 
             if not marked:
                 raise WatermarkingError("PDF does not contain a large enough image")
-
-            # 4. Drop unreferenced objects and return the new PDF.
+            # garbage=3 drops the old unmarked image streams
             return doc.tobytes(garbage=3, deflate=True, encryption=fitz.PDF_ENCRYPT_NONE)
 
     @classmethod
-    def read_secret(
-        cls,
-        pdf: PdfSource,
-        key: str,
-    ) -> str:
-        """Recover and authenticate the secret from the blind layer."""
-
+    def read_secret(cls, pdf: PdfSource, key: str) -> str:
         if not key:
             raise InvalidKeyError("Key must not be empty")
 
         with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
             for _, img in _images(doc):
-                # 1. The header gives the version and the secret length.
-                header = bits_to_bytes(extract_header(img, key))
-                secret_length = int.from_bytes(header[4:6], "big")
-
-                if header[:4] != b"DWM1" or secret_length > _MAX_SECRET_BYTES:
-                    continue
-
-                # 2. Payload = 6-byte header + secret + 16-byte AES-SIV tag.
-                payload_bits = (6 + secret_length + 16) * 8
-                payload = bits_to_bytes(extract_payload(img, key, payload_bits))
-
-                # 3. Decrypt; a single wrong bit fails authentication, never a wrong secret.
-                try:
-                    return open_payload(payload, key)
-                except InvalidKeyError:
-                    continue
+                votes = read_votes(img, key)
+                for length in range(1, MAX_SECRET_BYTES + 1):
+                    bits = vote(votes, (length + TAG_BYTES) * 8)
+                    secret = decrypt(np.packbits(bits).tobytes(), key)
+                    if secret is not None:
+                        return secret
 
         raise SecretNotFoundError("No watermark found")
 
     @classmethod
-    def score_recipients(
-        cls,
-        pdf: PdfSource,
-        original: PdfSource,
-        key: str,
-        secrets: list[str],
-    ) -> dict[str, float]:
-        """Fingerprint z-score of every candidate secret; ``original`` is the unmarked source."""
-
+    def score_recipients(cls, pdf: PdfSource, original: PdfSource, key: str, secrets: list[str]) -> dict[str, float]:
+        """Fingerprint score of every secret in the leaked `pdf`, compared with the unmarked `original`"""
         if not key:
             raise InvalidKeyError("Key must not be empty")
 
@@ -231,23 +183,17 @@ class DavideWatermark(WatermarkingMethod):
             originals = [(img, _page_box(doc, xref)) for xref, img in _images(doc)]
 
         scores = {secret: float("-inf") for secret in secrets}
-
         with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
-            # Images may have been reordered: try every leaked/original pair.
+            # images may have been reordered, so every pair is tried
             for _, leak in _images(doc):
                 for source, box in originals:
                     candidates = [leak]
-
-                    # The leak may be a screenshot or print of the whole page:
-                    # also cut the picture out where the source page draws it.
+                    # the leak may be a screenshot of the whole page
                     if box is not None:
-                        candidates.append(leak.crop((
-                            round(box[0] * leak.width), round(box[1] * leak.height),
-                            round(box[2] * leak.width), round(box[3] * leak.height),
-                        )))
-
+                        x0, y0, x1, y1 = box
+                        candidates.append(leak.crop((round(x0 * leak.width), round(y0 * leak.height),
+                                                     round(x1 * leak.width), round(y1 * leak.height))))
                     for candidate in candidates:
                         for secret, z in fingerprint_scores(candidate, source, key, secrets).items():
                             scores[secret] = max(scores[secret], z)
-
         return scores
