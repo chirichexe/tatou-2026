@@ -386,7 +386,7 @@ def create_app():
             with output_path.open("xb") as output:
                 output_path_reserved = True
                 output.write(wm_bytes)
-        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as error:
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError, WatermarkingError) as error:
             if output_path_reserved:
                 _remove_file(output_path)
             return _internal_error_response(
@@ -1016,7 +1016,7 @@ def create_app():
             )
             if applicable is False:
                 return jsonify({"error": "invalid watermarking request"}), 400
-        except (TypeError, ValueError, OSError, RuntimeError, WatermarkingError) as error:
+        except (KeyError, TypeError, ValueError, OSError, RuntimeError, WatermarkingError) as error:
             return _internal_error_response(
                 "watermark applicability check", error,
                 "invalid watermarking request", 400,
@@ -1119,6 +1119,55 @@ def create_app():
             
         return jsonify({"methods": methods, "count": len(methods)}), 200
         
+    def _fingerprint_attribution(method, key: str, leaked_path: Path):
+        """Best-matching RMAP version by fingerprint, or None.
+
+        Only methods exposing ``score_recipients`` support this. The leak is
+        compared with the RMAP source document and every version issued with
+        the same method; SQLAlchemy errors are left to the caller.
+        """
+        try:
+            impl = WMUtils.get_method(method)
+        except (KeyError, ValueError, TypeError):
+            return None
+        if not hasattr(impl, "score_recipients"):
+            return None
+
+        with get_engine().connect() as conn:
+            source = conn.execute(
+                text("SELECT path FROM Documents WHERE id = :id LIMIT 1"),
+                {"id": app.config["RMAP_DOCUMENT_ID"]},
+            ).first()
+            versions = conn.execute(
+                text("""
+                    SELECT intended_for, link, secret
+                    FROM Versions
+                    WHERE documentid = :docid AND method = :method
+                """),
+                {"docid": app.config["RMAP_DOCUMENT_ID"], "method": impl.name},
+            ).all()
+        if not source or not versions:
+            return None
+
+        try:
+            source_path = _safe_resolve_under_storage(
+                source.path, app.config["STORAGE_DIR"],
+            )
+            scores = impl.score_recipients(
+                pdf=str(leaked_path),
+                original=str(source_path),
+                key=key,
+                secrets=[v.secret for v in versions],
+            )
+        except (ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError, WatermarkingError) as error:
+            _log_internal_failure("fingerprint attribution", error)
+            return None
+
+        best = max(versions, key=lambda v: scores.get(v.secret, float("-inf")))
+        if scores.get(best.secret, float("-inf")) < impl.ATTRIBUTION_THRESHOLD:
+            return None
+        return best
+
     # POST /api/read-watermark
     @app.post("/api/read-watermark")
     @app.post("/api/read-watermark/<int:document_id>")
@@ -1193,15 +1242,18 @@ def create_app():
             return jsonify({"error": "file missing on disk"}), 410
         
         secret = None
+        read_error = None
         try:
             secret = WMUtils.read_watermark(
                 method=method,
                 pdf=str(file_path),
                 key=key
             )
-        except (ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError, WatermarkingError) as error:
+        except (KeyError, ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError, WatermarkingError) as error:
+            read_error = error
+        if read_error is not None and not is_rmap_service:
             return _internal_error_response(
-                "watermark read", error,
+                "watermark read", read_error,
                 "could not read watermark", 400,
             )
         result = {
@@ -1211,21 +1263,32 @@ def create_app():
             "position": position
         }
         if is_rmap_service:
+            version = None
             try:
-                with get_engine().connect() as conn:
-                    version = conn.execute(
-                        text("""
-                            SELECT intended_for, link
-                            FROM Versions
-                            WHERE documentid = :docid AND secret = :secret
-                            LIMIT 1
-                        """),
-                        {"docid": app.config["RMAP_DOCUMENT_ID"], "secret": secret},
-                    ).first()
+                if secret is not None:
+                    with get_engine().connect() as conn:
+                        version = conn.execute(
+                            text("""
+                                SELECT intended_for, link
+                                FROM Versions
+                                WHERE documentid = :docid AND secret = :secret
+                                LIMIT 1
+                            """),
+                            {"docid": app.config["RMAP_DOCUMENT_ID"], "secret": secret},
+                        ).first()
+                # The blind read failed or matched nothing: fall back to the
+                # fingerprint, for methods that support informed detection.
+                if version is None:
+                    version = _fingerprint_attribution(method, key, file_path)
             except SQLAlchemyError as error:
                 return _internal_error_response(
                     "watermark read attribution lookup", error,
                     "service temporarily unavailable", 503,
+                )
+            if read_error is not None and version is None:
+                return _internal_error_response(
+                    "watermark read", read_error,
+                    "could not read watermark", 400,
                 )
             result["attribution"] = (
                 {"intended_for": version.intended_for, "link": version.link}

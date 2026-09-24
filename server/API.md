@@ -403,6 +403,14 @@ field. The recovered secret is looked up in `Versions` for that document:
 `attribution` is `null` when no RMAP version has that secret. For every other
 user the response is unchanged and has no `attribution` field.
 
+If the method supports informed detection (`davide-watermark`) and the
+secret cannot be read or matches no version, the leak's fingerprint is compared
+with the RMAP source document and every version issued with that method. The
+best match is returned when its score clears the method's threshold; `secret`
+is then `null`. If nothing is read and nothing matches, the response is `400`,
+as for a normal read. The fingerprint needs the watermark key and is never
+available to other users, so the endpoint is not a public detection oracle.
+
 **Specification**
  * The endpoint MUST return the secret read in the document.
 

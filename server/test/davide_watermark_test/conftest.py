@@ -3,36 +3,18 @@ from __future__ import annotations
 import pymupdf as fitz
 import pytest
 
+from photos import make_photo, photo_pdf
 
-@pytest.fixture
-def sample_carrier_pdf() -> bytes:
-    """Deterministic PDF with 2000 BT carrier slots."""
+
+@pytest.fixture(scope="session")
+def image_pdf() -> bytes:
+    """One-page PDF with a single 640x640 textured JPEG, like a photo document."""
+    return photo_pdf([make_photo(640, 640)], text="Confidential photo")
+
+
+@pytest.fixture(scope="session")
+def text_only_pdf() -> bytes:
+    """PDF without images: nothing to carry the watermark."""
     doc = fitz.open()
-    page = doc.new_page()
-    page.insert_text((50, 50), "x")
-    xref = page.get_contents()[0]
-    stream = b"".join(b"BT /Helv 10 Tf 50 50 Td (x) Tj ET\n" for _ in range(2000))
-    doc.update_stream(xref, stream)
-    return doc.tobytes()
-
-
-@pytest.fixture
-def empty_carrier_pdf() -> bytes:
-    """Valid PDF containing zero text carrier slots."""
-    return (
-        b"%PDF-1.4\n"
-        b"1 0 obj\n<< /Type /Catalog >>\nendobj\n"
-        b"%%EOF\n"
-    )
-
-
-@pytest.fixture
-def small_carrier_pdf() -> bytes:
-    """PDF with only 50 carrier slots, fewer than required for a watermark header."""
-    doc = fitz.open()
-    page = doc.new_page()
-    page.insert_text((50, 50), "x")
-    xref = page.get_contents()[0]
-    stream = b"".join(b"BT /Helv 10 Tf 50 50 Td (x) Tj ET\n" for _ in range(50))
-    doc.update_stream(xref, stream)
+    doc.new_page().insert_text((72, 72), "Text only")
     return doc.tobytes()

@@ -181,7 +181,9 @@ Every completed handshake produces a new version, watermarked with the peer's
 identity and session link, records it with the generated 32-character link,
 and returns that link. `RMAP_WATERMARK_METHOD` must name a registered
 watermarking method. The bundled `toy-eof` and `bash-bridge-eof` methods are
-easily stripped; configure the group's stronger method for the course document.
+easily stripped; use `davide-watermark` for the course document. It
+watermarks the PDF's images and can attribute cropped, rescaled or recompressed
+leaks through `read-watermark`.
 
 When the server private key has a passphrase, create
 `rmap-keys/server_passphrase` locally with mode `600`, place the passphrase in
