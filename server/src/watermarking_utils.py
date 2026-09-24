@@ -35,7 +35,7 @@ from typing import Any, Final
 
 from add_after_eof import AddAfterEOF
 from davide_watermark.method import DavideWatermark
-from francesco_watermark import HybridPageWatermark
+from francesco_watermark import FrancescoWatermark
 from unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
 from watermarking_method import (
     PdfSource,
@@ -49,9 +49,13 @@ logger = logging.getLogger(__name__)
 # Method registry
 # --------------------
 
+_francesco_method = FrancescoWatermark()
+
 METHODS: dict[str, WatermarkingMethod] = {
     AddAfterEOF.name: AddAfterEOF(),
-    HybridPageWatermark.name: HybridPageWatermark(),
+    FrancescoWatermark.name: _francesco_method,
+    "fwm1": _francesco_method,
+    "hybrid-page": _francesco_method,
     UnsafeBashBridgeAppendEOF.name: UnsafeBashBridgeAppendEOF(),
     DavideWatermark.name: DavideWatermark(),
 }

@@ -1,6 +1,5 @@
 import hashlib
 import os
-import secrets
 import sqlite3
 import stat
 from functools import wraps
@@ -15,10 +14,10 @@ from login_rate_limit import LoginRateLimited, LoginRateLimiter
 from rmap import RMAPError, RMAPServer
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from watermarking_method import WatermarkingError
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
-from watermarking_method import WatermarkingError
 
 #from watermarking_utils import METHODS, apply_watermark, read_watermark, explore_pdf, is_watermarking_applicable, get_method
 
@@ -375,7 +374,14 @@ def create_app():
             )
             if not source_path.is_file():
                 return jsonify({"error": "RMAP document missing on disk"}), 410
-            watermark_secret = f"{identity}:{expected_link}"
+
+            if app.config["RMAP_WATERMARK_METHOD"] in ("francesco-watermark", "fwm1"):
+                watermark_secret = expected_link
+                db_method = "fwm1"
+            else:
+                watermark_secret = f"{identity}:{expected_link}"
+                db_method = app.config["RMAP_WATERMARK_METHOD"]
+
             wm_bytes = WMUtils.apply_watermark(
                 pdf=str(source_path),
                 secret=watermark_secret,
@@ -405,17 +411,17 @@ def create_app():
             with get_engine().begin() as conn:
                 conn.execute(
                     text("""
-                        INSERT INTO Versions (documentid, link, intended_for, secret, method, position, path)
-                        VALUES (:documentid, :link, :intended_for, :secret, :method, :position, :path)
+                        INSERT INTO Versions (documentid, link, intended_for, secret, method, path, sha256)
+                        VALUES (:documentid, :link, :intended_for, :secret, :method, :path, :sha256)
                     """),
                     {
                         "documentid": int(source.id),
                         "link": expected_link,
                         "intended_for": identity,
                         "secret": watermark_secret,
-                        "method": app.config["RMAP_WATERMARK_METHOD"],
-                        "position": app.config["RMAP_WATERMARK_POSITION"] or "",
+                        "method": db_method,
                         "path": str(output_path),
+                        "sha256": hashlib.sha256(wm_bytes).digest(),
                     },
                 )
         except SQLAlchemyError as error:
@@ -1066,21 +1072,28 @@ def create_app():
         # link token = sha1(watermarked_file_name)
         link_token = hashlib.sha1(candidate.encode("utf-8")).hexdigest()
 
+        if method in ("francesco-watermark", "fwm1"):
+            db_method = "fwm1"
+            secret_to_store = link_token
+        else:
+            db_method = method
+            secret_to_store = secret
+
         try:
             with get_engine().begin() as conn:
                 conn.execute(
                     text("""
-                        INSERT INTO Versions (documentid, link, intended_for, secret, method, position, path)
-                        VALUES (:documentid, :link, :intended_for, :secret, :method, :position, :path)
+                        INSERT INTO Versions (documentid, link, intended_for, secret, method, path, sha256)
+                        VALUES (:documentid, :link, :intended_for, :secret, :method, :path, :sha256)
                     """),
                     {
                         "documentid": doc_id,
                         "link": link_token,
                         "intended_for": intended_for,
-                        "secret": secret,
-                        "method": method,
-                        "position": position or "",
-                        "path": str(dest_path)
+                        "secret": secret_to_store,
+                        "method": db_method,
+                        "path": str(dest_path),
+                        "sha256": hashlib.sha256(wm_bytes).digest(),
                     },
                 )
                 vid = int(conn.execute(text("SELECT LAST_INSERT_ID()")).scalar())

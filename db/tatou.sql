@@ -44,8 +44,8 @@ CREATE TABLE IF NOT EXISTS `Versions` (
   `intended_for` VARCHAR(320) NULL,            -- optional email/name
   `secret` VARCHAR(320) NOT NULL,              -- secret
   `method` VARCHAR(32) NOT NULL,               -- e.g., "text_overlay"
-  `position` TEXT,               -- e.g., "text_overlay"
-  `path` VARCHAR(320) NOT NULL,              -- secret
+  `path` VARCHAR(320) NOT NULL,                -- path to watermarked file
+  `sha256` BINARY(32) NOT NULL,                -- SHA-256 hash of watermarked PDF
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_Versions_link` (`link`),
   KEY `ix_Versions_documentid` (`documentid`),

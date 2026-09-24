@@ -95,7 +95,7 @@ def file_app(tmp_path, monkeypatch):
         conn.execute(text("""
             CREATE TABLE Versions (
                 id INTEGER PRIMARY KEY, documentid INTEGER, link TEXT,
-                intended_for TEXT, secret TEXT, method TEXT, position TEXT, path TEXT
+                intended_for TEXT, secret TEXT, method TEXT, path TEXT, sha256 BLOB
             )
         """))
         conn.execute(text("""

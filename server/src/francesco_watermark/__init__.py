@@ -1,4 +1,5 @@
 """Francesco's watermarking method package."""
-from .method import HybridPageWatermark
 
-__all__ = ["HybridPageWatermark"]
+from .method import FrancescoWatermark, HybridPageWatermark
+
+__all__ = ["FrancescoWatermark", "HybridPageWatermark"]

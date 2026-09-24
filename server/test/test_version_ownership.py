@@ -64,7 +64,7 @@ def version_app(tmp_path, monkeypatch):
                 id INTEGER PRIMARY KEY,
                 documentid INTEGER REFERENCES Documents(id),
                 link TEXT UNIQUE, intended_for TEXT, secret TEXT,
-                method TEXT, position TEXT, path TEXT
+                method TEXT, path TEXT, sha256 BLOB
             )
         """))
     app.config.update(TESTING=True, _ENGINE=engine)

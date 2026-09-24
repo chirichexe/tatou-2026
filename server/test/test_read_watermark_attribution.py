@@ -63,7 +63,7 @@ def attribution_app(tmp_path, monkeypatch):
         conn.execute(text("""
             CREATE TABLE Versions (
                 id INTEGER PRIMARY KEY, documentid INTEGER, link TEXT UNIQUE,
-                intended_for TEXT, secret TEXT, method TEXT, position TEXT, path TEXT
+                intended_for TEXT, secret TEXT, method TEXT, path TEXT, sha256 BLOB
             )
         """))
         # user 1 = RMAP service account (owns RMAP_DOCUMENT_ID); user 2 = normal user

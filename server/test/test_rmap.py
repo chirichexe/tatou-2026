@@ -1,6 +1,6 @@
-"""End-to-end coverage for the thin HTTP integration around RMAP."""
-
+import hashlib
 import secrets
+from pathlib import Path
 
 import fitz
 import pytest
@@ -28,7 +28,7 @@ def _pdf(path):
 
 @pytest.mark.parametrize(
     "method,key",
-    [("toy-eof", "test-watermark-key"), ("hybrid-page", "0123456789abcdef" * 4)],
+    [("toy-eof", "test-watermark-key"), ("francesco-watermark", "0123456789abcdef" * 4)],
 )
 def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeypatch, method, key):
     key_dir = tmp_path / "keys"
@@ -68,7 +68,7 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
         conn.execute(text("""
             CREATE TABLE Versions (
                 id INTEGER PRIMARY KEY, documentid INTEGER, link TEXT UNIQUE,
-                intended_for TEXT, secret TEXT, method TEXT, position TEXT, path TEXT
+                intended_for TEXT, secret TEXT, method TEXT, path TEXT, sha256 BLOB
             )
         """))
         conn.execute(
@@ -104,8 +104,16 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
                     text("SELECT * FROM Versions WHERE link = :link"), {"link": link},
                 ).one()
             assert version.intended_for == "Group_01"
-            assert version.secret == f"Group_01:{link}"
+            expected_secret = (
+                link
+                if method in ("francesco-watermark", "fwm1")
+                else f"Group_01:{link}"
+            )
+            assert version.secret == expected_secret
             assert read_watermark(method, version.path, key) == version.secret
+            assert version.sha256 is not None
+            assert len(version.sha256) == 32
+            assert version.sha256 == hashlib.sha256(Path(version.path).read_bytes()).digest()
 
         assert links[0] != links[1]
         with engine.connect() as conn:
