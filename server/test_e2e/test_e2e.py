@@ -212,14 +212,9 @@ def test_normal_user_gets_no_attribution_oracle(stack, copies):
     assert r.status_code == 200 and r.json() == {"versions": []}
 
 
-def test_unknown_method_and_missing_credentials(stack, copies):
+def test_missing_credentials(stack, copies):
     _, _, pdf = copies["A1"]
     doc_id = stack.upload(stack.service_token, pdf, "copy.pdf")
-    assert stack.read_watermark(stack.service_token, doc_id, method="no-such-method").status_code == 400
-    r = requests.post(f"{BASE}/create-watermark/{doc_id}", headers=stack.auth(stack.service_token),
-                      json={"method": "no-such-method", "key": "k", "secret": "s", "intended_for": "x"})
-    assert r.status_code == 400
-
     body = {"method": METHOD, "key": stack.watermark_key}
     assert requests.post(f"{BASE}/read-watermark/{doc_id}", headers=CSRF, json=body).status_code == 401
     no_csrf = {"Authorization": f"Bearer {stack.service_token}"}

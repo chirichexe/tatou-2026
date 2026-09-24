@@ -26,6 +26,8 @@ pytest test_e2e                    # ~30 s once the image is cached
 
 The default `pytest` run (`testpaths = test/`) does not include these tests.
 
+To run the same workflow by hand, [`MANUAL.md`](MANUAL.md) has the copy-paste curl commands, with the expected status and fields for each call.
+
 ## Requirements and isolation
 
 - **Requirements:** Docker with Compose v2. Ghostscript (`gs`) is optional; without it, the Ghostscript attack is skipped.

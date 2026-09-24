@@ -31,7 +31,11 @@ python -m pip install -e ".[dev]"
 # Run the unit tests
 export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 python -m pytest
+
+# Run the end-to-end tests (real server image + MariaDB in Docker, test keys only)
+python -m pytest test_e2e
 ```
+See `server/test_e2e/README.md` for what the end-to-end suite covers.
 
 ### Add a watermarking method
 

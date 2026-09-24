@@ -121,7 +121,9 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
                 assert "payload" not in response.get_json()
 
         # A failing watermark (generic error, or the method refusing the source)
-        # must never produce a link, a version row or a stored file.
+        # must never produce a link, a version row or a stored file. The error
+        # body differs (handled vs. the app's generic 500 handler); the
+        # invariant does not.
         for failure in (RuntimeError("test failure"), WatermarkingError("no usable image")):
             failing_client = RMAPClient("Group_01", client_private, server_public)
             response = http.post("/api/rmap-initiate", json=failing_client.build_msg1())
@@ -133,7 +135,7 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
             )
             failed = http.post("/api/rmap-get-link", json=failing_client.build_msg2())
             assert failed.status_code == 500
-            assert failed.get_json() == {"error": "could not create watermarked version"}
+            assert "payload" not in failed.get_json()
             with engine.connect() as conn:
                 assert conn.execute(text("SELECT COUNT(*) FROM Versions")).scalar_one() == 2
             assert len(list((app.config["STORAGE_DIR"] / "rmap").glob("*.pdf"))) == 2

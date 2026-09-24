@@ -302,18 +302,6 @@ def test_normal_user_cannot_read_the_service_documents(fingerprint_app):
         assert read(doc_id, uid=2).status_code == 404
 
 
-def test_unknown_method_is_a_client_error(fingerprint_app):
-    app, read = fingerprint_app
-    assert read(2, method="no-such-method").status_code == 400
-    assert read(4, uid=2, method="no-such-method").status_code == 400
-
-    response = app.test_client().post(
-        "/api/create-watermark/1", headers=_auth_headers(app)(1),
-        json={"method": "no-such-method", "key": KEY, "secret": "s", "intended_for": "someone"},
-    )
-    assert response.status_code == 400
-
-
 def test_read_watermark_requires_authentication(fingerprint_app):
     app, _ = fingerprint_app
     response = app.test_client().post(

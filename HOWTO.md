@@ -47,8 +47,10 @@ Check that it's running: `curl http://127.0.0.1:5000/healthz`
 
 ## 3. Client: get a watermarked copy
 
-A group is accepted if `clients/<Identity>.asc` exists. It must also hold that key's
-**private** key, because the server encrypts its replies to it.
+A group is accepted if `clients/<Identity>.asc` exists. Keys are loaded at startup, so
+restart the server after adding or removing one. The client must also hold that key's
+**private** key, because the server encrypts its replies to it. A handshake left half-done
+across a restart fails with `400`; just start a new one.
 
 ```sh
 rmap-client --url http://127.0.0.1:5000 --identity Group_13 \
@@ -108,3 +110,4 @@ tail -n 1 copy.pdf | tr -- '-_' '+/' | base64 -d | python3 -c \
 - If RMAP fails, check `docker compose logs server`. `PassphraseRequiredException` means the
   passphrase is missing or wrong. Errors sent to clients are always generic.
 - Unit tests: `cd server && SECRET_KEY=$(python -c 'import secrets;print(secrets.token_hex(32))') pytest`
+- End-to-end tests (isolated Docker stack, generated keys): `cd server && pytest test_e2e`

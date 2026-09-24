@@ -386,7 +386,7 @@ def create_app():
             with output_path.open("xb") as output:
                 output_path_reserved = True
                 output.write(wm_bytes)
-        except (KeyError, OSError, RuntimeError, TypeError, ValueError, WatermarkingError) as error:
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as error:
             if output_path_reserved:
                 _remove_file(output_path)
             return _internal_error_response(
@@ -1016,7 +1016,7 @@ def create_app():
             )
             if applicable is False:
                 return jsonify({"error": "invalid watermarking request"}), 400
-        except (KeyError, TypeError, ValueError, OSError, RuntimeError, WatermarkingError) as error:
+        except (TypeError, ValueError, OSError, RuntimeError, WatermarkingError) as error:
             return _internal_error_response(
                 "watermark applicability check", error,
                 "invalid watermarking request", 400,
@@ -1249,7 +1249,7 @@ def create_app():
                 pdf=str(file_path),
                 key=key
             )
-        except (KeyError, ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError, WatermarkingError) as error:
+        except (ValueError, TypeError, OSError, RuntimeError, fitz.FileDataError, WatermarkingError) as error:
             read_error = error
         if read_error is not None and not is_rmap_service:
             return _internal_error_response(
