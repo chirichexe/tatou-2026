@@ -23,7 +23,6 @@ from PIL import Image
 
 from .align import align
 
-
 # (row, col) of the coefficients used in every 8x8 block
 FINGERPRINT = [(0, 1), (1, 0), (1, 1), (0, 2), (2, 0), (1, 2), (2, 1)]  # low frequencies
 PAYLOAD = [(0, 3), (3, 0), (2, 2), (1, 3), (3, 1), (2, 3), (3, 2)]      # middle frequencies
@@ -58,12 +57,12 @@ def _to_image(ycc: np.ndarray, dct: np.ndarray) -> Image.Image:
 
 
 def _get(dct: np.ndarray, positions: list[tuple[int, int]]) -> np.ndarray:
-    rows, cols = zip(*positions)
+    rows, cols = zip(*positions, strict=True)
     return dct[:, :, list(rows), list(cols)]
 
 
 def _set(dct: np.ndarray, positions: list[tuple[int, int]], values: np.ndarray) -> None:
-    rows, cols = zip(*positions)
+    rows, cols = zip(*positions, strict=True)
     dct[:, :, list(rows), list(cols)] = values
 
 

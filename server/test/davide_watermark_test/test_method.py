@@ -19,10 +19,9 @@ import davide_watermark.method as method_module
 from attacks import ATTACKS, KNOWN_FAILURES, edit_image
 from davide_watermark.image import embed_payload, read_votes, vote
 from davide_watermark.method import DavideWatermark, _images, _replace_image, encrypt
+from photos import make_photo, photo_pdf
 from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
 from watermarking_utils import METHODS, apply_watermark, read_watermark
-
-from photos import make_photo, photo_pdf
 
 KEY = "rmap-server-key"
 LEAKER = "Group_07:da0bb583c432fbfd078959ecc9b62902"

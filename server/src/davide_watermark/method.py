@@ -30,8 +30,14 @@ from watermarking_method import (
     load_pdf_bytes,
 )
 
-from .image import capacity, embed_fingerprint, embed_payload, fingerprint_scores, read_votes, vote
-
+from .image import (
+    capacity,
+    embed_fingerprint,
+    embed_payload,
+    fingerprint_scores,
+    read_votes,
+    vote,
+)
 
 # the server runs a single worker: bigger images are skipped and every
 # document has a total budget of pixels
