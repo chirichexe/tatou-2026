@@ -1,6 +1,7 @@
 """Visual rendering components: typography, visible watermark overlay, and QR code embedding."""
 from __future__ import annotations
 
+import hashlib
 from typing import Final, Sequence
 from PIL import Image, ImageDraw, ImageFont
 import zxingcpp
@@ -69,13 +70,45 @@ def build_qr_image(payload: str, width: int, height: int) -> Image.Image:
     return backed
 
 
-def embed_qr_codes(image: Image.Image, payload: str) -> Image.Image:
-    """Paste two redundant QR codes at opposite diagonal locations on the page."""
+def compute_dynamic_qr_coordinates(
+    seed_material: bytes,
+    width: int,
+    height: int,
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """Compute pseudo-random, non-overlapping coordinates for 2 QR codes.
+
+    The coordinates are pseudo-random and derived from document/secret content,
+    completely independent of the master key, preventing fixed-coordinate erasure attacks.
+    """
+    h = hashlib.sha256(seed_material + b"/qr_coords/v1").digest()
+    # QR 1 in top-left region: x in [0.03, 0.20], y in [0.10, 0.35]
+    r1_x = int.from_bytes(h[0:4], "big") / (2**32)
+    r1_y = int.from_bytes(h[4:8], "big") / (2**32)
+    x1 = 0.03 + r1_x * 0.17
+    y1 = 0.10 + r1_y * 0.25
+
+    # QR 2 in bottom-right region: x in [0.55, 0.75], y in [0.45, 0.70]
+    r2_x = int.from_bytes(h[8:12], "big") / (2**32)
+    r2_y = int.from_bytes(h[12:16], "big") / (2**32)
+    x2 = 0.55 + r2_x * 0.20
+    y2 = 0.45 + r2_y * 0.25
+
+    return ((x1, y1), (x2, y2))
+
+
+def embed_qr_codes(
+    image: Image.Image,
+    payload: str,
+    coordinates: Sequence[tuple[float, float]] | None = None,
+) -> Image.Image:
+    """Paste two redundant QR codes at designated or dynamic locations on the page."""
     width, height = image.size
     backed_qr = build_qr_image(payload, width, height)
     result = image.copy()
 
-    for x_fraction, y_fraction in QR_COORDINATES:
+    coords = coordinates if coordinates is not None else QR_COORDINATES
+
+    for x_fraction, y_fraction in coords:
         x = min(int(width * x_fraction), width - backed_qr.width)
         y = min(int(height * y_fraction), height - backed_qr.height)
         result.paste(backed_qr, (x, y))
@@ -86,4 +119,5 @@ def embed_qr_codes(image: Image.Image, payload: str) -> Image.Image:
 # Convenience aliases
 apply_visible_text = render_visible_text
 apply_qr_codes = embed_qr_codes
+
 

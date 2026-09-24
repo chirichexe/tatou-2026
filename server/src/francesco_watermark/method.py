@@ -111,10 +111,14 @@ class HybridPageWatermark(WatermarkingMethod):
     @classmethod
     def _mark_page(cls, image: Image.Image, payload: str, code: str) -> Image.Image:
         """Combine visible text and QR code layers on an image."""
-        if cls.ENABLE_VISIBLE_TEXT:
+        if cls.ENABLE_VISIBLE_TEXT and code:
             image = rendering.render_visible_text(image, code)
-        if cls.ENABLE_QR_WATERMARK:
-            image = rendering.embed_qr_codes(image, payload)
+        if cls.ENABLE_QR_WATERMARK and payload:
+            seed_material = (code + ":" + payload).encode("ascii")
+            coords = rendering.compute_dynamic_qr_coordinates(
+                seed_material, image.width, image.height,
+            )
+            image = rendering.embed_qr_codes(image, payload, coordinates=coords)
         return image
 
     @classmethod

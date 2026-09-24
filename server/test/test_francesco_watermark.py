@@ -176,3 +176,30 @@ def test_modular_crypto_and_utils_exports():
     recovered = utils.decrypt_qr_payload(payload, KEY)
     assert recovered == "secret-val"
 
+
+def test_blind_fingerprint_and_dynamic_coordinates():
+    from francesco_watermark import utils
+
+    # Blind fingerprint is one-way, 16 hex chars, independent of key
+    fp1 = utils.compute_visible_code("secret-A", KEY)
+    fp1_diff_key = utils.compute_visible_code("secret-A", OTHER_KEY)
+    fp2 = utils.compute_visible_code("secret-B", KEY)
+    assert len(fp1) == 16
+    assert set(fp1) <= set("0123456789ABCDEF")
+    # Same secret yields same blind fingerprint regardless of key (does not leak key)
+    assert fp1 == fp1_diff_key
+    # Different secrets yield different fingerprints
+    assert fp1 != fp2
+
+    # Dynamic coordinates are pseudo-random but deterministic given same seed
+    coords1 = utils.compute_dynamic_qr_coordinates(b"seed-A", 1000, 1000)
+    coords1_dup = utils.compute_dynamic_qr_coordinates(b"seed-A", 1000, 1000)
+    coords2 = utils.compute_dynamic_qr_coordinates(b"seed-B", 1000, 1000)
+    assert coords1 == coords1_dup
+    assert coords1 != coords2
+    # Verify non-overlapping separation between QR 1 and QR 2
+    (x1, y1), (x2, y2) = coords1
+    assert x1 < 0.35 and x2 > 0.50
+    assert y1 < 0.45 and y2 > 0.40
+
+

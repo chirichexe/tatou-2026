@@ -38,10 +38,15 @@ def derive_sub_key(key: str, purpose: bytes, length: int) -> bytes:
     ).derive(parse_hex_key(key))
 
 
-def compute_visible_code(secret: str, key: str) -> str:
-    """Compute a short printable 16-hex HMAC fingerprint of the secret."""
-    key_bytes = derive_sub_key(key, b"visible", 32)
-    digest = hmac.new(key_bytes, secret.encode("utf-8"), hashlib.sha256).hexdigest()
+def compute_visible_code(secret: str, key: str | None = None) -> str:
+    """Compute a blind, one-way 16-hex fingerprint of the secret.
+
+    Does NOT expose or leak any part of the master key or the secret.
+    Uses SHA-256 with a domain separator to create an irreversible code.
+    """
+    digest = hashlib.sha256(
+        b"tatou/blind-fingerprint/v1/" + secret.encode("utf-8")
+    ).hexdigest()
     return digest[:16].upper()
 
 

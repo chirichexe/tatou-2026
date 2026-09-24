@@ -19,6 +19,7 @@ from .rendering import (
     apply_qr_codes,
     apply_visible_text,
     build_qr_image,
+    compute_dynamic_qr_coordinates,
     load_font,
 )
 from .trustmark_experiment import (
@@ -51,4 +52,5 @@ __all__ = [
     "apply_visible_text",
     "build_qr_image",
     "apply_qr_codes",
+    "compute_dynamic_qr_coordinates",
 ]
