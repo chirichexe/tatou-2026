@@ -7,6 +7,7 @@ import pytest
 from rmap import RMAPClient
 from rmap.keygen import generate_keypair
 from sqlalchemy import create_engine, text
+from watermarking_method import WatermarkingError
 from watermarking_utils import read_watermark
 
 
@@ -113,18 +114,31 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
         unknown = RMAPClient("Unregistered", client_private, server_public)
         assert http.post("/api/rmap-initiate", json=unknown.build_msg1()).status_code == 400
 
-        failing_client = RMAPClient("Group_01", client_private, server_public)
-        response = http.post("/api/rmap-initiate", json=failing_client.build_msg1())
-        assert response.status_code == 200
-        failing_client.process_resp1(response.get_json())
-        monkeypatch.setattr(
-            "server.WMUtils.apply_watermark",
-            lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("test failure")),
-        )
-        failed = http.post("/api/rmap-get-link", json=failing_client.build_msg2())
-        assert failed.status_code == 500
-        with engine.connect() as conn:
-            assert conn.execute(text("SELECT COUNT(*) FROM Versions")).scalar_one() == 2
+        for malformed in ({"payload": "not base64 !"}, {"payload": 42}, {}, ["payload"]):
+            for route in ("/api/rmap-initiate", "/api/rmap-get-link"):
+                response = http.post(route, json=malformed)
+                assert response.status_code == 400
+                assert "payload" not in response.get_json()
+
+        # A failing watermark (generic error, or the method refusing the source)
+        # must never produce a link, a version row or a stored file. The error
+        # body differs (handled vs. the app's generic 500 handler); the
+        # invariant does not.
+        for failure in (RuntimeError("test failure"), WatermarkingError("no usable image")):
+            failing_client = RMAPClient("Group_01", client_private, server_public)
+            response = http.post("/api/rmap-initiate", json=failing_client.build_msg1())
+            assert response.status_code == 200
+            failing_client.process_resp1(response.get_json())
+            monkeypatch.setattr(
+                "server.WMUtils.apply_watermark",
+                lambda failure=failure, **_kwargs: (_ for _ in ()).throw(failure),
+            )
+            failed = http.post("/api/rmap-get-link", json=failing_client.build_msg2())
+            assert failed.status_code == 500
+            assert "payload" not in failed.get_json()
+            with engine.connect() as conn:
+                assert conn.execute(text("SELECT COUNT(*) FROM Versions")).scalar_one() == 2
+            assert len(list((app.config["STORAGE_DIR"] / "rmap").glob("*.pdf"))) == 2
     finally:
         engine.dispose()
 
