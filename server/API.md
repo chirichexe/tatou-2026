@@ -374,7 +374,7 @@ This endpoint reads information contain in a pdf document's watermark with the p
 ```json
 {
     "method": <string>,
-    "position": <string>,
+    "position": <string|null>,
     "key": <string>
 }
 ```
@@ -399,7 +399,7 @@ field. The recovered secret is looked up in `Versions` for that document:
     "documentid": <int>,
     "secret": <string>,
     "method": <string>,
-    "position": <string>,
+    "position": <string|null>,
     "attribution": {"intended_for": <string>, "link": <string>} | null
 }
 ```
@@ -433,8 +433,10 @@ A wrong key, an unmarked document and a stripped watermark all return the same
 `400 {"error": "could not read watermark"}`, so the endpoint does not reveal
 whether a document carries a watermark.
 
-`position` is echoed back; `davide-watermark` ignores it (it marks every
-suitable image).
+`position` is echoed back for the generic read route. `davide-watermark`
+ignores it because it marks every suitable image. `francesco-watermark`
+normalizes it to `null` when creating a version and always emits both QR and
+visible ciphertext layers.
 
 **Specification**
  * The endpoint MUST return the secret read in the document, except for the
@@ -485,7 +487,7 @@ This endpoint reads information contain in a pdf document's watermark with the p
     "link": <string>,
     "intended_for": <string>,
     "method": <string>,
-    "position": <string>,
+    "position": <string|null>,
     "filename": <string>,
     "size": <int>
 }
@@ -651,7 +653,8 @@ via a fresh opaque copy identifier, inserts the new version, and uses the result
 
 `francesco-watermark` is the recommended method for the Group 13 document. Its
 `RMAP_WATERMARK_KEY` must be 32 random bytes encoded as 64 hex characters.
-See [FRANCESCO_WATERMARK.md](FRANCESCO_WATERMARK.md) for usage and verification.
+See [LOCAL_RMAP_TESTING.md](LOCAL_RMAP_TESTING.md) for local usage and
+verification.
 
 Compose mounts `RMAP_KEYS_HOST_DIR` (or `./rmap-keys` by default) read-only at
 `/app/rmap-keys`; the directory and private keys are ignored by Git. Use the

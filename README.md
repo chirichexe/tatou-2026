@@ -157,20 +157,20 @@ server deployment, keep the entire key directory outside the checkout and set
 ```bash
 mkdir -p rmap-keys/clients
 rmap-keygen --name "Tatou server" --email server@example.test \
-  --out-private rmap-keys/server_private.asc \
-  --out-public rmap-keys/server_public.asc
+  --out-private rmap-keys/private_key.asc \
+  --out-public rmap-keys/public_key.asc
 ```
 
 Set these values in `.env` for Compose:
 
 ```dotenv
-RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/server_public.asc
-RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/server_private.asc
+RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/public_key.asc
+RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/private_key.asc
 RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
 RMAP_DOCUMENT_ID=42
 RMAP_WATERMARK_METHOD=francesco-watermark
 RMAP_WATERMARK_KEY=<64 random hexadecimal characters>
-RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
+RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/passphrase
 ```
 
 For example, a server keeping its keys in `/home/softsec/secrets` can use:
@@ -193,7 +193,7 @@ watermarking method (`toy-eof` is easily stripped and kept only for the test sui
 - `francesco-watermark`: native PDF overlay with authenticated opaque QR codes and OCR-readable visible ciphertext. Uses a separate random 32-byte hexadecimal `RMAP_WATERMARK_KEY`. New RMAP versions use an opaque random copy identifier, linked to the authenticated group in `Versions`, rather than embedding the download link in the PDF.
 
 When the server private key has a passphrase, create
-`rmap-keys/server_passphrase` locally with mode `600`, place the passphrase in
+`rmap-keys/passphrase` locally with mode `600`, place the passphrase in
 that file, and keep `RMAP_SERVER_KEY_PASSPHRASE` empty. The container receives
 the key directory read-only and the passphrase is never included in the Compose
 environment.
@@ -203,7 +203,7 @@ The upstream CLI can exercise the complete flow with the client keypair:
 ```bash
 rmap-client --url http://localhost:5000 --identity Group_01 \
   --client-private-key path/to/group01_private.asc \
-  --server-public-key rmap-keys/server_public.asc \
+  --server-public-key rmap-keys/public_key.asc \
   --msg1-path /api/rmap-initiate --msg2-path /api/rmap-get-link \
   --get-link-path /api/get-version --fetch-link
 ```
@@ -212,3 +212,6 @@ The reference `RMAPServer` keeps pending nonces in process memory. The
 provided Gunicorn command uses one worker; if you add workers or replicas,
 route both handshake messages to the same process or provide shared session
 state.
+
+For the local Group_13 workflow, see
+[server/LOCAL_RMAP_TESTING.md](server/LOCAL_RMAP_TESTING.md).

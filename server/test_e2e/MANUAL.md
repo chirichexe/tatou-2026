@@ -1,6 +1,6 @@
-# Manual E2E: official RMAP + `davide-watermark`, step by step
+# Manual E2E: official RMAP + `francesco-watermark`, step by step
 
-These are copy-paste commands that run the full RMAP + `davide-watermark`
+These are copy-paste commands that run the full RMAP + `francesco-watermark`
 workflow by hand against an isolated stack.
 
 - **Stack:** an isolated one (`server/test_e2e/compose.yml`), built from a clean state, so it never touches your development data or real keys.
@@ -77,11 +77,14 @@ export RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/server_public.asc
 export RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/server_private.asc
 export RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
 export RMAP_DOCUMENT_ID=$DOCUMENT_ID
-export RMAP_WATERMARK_METHOD=davide-watermark
+export RMAP_WATERMARK_METHOD=francesco-watermark
 export RMAP_WATERMARK_KEY=$(cat "$WORK/wm.key")
 $COMPOSE up -d --no-deps --force-recreate server
 until curl -sf $BASE_URL/healthz | jq -e .db_connected >/dev/null; do sleep 1; done
 ```
+
+`francesco-watermark` always emits both QR and visible ciphertext layers.
+`RMAP_WATERMARK_POSITION` is intentionally ignored for this method.
 
 ## 3. RMAP handshake for Group_A (raw curl, official payload helpers)
 
