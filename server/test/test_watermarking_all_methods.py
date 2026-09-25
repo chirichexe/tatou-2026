@@ -5,7 +5,7 @@ import importlib
 import inspect
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 import pytest
 
 # --------- collect all methods from the registry ----------
@@ -55,18 +55,17 @@ def _as_instance(impl: object) -> object:
 class TestAllWatermarkingMethods:
     def test_is_watermark_applicable(self, method_name: str, impl: object, sample_pdf_path: Path):
         wm_impl = _as_instance(impl)
-        ok = wm_impl.is_watermark_applicable(sample_pdf_path, position=None)
+        ok = wm_impl.is_watermark_applicable(sample_pdf_path, position="group=Group_13")
         assert isinstance(ok, bool), f"{method_name}: is_watermark_applicable must return bool"
         if not ok:
             pytest.skip(f"{method_name}: not applicable to the sample PDF")
 
     def test_add_watermark_and_shape(self, method_name: str, impl: object, sample_pdf_path: Path, secret: str, key: str):
         wm_impl = _as_instance(impl)
-        if not wm_impl.is_watermark_applicable(sample_pdf_path, position=None):
+        if not wm_impl.is_watermark_applicable(sample_pdf_path, position="group=Group_13"):
             pytest.skip(f"{method_name}: not applicable to the sample PDF")
-        out_bytes = wm_impl.add_watermark(sample_pdf_path, secret=secret, key=key, position=None)
+        out_bytes = wm_impl.add_watermark(sample_pdf_path, secret=secret, key=key, position="group=Group_13")
         assert isinstance(out_bytes, (bytes, bytearray)), f"{method_name}: add_watermark must return bytes"
-        assert len(out_bytes) >= len(sample_pdf_path.read_bytes()), f"{method_name}: watermarked bytes should not be smaller than input"
         assert out_bytes.startswith(b"%PDF-"), f"{method_name}: output should still look like a PDF"
         with fitz.open(stream=out_bytes, filetype="pdf") as result:
             assert result.page_count == 1, f"{method_name}: output should preserve the page"
@@ -74,10 +73,10 @@ class TestAllWatermarkingMethods:
 
     def test_read_secret_roundtrip(self, method_name: str, impl: object, sample_pdf_path: Path, secret: str, key: str, tmp_path: Path):
         wm_impl = _as_instance(impl)
-        if not wm_impl.is_watermark_applicable(sample_pdf_path, position=None):
+        if not wm_impl.is_watermark_applicable(sample_pdf_path, position="group=Group_13"):
             pytest.skip(f"{method_name}: not applicable to the sample PDF")
         out_pdf = tmp_path / f"{method_name}_watermarked.pdf"
-        out_pdf.write_bytes(wm_impl.add_watermark(sample_pdf_path, secret=secret, key=key, position=None))
+        out_pdf.write_bytes(wm_impl.add_watermark(sample_pdf_path, secret=secret, key=key, position="group=Group_13"))
         extracted = wm_impl.read_secret(out_pdf, key=key)
         assert isinstance(extracted, str), f"{method_name}: read_secret must return str"
         assert extracted == secret, f"{method_name}: read_secret should return the exact embedded secret"

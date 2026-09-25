@@ -49,13 +49,9 @@ logger = logging.getLogger(__name__)
 # Method registry
 # --------------------
 
-_francesco_method = FrancescoWatermark()
-
 METHODS: dict[str, WatermarkingMethod] = {
     AddAfterEOF.name: AddAfterEOF(),
-    FrancescoWatermark.name: _francesco_method,
-    "fwm1": _francesco_method,
-    "hybrid-page": _francesco_method,
+    FrancescoWatermark.name: FrancescoWatermark(),
     UnsafeBashBridgeAppendEOF.name: UnsafeBashBridgeAppendEOF(),
     DavideWatermark.name: DavideWatermark(),
 }
@@ -182,7 +178,7 @@ def explore_pdf(pdf: PdfSource) -> dict[str, Any]:
     }
 
     try:
-        import fitz  # type: ignore
+        import pymupdf as fitz
 
         doc = fitz.open(stream=data, filetype="pdf")
         # Pages as first-class nodes

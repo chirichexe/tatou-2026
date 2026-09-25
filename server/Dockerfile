@@ -5,25 +5,25 @@
 FROM python:3.12-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore
 
 WORKDIR /app
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends git ca-certificates openssh-client fonts-dejavu-core \
+ && apt-get install -y --no-install-recommends git ca-certificates openssh-client fonts-dejavu-core tesseract-ocr \
  && rm -rf /var/lib/apt/lists/*
 
-# Copy project description, to instal dependencies
+# Copy the package metadata and sources before the single editable install.
 COPY pyproject.toml /app/pyproject.toml
-
-# Install runtime dependencies
-RUN pip install --no-cache-dir -e .
-
-# Copy sources after dependencies installation
 COPY src /app/src
+
+RUN pip install --no-cache-dir -e . \
+ && pip check
+
 COPY flag /app/flag
 COPY entrypoint.sh /app/entrypoint.sh
-RUN pip install --no-cache-dir -e .
 
 EXPOSE 5000
 

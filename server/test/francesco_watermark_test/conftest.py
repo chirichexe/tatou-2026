@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import fitz
+import pymupdf as fitz
 import pytest
 
 KEY = "0123456789abcdef" * 4
@@ -29,8 +29,8 @@ def pdf_bytes() -> bytes:
 
 
 @pytest.fixture
-def carrier_pdf_for_davide() -> bytes:
-    """PDF with 1500 BT carrier slots for testing coexistence with DavideWatermark."""
+def structural_carrier_pdf() -> bytes:
+    """PDF with enough text operators for the structural watermark test."""
     with fitz.open() as doc:
         page = doc.new_page(width=595, height=842)
         page.insert_text((50, 50), "x")

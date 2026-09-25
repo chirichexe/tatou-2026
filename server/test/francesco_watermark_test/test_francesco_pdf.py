@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import fitz
+import pymupdf as fitz
 from francesco_watermark import pdf as pdf_ops
-from francesco_watermark.method import HybridPageWatermark
+from francesco_watermark.method import FrancescoWatermark
 
 KEY = "0123456789abcdef" * 4
 
@@ -33,14 +33,14 @@ def test_is_document_applicable(pdf_bytes):
 
 
 def test_native_overlay_preserves_text_and_streams(pdf_bytes):
-    method = HybridPageWatermark()
-    watermarked = method.add_watermark(pdf_bytes, "copy-check", KEY)
+    method = FrancescoWatermark()
+    watermarked = method.add_watermark(
+        pdf_bytes, "copy-check", KEY, position="group=Group_13"
+    )
 
     with fitz.open(stream=watermarked, filetype="pdf") as doc:
         page = doc[0]
-        # Text is preserved intact (NOT flattened into a full-page raster image)
         text = page.get_text()
         assert "A document with a table and a photograph" in text
-        # Images contain the frosted QR code overlay XObjects
         images = page.get_images()
         assert len(images) >= 1

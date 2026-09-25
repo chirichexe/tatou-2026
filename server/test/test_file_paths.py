@@ -6,7 +6,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
 
-import fitz
+import pymupdf as fitz
 import pytest
 from itsdangerous import URLSafeTimedSerializer
 from sqlalchemy import create_engine, event, text
@@ -564,6 +564,44 @@ def test_watermark_names_are_safe_unique_and_downloadable(file_app):
         )
         assert read.status_code == 201, read.get_json()
         assert read.get_json()["secret"] == WATERMARK["secret"]
+
+
+def test_francesco_api_stores_exact_secret_and_ignores_position(file_app):
+    payload = {
+        "method": "francesco-watermark",
+        "intended_for": "Group_13",
+        "secret": "copy-api-13",
+        "key": "0123456789abcdef" * 4,
+        "position": "qr-only",
+    }
+
+    response = file_app.client.post(
+        "/api/create-watermark/42",
+        headers=file_app.headers(),
+        json=payload,
+    )
+    assert response.status_code == 201, response.get_json()
+    result = response.get_json()
+    assert result["position"] is None
+
+    with file_app.engine.connect() as connection:
+        version = connection.execute(
+            text("SELECT * FROM Versions WHERE link = :link"),
+            {"link": result["link"]},
+        ).one()
+
+    assert version.method == "francesco-watermark"
+    assert version.intended_for == "Group_13"
+    assert version.secret == payload["secret"]
+    assert file_app.server.WMUtils.read_watermark(
+        "francesco-watermark", version.path, payload["key"]
+    ) == payload["secret"]
+    with fitz.open(version.path) as document:
+        assert document.page_count == 1
+        assert "Tatou upload validation fixture" in document[0].get_text()
+        images = document[0].get_images(full=True)
+        assert len(images) == 8
+        assert any(image[2] != image[3] for image in images)
 
 
 @pytest.mark.parametrize("relative", [False, True])

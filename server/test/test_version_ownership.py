@@ -4,7 +4,7 @@ import io
 import secrets
 from types import SimpleNamespace
 
-import fitz
+import pymupdf as fitz
 import pytest
 from sqlalchemy import create_engine, event, text
 

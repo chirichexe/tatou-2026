@@ -1,17 +1,16 @@
-"""Native PDF watermarking with authenticated frosted-glass QR codes and optional visible copy labels.
+"""Native PDF watermarking with authenticated QR and visible ciphertext layers.
 
 Aggregates modular components:
 - crypto: Key derivation (HKDF) and authenticated AES-SIV QR payloads
-- qr: Frosted-glass QR generation, collision-free random placement, and detection
-- rendering: Typography and native visible text overlays
-- pdf: Native PDF stamping without rasterization, preserving original text streams (BT/Tw)
+- qr: Opaque QR generation, collision-free border placement, and detection
+- rendering: Typography and visible label overlays
+- pdf: Native PDF stamping without rasterizing the source document
 
-Supports layer toggling via configurable class-level flags and runtime position parameters.
+The shared ``position`` argument is accepted for API compatibility and ignored.
 """
 
 from __future__ import annotations
 
-import re
 from typing import ClassVar, Final
 
 import pymupdf as fitz
@@ -29,15 +28,14 @@ from watermarking_method import (
 from . import crypto
 from . import pdf as pdf_ops
 from . import rendering as render_ops
-
-text_ops = qr_ops = render_ops
+from . import visible as visible_ops
 
 
 NAME: Final[str] = "francesco-watermark"
 
 
 class FrancescoWatermark(WatermarkingMethod):
-    """Visible copy fingerprint plus repeated AES-SIV-protected QR codes."""
+    """Independent AES-SIV QR payloads plus a repeated visible ciphertext."""
 
     name: Final[str] = NAME
     DPI: Final[int] = pdf_ops.DEFAULT_DPI
@@ -47,41 +45,22 @@ class FrancescoWatermark(WatermarkingMethod):
     MAX_SECRET_BYTES: Final[int] = 64
     MAX_OUTPUT_IMAGE_BYTES: Final[int] = pdf_ops.MAX_OUTPUT_IMAGE_BYTES
     PREFIX: Final[str] = "FWM1:"
-    _HEX_KEY: Final[re.Pattern[str]] = crypto.HEX_KEY_PATTERN
-
-    # -------------------------------------------------------------------------
-    # Layer activation flags (customizable, defaults: QR active, visible text inactive)
-    # -------------------------------------------------------------------------
-    ENABLE_RASTER_BASE: ClassVar[bool] = True  # Step 0: Foundational watermark layer
-    ENABLE_QR_WATERMARK: ClassVar[bool] = (
-        True  # Step 1: Encrypted frosted-glass QR codes (Default: TRUE)
-    )
-    ENABLE_VISIBLE_TEXT: ClassVar[bool] = (
-        False  # Step 2: Visible diagonal text with group name (Default: FALSE)
-    )
+    # Both output layers are enabled by default.
+    ENABLE_BASE_LAYER: ClassVar[bool] = True
+    ENABLE_QR_WATERMARK: ClassVar[bool] = True
+    ENABLE_VISIBLE_TEXT: ClassVar[bool] = True
 
     @staticmethod
     def get_usage() -> str:
         return (
-            "Native PDF overlay with authenticated frosted QR codes and optional visible copy labels; "
+            "Native PDF overlay with authenticated opaque QR codes and an OCR-readable "
+            "visible ciphertext; "
             "preserves original text streams. Supports any passphrase or hex key."
         )
 
-    # -------------------------------------------------------------------------
-    # Cryptographic delegates & compatibility methods
-    # -------------------------------------------------------------------------
     @classmethod
     def _key_material(cls, key: str) -> bytes:
         return crypto.derive_aes_key(key)
-
-    @classmethod
-    def _derive(cls, key: str, purpose: bytes, length: int) -> bytes:
-        return crypto.derive_sub_key(key, purpose, length)
-
-    @classmethod
-    def visible_code(cls, secret: str, key: str) -> str:
-        """Short printable fingerprint; not a standalone proof of authenticity."""
-        return crypto.compute_visible_code(secret, key)
 
     @classmethod
     def _payload(cls, secret: str, key: str) -> str:
@@ -91,25 +70,15 @@ class FrancescoWatermark(WatermarkingMethod):
     def _unpack(cls, payload: str, key: str) -> str:
         return crypto.decrypt_qr_payload(payload, key)
 
-    # -------------------------------------------------------------------------
-    # PDF & visual helpers
-    # -------------------------------------------------------------------------
     @classmethod
     def _check_document(cls, data: bytes, position: str | None) -> bool:
         return pdf_ops.is_document_applicable(data, position)
 
-    @staticmethod
-    def _font(size: int):
-        return text_ops.load_font(size)
-
-    # -------------------------------------------------------------------------
-    # Primary Watermarking Interface
-    # -------------------------------------------------------------------------
     def is_watermark_applicable(
         self, pdf: PdfSource, position: str | None = None
     ) -> bool:
         try:
-            return self._check_document(load_pdf_bytes(pdf), position)
+            return self._check_document(load_pdf_bytes(pdf), None)
         except (OSError, TypeError, ValueError):
             return False
 
@@ -120,79 +89,66 @@ class FrancescoWatermark(WatermarkingMethod):
         key: str,
         position: str | None = None,
     ) -> bytes:
-        # Step 0: Base layer check
-        if not self.ENABLE_RASTER_BASE:
+        if not self.ENABLE_BASE_LAYER:
             raise WatermarkingError(
-                "Base rasterization layer is required for francesco-watermark watermarking"
+                "Base layer is required for francesco-watermark watermarking"
             )
 
         self._key_material(key)
         validate_secret_string(secret, self.MAX_SECRET_BYTES)
 
         data = load_pdf_bytes(pdf)
-        if not self._check_document(data, position):
+        if not self._check_document(data, None):
             raise ValueError("PDF is not applicable to francesco-watermark")
 
-        # Layer determination from defaults and optional runtime position hint
         enable_qr = self.ENABLE_QR_WATERMARK
         enable_text = self.ENABLE_VISIBLE_TEXT
 
-        if position:
-            pos_lower = position.lower()
-            if any(k in pos_lower for k in ("text", "all", "full", "with-text")):
-                enable_text = True
-            if "no-qr" in pos_lower or "text-only" in pos_lower:
-                enable_qr = False
-            if "qr-only" in pos_lower:
-                enable_qr = True
-                enable_text = False
+        qr_payloads = (
+            [self._payload(secret, key) for _ in range(2)] if enable_qr else []
+        )
+        qr_images = [
+            render_ops.build_opaque_qr_bytes(payload) for payload in qr_payloads
+        ]
+        visible_payload = self._payload(secret, key) if enable_text else ""
+        visible_label = (
+            crypto.qr_payload_to_visible_token(visible_payload)
+            if visible_payload
+            else ""
+        )
 
-        payload = self._payload(secret, key) if enable_qr else ""
-        self.visible_code(secret, key)
+        seed_material = (secret + ":" + key).encode("utf-8")
 
-        # Extract group identity dynamically for whichever group downloads the file
-        group_name = text_ops.extract_group_identity(secret, position)
-        code_label = text_ops.format_visible_label(group_name)
-
-        # Pre-generate frosted QR PNG bytes once per document
-        qr_bytes = qr_ops.build_frosted_qr_bytes(payload) if payload else b""
-
-        seed_material = (secret + ":" + key).encode("ascii")
-
-        # Native PDF overlay without flattening/rasterizing existing text streams
         with fitz.open(stream=data, filetype="pdf") as doc:
             for page in doc:
-                # Maintain list of placed bounding boxes across steps to prevent overlap
-                placed_boxes: list[tuple[float, float, float, float]] = []
+                content_boxes = render_ops.collect_page_content_boxes(page)
+                qr_rects: list[tuple[float, float, float, float]] = []
 
-                # Step 1: Visible diagonal text with group name (random, at most 2, collision-free)
-                if enable_text and code_label:
-                    text_ops.stamp_random_native_visible_text(
-                        page=page,
-                        label=code_label,
-                        placed_boxes=placed_boxes,
-                        count=2,
-                        seed_material=seed_material,
-                    )
-
-                # Step 2: Encrypted frosted-glass QR codes (if enabled)
-                if enable_qr and qr_bytes:
-                    qr_rects = qr_ops.generate_random_qr_rects(
+                if qr_images:
+                    qr_rects = render_ops.generate_random_qr_rects(
                         page_width=page.rect.width,
                         page_height=page.rect.height,
                         count=2,
-                        placed_boxes=placed_boxes,
+                        placed_boxes=content_boxes,
                         seed_material=seed_material,
                     )
-                    for r in qr_rects:
-                        pdf_ops.stamp_qr_on_page(page, qr_bytes, r)
+                    for qr_image, rect in zip(qr_images, qr_rects, strict=True):
+                        pdf_ops.stamp_qr_on_page(page, qr_image, rect)
+
+                if visible_label:
+                    render_ops.stamp_random_native_visible_text(
+                        page=page,
+                        label=visible_label,
+                        placed_boxes=list(qr_rects),
+                        count=render_ops.DEFAULT_VISIBLE_TEXT_COUNT,
+                        seed_material=seed_material,
+                    )
 
             return doc.tobytes(
                 garbage=0, deflate=True, encryption=fitz.PDF_ENCRYPT_NONE
             )
 
     def read_secret(self, pdf: PdfSource, key: str) -> str:
-        # Prerequisite: Reading secret requires the QR watermark layer
         if not self.ENABLE_QR_WATERMARK:
             raise WatermarkingError(
                 "QR watermark layer is disabled; cannot extract secret"
@@ -206,7 +162,6 @@ class FrancescoWatermark(WatermarkingMethod):
         found: set[str] = set()
         invalid = False
 
-        # In-memory rendering for barcode scanning (does not alter the PDF on disk)
         with fitz.open(stream=data, filetype="pdf") as document:
             for page in document:
                 image = pdf_ops.rasterize_page(page, dpi=pdf_ops.READ_DPI)
@@ -226,15 +181,30 @@ class FrancescoWatermark(WatermarkingMethod):
         if len(found) > 1:
             raise WatermarkingError("Conflicting francesco-watermark copy identifiers")
         if not found:
-            raise SecretNotFoundError("No authenticated francesco-watermark QR found")
+            return self.read_visible_secret(data, key)
 
         return found.pop()
+
+    def read_visible_secret(self, pdf: PdfSource, key: str) -> str:
+        """Recover and authenticate the secret from semi-transparent text."""
+        self._key_material(key)
+        data = load_pdf_bytes(pdf)
+        if not self._check_document(data, None):
+            raise ValueError("PDF is not applicable to francesco-watermark")
+
+        with fitz.open(stream=data, filetype="pdf") as document:
+            tokens = visible_ops.extract_visible_tokens(document)
+        if not tokens:
+            raise SecretNotFoundError("No visible francesco-watermark token found")
+
+        secrets = visible_ops.decrypt_visible_tokens(tokens, key)
+        if len(secrets) > 1:
+            raise WatermarkingError("Conflicting visible copy identifiers")
+        if not secrets:
+            raise InvalidKeyError("Visible francesco-watermark authentication failed")
+        return secrets.pop()
 
     def read_secret_components(self, pdf: PdfSource, key: str) -> dict[str, str | bool]:
         """Recover secret and return structured components (prefix, group, string, is_our_watermark)."""
         secret = self.read_secret(pdf, key)
         return crypto.parse_secret_components(secret)
-
-
-# Backward-compatible alias
-HybridPageWatermark = FrancescoWatermark

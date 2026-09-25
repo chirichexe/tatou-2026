@@ -2,7 +2,7 @@
 
 import secrets
 
-import fitz
+import pymupdf as fitz
 import pytest
 from itsdangerous import URLSafeTimedSerializer
 from rmap.keygen import generate_keypair

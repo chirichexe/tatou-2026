@@ -1,9 +1,8 @@
 """Watermarking CLI behavior and error sanitization."""
 
 import json
-import sys
-from types import SimpleNamespace
 
+import pymupdf
 import pytest
 import watermarking_cli as cli
 from watermarking_method import (
@@ -41,7 +40,7 @@ def test_extract_verifies_without_revealing_secret(monkeypatch, capsys):
 def test_extract_show_secret_requires_explicit_flag(monkeypatch, capsys):
     monkeypatch.setattr(cli, "read_watermark", lambda **_kwargs: "copy-id")
     assert cli.main([
-        "extract", "marked.pdf", "--method", "hybrid-page",
+        "extract", "marked.pdf", "--method", "francesco-watermark",
         "--key", "reader-key", "--show-secret",
     ]) == 0
     assert capsys.readouterr().out == "copy-id\n"
@@ -155,7 +154,7 @@ def test_explore_fallback_log_does_not_reveal_exception_text(
     def fail_open(**_kwargs):
         raise RuntimeError(SENSITIVE_CANARY)
 
-    monkeypatch.setitem(sys.modules, "fitz", SimpleNamespace(open=fail_open))
+    monkeypatch.setattr(pymupdf, "open", fail_open)
 
     result = cli.main(["explore", str(input_path)])
 
@@ -204,6 +203,7 @@ def test_methods_command_still_lists_registered_methods(capsys):
     output = capsys.readouterr()
     assert output.err == ""
     assert "toy-eof" in output.out.splitlines()
+    assert output.out.splitlines().count("francesco-watermark") == 1
 
 
 def test_explore_command_still_outputs_json(monkeypatch, capsys):

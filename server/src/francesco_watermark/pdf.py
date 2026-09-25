@@ -52,7 +52,7 @@ def stamp_qr_on_page(
     qr_bytes: bytes,
     rect: fitz.Rect | tuple[float, float, float, float],
 ) -> None:
-    """Stamp a frosted-glass QR code PNG onto a native PDF page without modifying content streams."""
+    """Stamp an opaque QR PNG onto a PDF page without modifying existing streams."""
     target_rect = rect if isinstance(rect, fitz.Rect) else fitz.Rect(*rect)
     page.insert_image(target_rect, stream=qr_bytes, keep_proportion=True, overlay=True)
 

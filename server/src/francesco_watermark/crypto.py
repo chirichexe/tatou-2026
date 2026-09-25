@@ -21,10 +21,17 @@ SALT_BYTES: Final[int] = 16
 
 HEX_KEY_PATTERN: Final[re.Pattern[str]] = re.compile(r"[0-9a-fA-F]{64}\Z")
 BASE64_URL_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9_-]+")
+VISIBLE_PREFIX: Final[str] = "FWM1-"
+# Sixteen glyphs selected to avoid common OCR pairs such as 0/O, 1/I/L,
+# 5/S, 6/G, 7/T, 8/B, J/U, and Q/O.
+VISIBLE_ALPHABET: Final[str] = "ABCDEFGHJKMNPRST"
+VISIBLE_TOKEN_PATTERN: Final[re.Pattern[str]] = re.compile(
+    rf"FWM1-([{VISIBLE_ALPHABET}]{{2}})-([{VISIBLE_ALPHABET}]+)\Z"
+)
 
 
 def derive_aes_key(key: str) -> bytes:
-    """Derive a 64-byte AES-SIV key from the user key, matching Davide's key derivation scheme."""
+    """Derive a domain-separated 64-byte AES-SIV key."""
     if not isinstance(key, str) or not key:
         raise InvalidKeyError("Invalid watermark key")
     return hashlib.sha512(_AES_KEY_DOMAIN + key.encode("utf-8")).digest()
@@ -116,6 +123,45 @@ def decrypt_qr_payload(payload: str, key: str) -> str:
         raise InvalidKeyError("Empty francesco-watermark QR secret")
 
     return secret
+
+
+def qr_payload_to_visible_token(payload: str) -> str:
+    """Encode one encrypted payload as an uppercase, OCR-friendly token."""
+    if not is_candidate_payload(payload):
+        raise ValueError("Invalid encrypted watermark payload")
+    ciphertext = base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4))
+    if len(ciphertext) > 255:
+        raise ValueError("Visible watermark ciphertext is too long")
+
+    def encode_byte(value: int) -> str:
+        return VISIBLE_ALPHABET[value >> 4] + VISIBLE_ALPHABET[value & 0x0F]
+
+    encoded = "".join(encode_byte(value) for value in ciphertext)
+    return f"{VISIBLE_PREFIX}{encode_byte(len(ciphertext))}-{encoded}"
+
+
+def visible_token_to_qr_payload(token: str) -> str:
+    """Recover the canonical QR representation from a visible token."""
+    match = VISIBLE_TOKEN_PATTERN.fullmatch(token.strip().upper())
+    if match is None:
+        raise ValueError("Invalid visible watermark token")
+    alphabet_index = {character: index for index, character in enumerate(VISIBLE_ALPHABET)}
+
+    def decode_pair(pair: str) -> int:
+        return (alphabet_index[pair[0]] << 4) | alphabet_index[pair[1]]
+
+    expected_bytes = decode_pair(match.group(1))
+    encoded = match.group(2)
+    expected_characters = expected_bytes * 2
+    if len(encoded) != expected_characters:
+        raise ValueError("Invalid visible watermark token length")
+    ciphertext = bytes(
+        decode_pair(encoded[offset : offset + 2])
+        for offset in range(0, len(encoded), 2)
+    )
+    if len(ciphertext) != expected_bytes:
+        raise ValueError("Invalid visible watermark ciphertext length")
+    return base64.urlsafe_b64encode(ciphertext).rstrip(b"=").decode("ascii")
 
 
 def parse_secret_components(secret: str) -> dict[str, str | bool]:

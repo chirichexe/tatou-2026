@@ -1,4 +1,4 @@
-"""Visual rendering components: typography, visible watermark text overlay, and frosted QR codes.
+"""Visual rendering components: typography, visible labels, and opaque QR codes.
 
 Consolidates all visual watermark layers and collision-free random layout generation.
 """
@@ -7,28 +7,27 @@ from __future__ import annotations
 
 import hashlib
 import io
-import math
 import random
 from collections.abc import Sequence
 from typing import Final
 
-import fitz
+import pymupdf as fitz
 import zxingcpp
 from PIL import Image, ImageDraw, ImageFont
 
 # -----------------------------------------------------------------------------
 # Configuration Constants
 # -----------------------------------------------------------------------------
-# Frosted glass opacity defaults (0 = transparent, 255 = opaque)
-DEFAULT_ALPHA_BG: Final[int] = (
-    180  # ~70% opacity: softens underlying text while keeping it visible
-)
-DEFAULT_ALPHA_DARK: Final[int] = (
-    230  # ~90% opacity: dark modules maintain high optical contrast
-)
+# QR codes are deliberately opaque for maximum scanner contrast.
+DEFAULT_ALPHA_BG: Final[int] = 255
+DEFAULT_ALPHA_DARK: Final[int] = 255
 DEFAULT_QR_FRACTION: Final[float] = (
-    0.085  # ~8.5% of page dimension (~1.8 cm at 300 DPI)
+    0.06  # ~6% of the shortest page dimension
 )
+DEFAULT_VISIBLE_TEXT_COUNT: Final[int] = 6
+VISIBLE_TEXT_ALPHA: Final[int] = 145
+VISIBLE_TEXT_STROKE_ALPHA: Final[int] = 165
+VISIBLE_TEXT_CHUNK_SIZE: Final[int] = 32
 
 # Default fallback placement fractions for QR codes (x, y)
 QR_COORDINATES: Final[Sequence[tuple[float, float]]] = (
@@ -36,16 +35,42 @@ QR_COORDINATES: Final[Sequence[tuple[float, float]]] = (
     (0.74, 0.40),
 )
 
-# Default fallback placement fractions for visible text labels (x, y) - at most twice
-VISIBLE_TEXT_COORDINATES: Final[Sequence[tuple[float, float]]] = (
-    (0.18, 0.40),
-    (0.22, 0.65),
-)
-
-
 # -----------------------------------------------------------------------------
 # Geometry & Collision Avoidance
 # -----------------------------------------------------------------------------
+def collect_page_content_boxes(
+    page: fitz.Page,
+    padding: float = 8.0,
+) -> list[tuple[float, float, float, float]]:
+    """Return padded boxes for existing text, images, and vector drawings."""
+
+    bounds = page.rect
+    boxes: list[tuple[float, float, float, float]] = []
+
+    def add(rect_like) -> None:
+        rect = fitz.Rect(rect_like) & bounds
+        if rect.is_empty or rect.is_infinite:
+            return
+        boxes.append(
+            (
+                max(bounds.x0, rect.x0 - padding),
+                max(bounds.y0, rect.y0 - padding),
+                min(bounds.x1, rect.x1 + padding),
+                min(bounds.y1, rect.y1 + padding),
+            )
+        )
+
+    for block in page.get_text("blocks"):
+        add(block[:4])
+    for image in page.get_images(full=True):
+        for rect in page.get_image_rects(image[0]):
+            add(rect)
+    for drawing in page.get_drawings():
+        add(drawing["rect"])
+
+    return boxes
+
+
 def boxes_overlap(
     box1: tuple[float, float, float, float],
     box2: tuple[float, float, float, float],
@@ -63,9 +88,9 @@ def boxes_overlap(
 
 
 # -----------------------------------------------------------------------------
-# QR Code Generation & Styling (Frosted Glass)
+# QR Code Generation & Styling
 # -----------------------------------------------------------------------------
-def build_frosted_qr_image(
+def build_opaque_qr_image(
     payload: str,
     width: int,
     height: int,
@@ -73,7 +98,7 @@ def build_frosted_qr_image(
     alpha_dark: int = DEFAULT_ALPHA_DARK,
     qr_fraction: float = DEFAULT_QR_FRACTION,
 ) -> Image.Image:
-    """Generate a compact QR code with a frosted-glass translucent background."""
+    """Generate a compact, high-contrast QR code with an opaque background."""
     barcode = zxingcpp.create_barcode(
         payload,
         zxingcpp.BarcodeFormat.QRCode,
@@ -88,23 +113,23 @@ def build_frosted_qr_image(
     dark_layer = Image.new("RGBA", qr_mask.size, (15, 25, 35, alpha_dark))
     light_layer = Image.new("RGBA", qr_mask.size, (255, 255, 255, alpha_bg))
 
-    frosted_qr = Image.composite(light_layer, dark_layer, qr_mask)
+    qr_layer = Image.composite(light_layer, dark_layer, qr_mask)
 
     border = max(6, qr_side // 16)
     total_side = qr_side + 2 * border
     backed = Image.new("RGBA", (total_side, total_side), (255, 255, 255, alpha_bg))
-    backed.paste(frosted_qr, (border, border), frosted_qr)
+    backed.paste(qr_layer, (border, border), qr_layer)
 
     return backed
 
 
-def build_frosted_qr_bytes(
+def build_opaque_qr_bytes(
     payload: str,
     target_pixel_size: int = 240,
     alpha_bg: int = DEFAULT_ALPHA_BG,
     alpha_dark: int = DEFAULT_ALPHA_DARK,
 ) -> bytes:
-    """Generate a frosted-glass QR code and return its raw PNG bytes for native PDF stamping."""
+    """Generate an opaque QR code and return its PNG bytes for PDF stamping."""
     barcode = zxingcpp.create_barcode(
         payload,
         zxingcpp.BarcodeFormat.QRCode,
@@ -118,12 +143,12 @@ def build_frosted_qr_bytes(
 
     dark_layer = Image.new("RGBA", qr_mask.size, (15, 25, 35, alpha_dark))
     light_layer = Image.new("RGBA", qr_mask.size, (255, 255, 255, alpha_bg))
-    frosted_qr = Image.composite(light_layer, dark_layer, qr_mask)
+    qr_layer = Image.composite(light_layer, dark_layer, qr_mask)
 
     border = max(6, target_pixel_size // 16)
     total_side = target_pixel_size + 2 * border
     backed = Image.new("RGBA", (total_side, total_side), (255, 255, 255, alpha_bg))
-    backed.paste(frosted_qr, (border, border), frosted_qr)
+    backed.paste(qr_layer, (border, border), qr_layer)
 
     buffer = io.BytesIO()
     backed.save(buffer, format="PNG")
@@ -131,8 +156,8 @@ def build_frosted_qr_bytes(
 
 
 def build_qr_image(payload: str, width: int, height: int) -> Image.Image:
-    """Compatibility wrapper generating the frosted-glass QR image."""
-    return build_frosted_qr_image(payload, width, height)
+    """Compatibility wrapper generating the opaque QR image."""
+    return build_opaque_qr_image(payload, width, height)
 
 
 def generate_random_qr_rects(
@@ -141,13 +166,13 @@ def generate_random_qr_rects(
     count: int = 2,
     placed_boxes: list[tuple[float, float, float, float]] | None = None,
     seed_material: bytes | None = None,
-    min_gap: float = 20.0,
+    min_gap: float = 8.0,
     qr_fraction: float = DEFAULT_QR_FRACTION,
 ) -> list[tuple[float, float, float, float]]:
-    """Generate collision-free random bounding boxes for QR codes on a page.
+    """Generate random, collision-free QR boxes along the page borders.
 
-    Checks collision against all boxes in `placed_boxes` (including pre-placed text).
-    Reiterates candidate positions on collision until a free placement is found.
+    Existing text/content boxes are hard constraints. If the requested number of
+    border positions does not exist, fail instead of covering page content.
     """
     boxes = placed_boxes if placed_boxes is not None else []
     rng = (
@@ -159,21 +184,29 @@ def generate_random_qr_rects(
     )
 
     qr_side = min(page_width, page_height) * qr_fraction
-    margin_x = max(15.0, page_width * 0.04)
-    margin_y = max(15.0, page_height * 0.04)
+    edge_inset = max(4.0, min(page_width, page_height) * 0.012)
+    if page_width < qr_side + 2 * edge_inset or page_height < qr_side + 2 * edge_inset:
+        raise ValueError("Page is too small for a border QR code")
 
     chosen: list[tuple[float, float, float, float]] = []
 
     for _ in range(count):
         best_candidate: tuple[float, float, float, float] | None = None
 
-        for _attempt in range(250):
-            x0 = rng.uniform(
-                margin_x, max(margin_x + 1.0, page_width - qr_side - margin_x)
-            )
-            y0 = rng.uniform(
-                margin_y, max(margin_y + 1.0, page_height - qr_side - margin_y)
-            )
+        for _attempt in range(500):
+            edge = rng.randrange(4)
+            if edge == 0:  # top
+                x0 = rng.uniform(edge_inset, page_width - qr_side - edge_inset)
+                y0 = edge_inset
+            elif edge == 1:  # bottom
+                x0 = rng.uniform(edge_inset, page_width - qr_side - edge_inset)
+                y0 = page_height - qr_side - edge_inset
+            elif edge == 2:  # left
+                x0 = edge_inset
+                y0 = rng.uniform(edge_inset, page_height - qr_side - edge_inset)
+            else:  # right
+                x0 = page_width - qr_side - edge_inset
+                y0 = rng.uniform(edge_inset, page_height - qr_side - edge_inset)
             candidate = (x0, y0, x0 + qr_side, y0 + qr_side)
 
             collision = False
@@ -192,21 +225,7 @@ def generate_random_qr_rects(
                 break
 
         if best_candidate is None:
-            idx = len(chosen)
-            if idx == 0:
-                best_candidate = (
-                    margin_x,
-                    margin_y,
-                    margin_x + qr_side,
-                    margin_y + qr_side,
-                )
-            else:
-                best_candidate = (
-                    page_width - qr_side - margin_x,
-                    page_height - qr_side - margin_y,
-                    page_width - margin_x,
-                    page_height - margin_y,
-                )
+            raise ValueError("No text-free border position available for QR code")
 
         boxes.append(best_candidate)
         chosen.append(best_candidate)
@@ -242,9 +261,9 @@ def embed_qr_codes(
     alpha_bg: int = DEFAULT_ALPHA_BG,
     alpha_dark: int = DEFAULT_ALPHA_DARK,
 ) -> Image.Image:
-    """Paste two redundant frosted-glass QR codes using alpha compositing."""
+    """Paste two redundant opaque QR codes."""
     width, height = image.size
-    backed_qr = build_frosted_qr_image(
+    backed_qr = build_opaque_qr_image(
         payload, width, height, alpha_bg=alpha_bg, alpha_dark=alpha_dark
     )
 
@@ -271,100 +290,33 @@ def detect_qr_payloads(image: Image.Image) -> list[str]:
 apply_qr_codes = embed_qr_codes
 
 
-# -----------------------------------------------------------------------------
-# Dynamic Text Watermarking & Group Identity
-# -----------------------------------------------------------------------------
-def extract_group_identity(secret: str, position: str | None = None) -> str:
-    """Extract the downloading group's name dynamically from secret or position parameter."""
-    if position:
-        for part in position.split(";"):
-            part = part.strip()
-            if "=" in part:
-                k, v = part.split("=", 1)
-                if (
-                    k.strip().lower() in ("intended_for", "group", "identity")
-                    and v.strip()
-                ):
-                    return v.strip().replace("_", " ").upper()
-            elif part.lower().startswith("group"):
-                return part.replace("_", " ").upper()
-
-    if ":" in secret:
-        parts = [p.strip() for p in secret.split(":") if p.strip()]
-        if len(parts) >= 2:
-            if parts[0].upper().startswith("FWM"):
-                return parts[1].replace("_", " ").upper()
-            return parts[0].replace("_", " ").upper()
-
-    clean = secret.strip().replace("_", " ")
-    if clean.upper().startswith("GROUP"):
-        return clean.upper()
-
-    if len(clean) <= 32:
-        return clean.upper()
-
-    return "CONFIDENTIAL"
-
-
-def format_visible_label(identity: str | None, code: str = "") -> str:
-    """Format visible copy label with group identity only (e.g. 'GROUP 01', 'GROUP 11')."""
-    if identity and identity.strip():
-        return identity.strip().replace("_", " ").upper()
-    return "GROUP"
-
-
 def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Load DejaVuSans-Bold or fall back gracefully to PIL default font."""
+    """Load an OCR-friendly monospaced font or fall back to PIL's default."""
     try:
-        return ImageFont.truetype("DejaVuSans-Bold.ttf", size)
+        return ImageFont.truetype("DejaVuSansMono.ttf", size)
     except OSError:
         return ImageFont.load_default(size=size)
-
-
-def render_visible_text(
-    image: Image.Image, code: str, identity: str | None = None
-) -> Image.Image:
-    """Draw semi-transparent diagonal copy labels on the page image with contrast borders."""
-    width, height = image.size
-    result = image.convert("RGBA")
-    text_layer = Image.new("RGBA", result.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(text_layer)
-    font_size = max(20, min(width // 65, 42))
-    font = load_font(font_size)
-    label = format_visible_label(identity, code)
-
-    for x_fraction, y_fraction in VISIBLE_TEXT_COORDINATES:
-        x = int(width * x_fraction)
-        y = int(height * y_fraction)
-        draw.text(
-            (x, y),
-            label,
-            font=font,
-            fill=(10, 25, 35, 150),
-            stroke_width=2,
-            stroke_fill=(255, 255, 255, 190),
-        )
-
-    return Image.alpha_composite(result, text_layer).convert("RGB")
 
 
 def stamp_random_native_visible_text(
     page: fitz.Page,
     label: str,
     placed_boxes: list[tuple[float, float, float, float]],
-    count: int = 2,
-    fontsize: float = 22.0,
+    count: int = DEFAULT_VISIBLE_TEXT_COUNT,
+    fontsize: float = 10.0,
     rotate: int = 30,
     seed_material: bytes | None = None,
-    min_gap: float = 20.0,
+    min_gap: float = 8.0,
 ) -> list[tuple[float, float, float, float]]:
-    """Stamp up to `count` (default 2) diagonal visible text labels at random, non-overlapping coordinates.
+    """Stamp semi-transparent labels without adding PDF text operators.
 
-    Appends bounding boxes to `placed_boxes` so that subsequent QR placements avoid them.
-    Reiterates candidate positions on collision until a collision-free placement is found.
+    The supplied boxes are hard exclusions, normally the QR areas. Labels may
+    cross document content; their centers are spread across the page to limit
+    mutual overlap without making placement fail on small pages.
     """
     width = page.rect.width
     height = page.rect.height
+    protected_boxes = tuple(placed_boxes)
     rng = (
         random.Random(
             int.from_bytes(hashlib.sha256(seed_material + b"/text").digest()[:8], "big")
@@ -373,10 +325,63 @@ def stamp_random_native_visible_text(
         else random.Random()
     )
 
-    approx_len = len(label) * fontsize * 0.60
-    rad = math.radians(rotate)
-    span_x = approx_len * math.cos(rad)
-    span_y = approx_len * math.sin(rad)
+    prefix, separator, encoded = label.rpartition("-")
+    if separator and encoded:
+        chunks = [
+            encoded[offset : offset + VISIBLE_TEXT_CHUNK_SIZE]
+            for offset in range(0, len(encoded), VISIBLE_TEXT_CHUNK_SIZE)
+        ]
+        rendered_label = "\n".join([f"{prefix}-{chunks[0]}", *chunks[1:]])
+    else:
+        rendered_label = label
+
+    estimated_width_per_character = 0.62
+    max_label_width = width * 0.72
+    longest_line = max(rendered_label.splitlines(), key=len)
+    effective_fontsize = min(
+        fontsize,
+        max(
+            6.0,
+            max_label_width
+            / (len(longest_line) * estimated_width_per_character),
+        ),
+    )
+
+    scale = 6
+    font = load_font(max(1, round(effective_fontsize * scale)))
+    stroke_width = 0
+    padding = max(4, round(effective_fontsize * scale * 0.25))
+    probe = Image.new("RGBA", (1, 1), (255, 255, 255, 0))
+    text_bbox = ImageDraw.Draw(probe).multiline_textbbox(
+        (0, 0),
+        rendered_label,
+        font=font,
+        spacing=round(effective_fontsize * scale * 0.15),
+        stroke_width=stroke_width,
+    )
+    canvas_width = text_bbox[2] - text_bbox[0] + 2 * padding
+    canvas_height = text_bbox[3] - text_bbox[1] + 2 * padding
+    canvas = Image.new(
+        "RGBA",
+        (max(1, canvas_width), max(1, canvas_height)),
+        (255, 255, 255, 0),
+    )
+    draw = ImageDraw.Draw(canvas)
+    draw.multiline_text(
+        (padding - text_bbox[0], padding - text_bbox[1]),
+        rendered_label,
+        font=font,
+        spacing=round(effective_fontsize * scale * 0.15),
+        fill=(38, 56, 76, VISIBLE_TEXT_ALPHA),
+        stroke_width=stroke_width,
+        stroke_fill=(255, 255, 255, VISIBLE_TEXT_STROKE_ALPHA),
+    )
+    rotated = canvas.rotate(rotate, expand=True, resample=Image.Resampling.BICUBIC)
+    span_x = rotated.width / scale
+    span_y = rotated.height / scale
+    label_buffer = io.BytesIO()
+    rotated.save(label_buffer, format="PNG")
+    label_png = label_buffer.getvalue()
 
     margin_x = max(20.0, width * 0.05)
     margin_y = max(20.0, height * 0.05)
@@ -386,8 +391,9 @@ def stamp_random_native_visible_text(
     for _ in range(count):
         best_pt: tuple[float, float] | None = None
         best_box: tuple[float, float, float, float] | None = None
+        best_distance = -1.0
 
-        for _attempt in range(250):
+        for _attempt in range(1000):
             min_x = margin_x
             max_x = max(min_x + 1.0, width - span_x - margin_x)
             min_y = margin_y
@@ -404,7 +410,7 @@ def stamp_random_native_visible_text(
             )
 
             collision = False
-            for bx0, by0, bx1, by1 in placed_boxes:
+            for bx0, by0, bx1, by1 in protected_boxes:
                 if not (
                     cand_box[2] + min_gap <= bx0
                     or bx1 + min_gap <= cand_box[0]
@@ -415,32 +421,34 @@ def stamp_random_native_visible_text(
                     break
 
             if not collision:
+                center_x = (cand_box[0] + cand_box[2]) / 2
+                center_y = (cand_box[1] + cand_box[3]) / 2
+                distance = min(
+                    (
+                        center_x - (box[0] + box[2]) / 2
+                    ) ** 2
+                    + (
+                        center_y - (box[1] + box[3]) / 2
+                    ) ** 2
+                    for box in chosen_boxes
+                ) if chosen_boxes else 0.0
+                if distance <= best_distance:
+                    continue
                 best_pt = (px, py)
                 best_box = cand_box
-                break
+                best_distance = distance
+                if not chosen_boxes:
+                    break
 
-        if best_pt is None:
-            idx = len(chosen_boxes)
-            fallback_x = width * (0.15 if idx == 0 else 0.25)
-            fallback_y = height * (0.35 if idx == 0 else 0.65)
-            best_pt = (fallback_x, fallback_y)
-            best_box = (
-                fallback_x - 10.0,
-                fallback_y - 10.0,
-                fallback_x + span_x + 10.0,
-                fallback_y + span_y + 10.0,
-            )
+        if best_pt is None or best_box is None:
+            raise ValueError("Page has insufficient room for visible labels")
 
         placed_boxes.append(best_box)
         chosen_boxes.append(best_box)
 
-        pt = fitz.Point(best_pt[0], best_pt[1])
-        page.insert_text(
-            pt,
-            label,
-            fontsize=fontsize,
-            color=(0.15, 0.22, 0.30),
-            morph=(pt, fitz.Matrix(rotate)),
+        page.insert_image(
+            fitz.Rect(best_pt[0], best_pt[1], best_pt[0] + span_x, best_pt[1] + span_y),
+            stream=label_png,
             overlay=True,
         )
 
@@ -459,39 +467,33 @@ def stamp_native_visible_text(
         page=page,
         label=label,
         placed_boxes=placed_boxes,
-        count=2,
+        count=DEFAULT_VISIBLE_TEXT_COUNT,
         fontsize=fontsize,
         rotate=rotate,
     )
 
-
-# Convenience alias
-apply_visible_text = render_visible_text
 
 __all__ = [
     # Constants
     "DEFAULT_ALPHA_BG",
     "DEFAULT_ALPHA_DARK",
     "DEFAULT_QR_FRACTION",
+    "DEFAULT_VISIBLE_TEXT_COUNT",
     "QR_COORDINATES",
-    "VISIBLE_TEXT_COORDINATES",
     "apply_qr_codes",
-    "apply_visible_text",
     # Geometry & collision
     "boxes_overlap",
-    "build_frosted_qr_bytes",
+    "build_opaque_qr_bytes",
+    "collect_page_content_boxes",
     # QR code operations
-    "build_frosted_qr_image",
+    "build_opaque_qr_image",
     "build_qr_image",
     "compute_dynamic_qr_coordinates",
     "detect_qr_payloads",
     "embed_qr_codes",
     # Text operations
-    "extract_group_identity",
-    "format_visible_label",
     "generate_random_qr_rects",
     "load_font",
-    "render_visible_text",
     "stamp_native_visible_text",
     "stamp_random_native_visible_text",
 ]

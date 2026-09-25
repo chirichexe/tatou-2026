@@ -1,17 +1,16 @@
-"""Cryptographic unit tests for Francesco's watermark (Davide key derivation, AES-SIV with salt, blind fingerprint)."""
+"""Cryptographic tests for key derivation, authenticated payloads, and fingerprints."""
 
 from __future__ import annotations
 
 import pytest
-from francesco_watermark import crypto
+from francesco_watermark import crypto, visible
 from watermarking_method import InvalidKeyError
 
 DUMMY_KEY = "0123456789abcdef" * 4
 OTHER_DUMMY_KEY = "fedcba9876543210" * 4
 
 
-def test_davide_compatible_key_derivation():
-    # Supports any string key, produces 64 bytes for AES-SIV
+def test_aes_siv_key_derivation():
     k1 = crypto.derive_aes_key(DUMMY_KEY)
     assert len(k1) == 64
     k2 = crypto.derive_aes_key("dummy-test-passphrase")
@@ -46,6 +45,44 @@ def test_aes_siv_with_salt_semantic_security():
     tampered = p1[:-1] + ("A" if p1[-1] != "A" else "B")
     with pytest.raises(InvalidKeyError):
         crypto.decrypt_qr_payload(tampered, DUMMY_KEY)
+
+
+def test_visible_token_reencodes_the_same_ciphertext():
+    payload = crypto.encrypt_qr_payload(
+        "copy-token", DUMMY_KEY, salt=b"visible-salt-001"
+    )
+    token = crypto.qr_payload_to_visible_token(payload)
+
+    assert token.startswith("FWM1-")
+    assert crypto.visible_token_to_qr_payload(token) == payload
+    assert crypto.decrypt_qr_payload(
+        crypto.visible_token_to_qr_payload(token), DUMMY_KEY
+    ) == "copy-token"
+
+
+@pytest.mark.parametrize("edit", ["substitute", "insert", "delete"])
+def test_visible_token_repairs_one_ocr_edit_only_after_authentication(edit):
+    secret = "copy-token"
+    payload = crypto.encrypt_qr_payload(secret, DUMMY_KEY, salt=b"visible-salt-001")
+    token = crypto.qr_payload_to_visible_token(payload)
+    prefix, length_pair, encoded = token.split("-", maxsplit=2)
+    offset = len(encoded) // 2
+
+    if edit == "substitute":
+        replacement = next(
+            character
+            for character in crypto.VISIBLE_ALPHABET
+            if character != encoded[offset]
+        )
+        observed = encoded[:offset] + replacement + encoded[offset + 1 :]
+    elif edit == "insert":
+        observed = encoded[:offset] + crypto.VISIBLE_ALPHABET[0] + encoded[offset:]
+    else:
+        observed = encoded[:offset] + encoded[offset + 1 :]
+
+    damaged = f"{prefix}-{length_pair}-{observed}"
+    assert visible.decrypt_visible_tokens([damaged], DUMMY_KEY) == {secret}
+    assert visible.decrypt_visible_tokens([damaged], OTHER_DUMMY_KEY) == set()
 
 
 def test_single_step_decryption_and_verification():

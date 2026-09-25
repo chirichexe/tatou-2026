@@ -357,7 +357,7 @@ This endpoint reads information contain in a pdf document's watermark with the p
 ```json
 {
     "method": <string>,
-    "position": <string>,
+    "position": <string|null>,
     "key": <string>,
     "id": <int>
 }
@@ -460,6 +460,8 @@ This endpoint reads information contain in a pdf document's watermark with the p
 **Specification**
  * Only the owner of a document should be able to create watermarked versions of their documents
  * The document owner MUST be able to list all versions of their documents and their intended recipients
+ * `position` is retained for compatibility. `francesco-watermark` ignores it,
+   always enables QR and visible text, and returns `null` for this field.
  * The payload is a gpg encrypted JSON presented as ASCII armored base64, without any GPG headers.
 
  ## rmap-initiate
@@ -561,7 +563,7 @@ RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/server_public.asc
 RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/server_private.asc
 RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
 RMAP_DOCUMENT_ID=42
-RMAP_WATERMARK_METHOD=hybrid-page
+RMAP_WATERMARK_METHOD=francesco-watermark
 RMAP_WATERMARK_KEY=<64 random hexadecimal characters>
 # Optional when the server private key is protected:
 RMAP_SERVER_KEY_PASSPHRASE=
@@ -576,10 +578,9 @@ via a fresh opaque copy identifier, inserts the new version, and uses the result
 `Versions.link`. The returned result is then fetched with
 `GET /api/get-version/<result>`.
 
-`hybrid-page` is the recommended method for the Group 13 document. Its
+`francesco-watermark` is the recommended method for the Group 13 document. Its
 `RMAP_WATERMARK_KEY` must be 32 random bytes encoded as 64 hex characters.
-See [WATERMARKING_HYBRID.md](WATERMARKING_HYBRID.md) for identification and
-the deliberately disabled TrustMark experiment.
+See [FRANCESCO_WATERMARK.md](FRANCESCO_WATERMARK.md) for usage and verification.
 
 Compose mounts `RMAP_KEYS_HOST_DIR` (or `./rmap-keys` by default) read-only at
 `/app/rmap-keys`; the directory and private keys are ignored by Git. Use the

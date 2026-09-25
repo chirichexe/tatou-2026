@@ -25,6 +25,16 @@ dev = [
 addopts = "-q"
 testpaths = ["test/"]
 python_files = ["test_*.py"]
+filterwarnings = [
+    # PyMuPDF's generated SWIG bindings emit these on interpreter shutdown.
+    "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type SwigPyObject has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
+    # RMAP 1.0.2 depends on PGPy 0.6.0, whose compatibility imports warn on
+    # Python 3.12 / recent cryptography. Keep filters precise and third-party-only.
+    "ignore:'imghdr' is deprecated.*:DeprecationWarning:pgpy\\.constants",
+    "ignore:.* has been moved to cryptography\\.hazmat\\.decrepit.*:cryptography.utils.CryptographyDeprecationWarning:pgpy\\..*",
+]
 
 [project.scripts]
 pdfwm = "watermarking_cli:main"                 # now you can run `pdfwm methods`

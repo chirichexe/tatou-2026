@@ -1,23 +1,29 @@
-"""End-to-end integration and dual-watermark compatibility tests."""
+"""End-to-end behavior and composition tests."""
 
 from __future__ import annotations
 
 import io
 
-import fitz
+import pymupdf as fitz
 import pytest
-from davide_watermark.method import DavideWatermark
-from francesco_watermark.method import HybridPageWatermark
+import zxingcpp
+from davide_watermark.method import DavideWatermark as StructuralWatermark
+from francesco_watermark import crypto
+from francesco_watermark.method import FrancescoWatermark
+from francesco_watermark import visible
 from PIL import Image
 from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
 
 KEY = "0123456789abcdef" * 4
 OTHER_KEY = "fedcba9876543210" * 4
+GROUP_POSITION = "group=Group_13"
 
 
 def test_roundtrip_preserves_page_and_text(pdf_bytes):
-    method = HybridPageWatermark()
-    watermarked = method.add_watermark(pdf_bytes, "unique-copy-id", KEY)
+    method = FrancescoWatermark()
+    watermarked = method.add_watermark(
+        pdf_bytes, "unique-copy-id", KEY, position=GROUP_POSITION
+    )
     assert method.read_secret(watermarked, KEY) == "unique-copy-id"
 
     with fitz.open(stream=watermarked, filetype="pdf") as doc:
@@ -27,8 +33,10 @@ def test_roundtrip_preserves_page_and_text(pdf_bytes):
 
 
 def test_wrong_key_and_secret_not_found(pdf_bytes):
-    method = HybridPageWatermark()
-    watermarked = method.add_watermark(pdf_bytes, "copy-42", KEY)
+    method = FrancescoWatermark()
+    watermarked = method.add_watermark(
+        pdf_bytes, "copy-42", KEY, position=GROUP_POSITION
+    )
 
     # Wrong key
     with pytest.raises(InvalidKeyError):
@@ -40,9 +48,9 @@ def test_wrong_key_and_secret_not_found(pdf_bytes):
 
 
 def test_conflicting_valid_copies_rejected(pdf_bytes):
-    method = HybridPageWatermark()
-    first = method.add_watermark(pdf_bytes, "copy-one", KEY)
-    second = method.add_watermark(pdf_bytes, "copy-two", KEY)
+    method = FrancescoWatermark()
+    first = method.add_watermark(pdf_bytes, "copy-one", KEY, GROUP_POSITION)
+    second = method.add_watermark(pdf_bytes, "copy-two", KEY, GROUP_POSITION)
 
     # Stitch two different watermarked pages together
     with (
@@ -57,8 +65,10 @@ def test_conflicting_valid_copies_rejected(pdf_bytes):
 
 
 def test_survives_jpeg_raster_roundtrip(pdf_bytes):
-    method = HybridPageWatermark()
-    watermarked = method.add_watermark(pdf_bytes, "copy-through-jpeg", KEY)
+    method = FrancescoWatermark()
+    watermarked = method.add_watermark(
+        pdf_bytes, "copy-through-jpeg", KEY, GROUP_POSITION
+    )
 
     # Simulate scan / raster conversion to JPEG 85% quality
     with (
@@ -79,81 +89,152 @@ def test_survives_jpeg_raster_roundtrip(pdf_bytes):
 
 
 def test_layer_toggles_and_prerequisites(pdf_bytes, monkeypatch):
-    method = HybridPageWatermark()
+    method = FrancescoWatermark()
 
     # Base layer is mandatory
-    monkeypatch.setattr(HybridPageWatermark, "ENABLE_RASTER_BASE", False)
-    with pytest.raises(WatermarkingError, match="Base rasterization layer"):
+    monkeypatch.setattr(FrancescoWatermark, "ENABLE_BASE_LAYER", False)
+    with pytest.raises(WatermarkingError, match="Base layer"):
         method.add_watermark(pdf_bytes, "test-copy", KEY)
     monkeypatch.undo()
 
     # Disabling QR watermark prevents reading secret
-    monkeypatch.setattr(HybridPageWatermark, "ENABLE_QR_WATERMARK", False)
+    monkeypatch.setattr(FrancescoWatermark, "ENABLE_QR_WATERMARK", False)
     with pytest.raises(WatermarkingError, match="QR watermark layer is disabled"):
         method.read_secret(pdf_bytes, KEY)
     monkeypatch.undo()
 
-    # Default is QR active, visible text inactive
-    assert HybridPageWatermark.ENABLE_QR_WATERMARK is True
-    assert HybridPageWatermark.ENABLE_VISIBLE_TEXT is False
-    watermarked_default = method.add_watermark(pdf_bytes, "only-qr", KEY)
-    assert method.read_secret(watermarked_default, KEY) == "only-qr"
-
-
-def test_dynamic_group_visible_text(pdf_bytes):
-    method = HybridPageWatermark()
-
-    # Test adding watermark for Group 03 with position="with-text"
-    watermarked_g03 = method.add_watermark(
-        pdf_bytes, "Group_03:abc12345", KEY, position="with-text"
+    # Both the authenticated QR and aesthetic text layers are active by default.
+    assert FrancescoWatermark.ENABLE_QR_WATERMARK is True
+    assert FrancescoWatermark.ENABLE_VISIBLE_TEXT is True
+    watermarked_default = method.add_watermark(
+        pdf_bytes, "copy-id", KEY, position="group=Group_13"
     )
-    assert method.read_secret(watermarked_g03, KEY) == "Group_03:abc12345"
-    with fitz.open(stream=watermarked_g03, filetype="pdf") as doc:
-        assert "GROUP 03" in doc[0].get_text()
+    assert method.read_secret(watermarked_default, KEY) == "copy-id"
+    with fitz.open(stream=watermarked_default, filetype="pdf") as doc:
+        images = doc[0].get_images(full=True)
+        assert len(images) >= 8
+        assert any(image[2] != image[3] for image in images)
 
-    # Test adding watermark for Group 11
-    watermarked_g11 = method.add_watermark(
-        pdf_bytes, "Group_11:abc12345", KEY, position="with-text"
+
+def test_qr_and_visible_layers_use_three_distinct_ciphertexts(pdf_bytes, monkeypatch):
+    method = FrancescoWatermark()
+    secret = "copy-with-three-ciphertexts"
+    encrypted_payloads: list[str] = []
+    original_payload = method._payload
+
+    def capture_payload(value: str, key: str) -> str:
+        payload = original_payload(value, key)
+        encrypted_payloads.append(payload)
+        return payload
+
+    monkeypatch.setattr(method, "_payload", capture_payload)
+    watermarked = method.add_watermark(pdf_bytes, secret, KEY)
+
+    with fitz.open(stream=watermarked, filetype="pdf") as document:
+        pixmap = document[0].get_pixmap(dpi=300, colorspace=fitz.csRGB, alpha=False)
+        qr_payloads = {
+            result.text
+            for result in zxingcpp.read_barcodes(
+                Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples),
+                formats=zxingcpp.BarcodeFormat.QRCode,
+            )
+            if crypto.is_candidate_payload(result.text)
+        }
+        visible_tokens = visible.extract_visible_tokens(document)
+
+    assert len(encrypted_payloads) == 3
+    assert len(set(encrypted_payloads)) == 3
+    assert qr_payloads == set(encrypted_payloads[:2])
+    assert visible_tokens
+    assert visible.decrypt_visible_tokens(visible_tokens, KEY) == {secret}
+    assert {
+        crypto.decrypt_qr_payload(payload, KEY) for payload in qr_payloads
+    } == {secret}
+
+    assert encrypted_payloads[2] not in qr_payloads
+
+
+@pytest.mark.parametrize(
+    "position",
+    [
+        None,
+        "group=Group_13",
+        "group=Group_13;qr-only",
+        "group=Group_13;no-text",
+        "group=Group_13;text-only",
+        "group=Group_13;no-qr",
+    ],
+)
+def test_position_is_ignored_and_both_layers_stay_enabled(pdf_bytes, position):
+    method = FrancescoWatermark()
+    watermarked = method.add_watermark(pdf_bytes, "copy-options", KEY, position)
+
+    with fitz.open(stream=watermarked, filetype="pdf") as doc:
+        images = doc[0].get_images(full=True)
+        assert len(images) >= 8
+        assert any(image[2] != image[3] for image in images)
+
+    assert method.read_secret(watermarked, KEY) == "copy-options"
+
+
+def test_visible_ciphertext_survives_flattening_without_qr(pdf_bytes, monkeypatch):
+    method = FrancescoWatermark()
+    secret = "text-fallback-copy"
+    monkeypatch.setattr(FrancescoWatermark, "ENABLE_QR_WATERMARK", False)
+    text_only = method.add_watermark(pdf_bytes, secret, KEY)
+    monkeypatch.undo()
+
+    with (
+        fitz.open(stream=text_only, filetype="pdf") as source,
+        fitz.open() as rebuilt,
+    ):
+        pixmap = source[0].get_pixmap(
+            dpi=300,
+            colorspace=fitz.csRGB,
+            alpha=False,
+        )
+        image = Image.frombytes(
+            "RGB",
+            (pixmap.width, pixmap.height),
+            pixmap.samples,
+        )
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        page = rebuilt.new_page(
+            width=source[0].rect.width,
+            height=source[0].rect.height,
+        )
+        page.insert_image(page.rect, stream=buffer.getvalue())
+        flattened = rebuilt.tobytes()
+
+    assert method.read_secret(flattened, KEY) == secret
+
+
+def test_non_ascii_secret_roundtrip(pdf_bytes):
+    method = FrancescoWatermark()
+    secret = "copia-gruppo-13-è"
+    watermarked = method.add_watermark(
+        pdf_bytes, secret, KEY, position="group=Group_13"
     )
-    assert method.read_secret(watermarked_g11, KEY) == "Group_11:abc12345"
-    with fitz.open(stream=watermarked_g11, filetype="pdf") as doc:
-        assert "GROUP 11" in doc[0].get_text()
-
-    # Test 3-component secret format: FWM1:Group_42:xyz987
-    watermarked_3comp = method.add_watermark(
-        pdf_bytes, "FWM1:Group_42:xyz987", KEY, position="with-text"
-    )
-    assert method.read_secret(watermarked_3comp, KEY) == "FWM1:Group_42:xyz987"
-    components = method.read_secret_components(watermarked_3comp, KEY)
-    assert components == {
-        "prefix": "FWM1",
-        "group": "Group_42",
-        "string": "xyz987",
-        "is_our_watermark": True,
-    }
-    with fitz.open(stream=watermarked_3comp, filetype="pdf") as doc:
-        assert "GROUP 42" in doc[0].get_text()
+    assert method.read_secret(watermarked, KEY) == secret
 
 
 
-def test_compatibility_combined_with_davide_watermark(carrier_pdf_for_davide):
-    davide_secret = "davide-secret-42"
-    francesco_secret = "Group_01:francesco-secret-99"
+def test_combined_structural_and_visual_watermarks(structural_carrier_pdf):
+    structural_secret = "structural-secret-42"
+    visual_secret = "Group_01:visual-secret-99"
 
-    # Step A: Apply Davide's watermark (modulates BT content streams)
-    davide_watermarked = DavideWatermark.add_watermark(
-        carrier_pdf_for_davide, davide_secret, KEY
+    structurally_marked = StructuralWatermark.add_watermark(
+        structural_carrier_pdf, structural_secret, KEY
     )
 
-    # Step B: Apply Francesco's native overlay watermark on top of Davide's output
-    francesco_method = HybridPageWatermark()
-    combined_pdf = francesco_method.add_watermark(
-        davide_watermarked, francesco_secret, KEY
+    visual_method = FrancescoWatermark()
+    combined_pdf = visual_method.add_watermark(
+        structurally_marked, visual_secret, KEY
     )
 
-    # Step C: Verify BOTH secrets are completely intact and readable from the SAME PDF!
-    recovered_davide = DavideWatermark.read_secret(combined_pdf, KEY)
-    recovered_francesco = francesco_method.read_secret(combined_pdf, KEY)
+    recovered_structural = StructuralWatermark.read_secret(combined_pdf, KEY)
+    recovered_visual = visual_method.read_secret(combined_pdf, KEY)
 
-    assert recovered_davide == davide_secret
-    assert recovered_francesco == francesco_secret
+    assert recovered_structural == structural_secret
+    assert recovered_visual == visual_secret

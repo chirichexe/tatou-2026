@@ -1,7 +1,7 @@
 """Behavior of the toy EOF method."""
 from io import BytesIO
 
-import fitz
+import pymupdf as fitz
 import pytest
 from add_after_eof import AddAfterEOF
 from watermarking_method import InvalidKeyError, SecretNotFoundError

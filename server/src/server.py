@@ -4,9 +4,10 @@ import sqlite3
 import stat
 from functools import wraps
 from pathlib import Path
+from secrets import token_urlsafe
 from uuid import uuid4
 
-import fitz
+import pymupdf as fitz
 import watermarking_utils as WMUtils
 from flask import Flask, g, jsonify, request, send_file
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -24,6 +25,7 @@ from werkzeug.utils import secure_filename
 
 DEFAULT_MAX_UPLOAD_SIZE_BYTES = 64 * 1024 * 1024
 MULTIPART_OVERHEAD_BYTES = 1024 * 1024
+FRANCESCO_WATERMARK_METHOD = "francesco-watermark"
 
 
 class UploadTooLargeError(Exception):
@@ -78,13 +80,17 @@ def create_app():
     app.config["RMAP_WATERMARK_POSITION"] = os.environ.get(
         "RMAP_WATERMARK_POSITION", ""
     ).strip() or None
-    if app.config["RMAP_WATERMARK_METHOD"] == "hybrid-page":
+    if app.config["RMAP_WATERMARK_METHOD"] == FRANCESCO_WATERMARK_METHOD:
         try:
             watermark_key = bytes.fromhex(app.config["RMAP_WATERMARK_KEY"])
         except ValueError as exc:
-            raise RuntimeError("RMAP hybrid-page key must be 32 random bytes in hex") from exc
+            raise RuntimeError(
+                "RMAP francesco-watermark key must be 32 random bytes in hex"
+            ) from exc
         if len(watermark_key) != 32:
-            raise RuntimeError("RMAP hybrid-page key must be 32 random bytes in hex")
+            raise RuntimeError(
+                "RMAP francesco-watermark key must be 32 random bytes in hex"
+            )
 
     app.config["STORAGE_DIR"].mkdir(parents=True, exist_ok=True)
     login_limiter = LoginRateLimiter(
@@ -375,19 +381,21 @@ def create_app():
             if not source_path.is_file():
                 return jsonify({"error": "RMAP document missing on disk"}), 410
 
-            if app.config["RMAP_WATERMARK_METHOD"] in ("francesco-watermark", "fwm1"):
-                watermark_secret = expected_link
-                db_method = "fwm1"
+            if app.config["RMAP_WATERMARK_METHOD"] == FRANCESCO_WATERMARK_METHOD:
+                watermark_secret = token_urlsafe(16)
+                db_method = FRANCESCO_WATERMARK_METHOD
+                watermark_position = None
             else:
                 watermark_secret = f"{identity}:{expected_link}"
                 db_method = app.config["RMAP_WATERMARK_METHOD"]
+                watermark_position = app.config["RMAP_WATERMARK_POSITION"]
 
             wm_bytes = WMUtils.apply_watermark(
                 pdf=str(source_path),
                 secret=watermark_secret,
                 key=app.config["RMAP_WATERMARK_KEY"],
                 method=app.config["RMAP_WATERMARK_METHOD"],
-                position=app.config["RMAP_WATERMARK_POSITION"],
+                position=watermark_position,
             )
             if not isinstance(wm_bytes, (bytes, bytearray)) or not wm_bytes:
                 raise RuntimeError("watermarking returned no document")
@@ -990,6 +998,9 @@ def create_app():
         intended_slug = secure_filename(intended_for)[:60]
         if not intended_slug:
             return jsonify({"error": "invalid intended_for"}), 400
+        watermark_position = (
+            None if method == FRANCESCO_WATERMARK_METHOD else position
+        )
 
         # lookup the document; enforce ownership
         try:
@@ -1026,7 +1037,7 @@ def create_app():
             applicable = WMUtils.is_watermarking_applicable(
                 method=method,
                 pdf=str(file_path),
-                position=position
+                position=watermark_position
             )
             if applicable is False:
                 return jsonify({"error": "invalid watermarking request"}), 400
@@ -1043,7 +1054,7 @@ def create_app():
                 secret=secret,
                 key=key,
                 method=method,
-                position=position
+                position=watermark_position
             )
             if not isinstance(wm_bytes, (bytes, bytearray)) or len(wm_bytes) == 0:
                 return jsonify({"error": "watermarking failed"}), 500
@@ -1072,12 +1083,8 @@ def create_app():
         # link token = sha1(watermarked_file_name)
         link_token = hashlib.sha1(candidate.encode("utf-8")).hexdigest()
 
-        if method in ("francesco-watermark", "fwm1"):
-            db_method = "fwm1"
-            secret_to_store = link_token
-        else:
-            db_method = method
-            secret_to_store = secret
+        db_method = method
+        secret_to_store = secret
 
         try:
             with get_engine().begin() as conn:
@@ -1116,7 +1123,7 @@ def create_app():
             "link": link_token,
             "intended_for": intended_for,
             "method": method,
-            "position": position,
+            "position": watermark_position,
             "filename": candidate,
             "size": len(wm_bytes),
         }), 201

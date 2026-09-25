@@ -2,7 +2,7 @@ import hashlib
 import secrets
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 import pytest
 from rmap import RMAPClient
 from rmap.keygen import generate_keypair
@@ -53,6 +53,8 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
     monkeypatch.setenv("RMAP_DOCUMENT_ID", "1")
     monkeypatch.setenv("RMAP_WATERMARK_METHOD", method)
     monkeypatch.setenv("RMAP_WATERMARK_KEY", key)
+    if method == "francesco-watermark":
+        monkeypatch.setenv("RMAP_WATERMARK_POSITION", "no-qr")
     from server import create_app
 
     app = create_app()
@@ -104,13 +106,17 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
                     text("SELECT * FROM Versions WHERE link = :link"), {"link": link},
                 ).one()
             assert version.intended_for == "Group_01"
-            expected_secret = (
-                link
-                if method in ("francesco-watermark", "fwm1")
-                else f"Group_01:{link}"
-            )
-            assert version.secret == expected_secret
+            if method == "francesco-watermark":
+                assert version.secret != link
+                assert len(version.secret) == 22
+            else:
+                assert version.secret == f"Group_01:{link}"
             assert read_watermark(method, version.path, key) == version.secret
+            if method == "francesco-watermark":
+                with fitz.open(version.path) as marked:
+                    images = marked[0].get_images(full=True)
+                    assert len(images) == 8
+                    assert any(image[2] != image[3] for image in images)
             assert version.sha256 is not None
             assert len(version.sha256) == 32
             assert version.sha256 == hashlib.sha256(Path(version.path).read_bytes()).digest()
