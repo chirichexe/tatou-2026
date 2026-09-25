@@ -43,8 +43,11 @@ Put each concrete method in its own module under `server/src/watermarking_method
 and implement the `WatermarkingMethod` interface in `server/src/watermarking_method.py`.
 Register the method explicitly in `server/src/watermarking_utils.py`; the server and
 CLI use that registry, and no modules are loaded dynamically. Keep method-specific
-tests in a matching file under `server/test/watermarking/`. Shared contract and CLI
-tests live there too. The old top-level EOF modules remain as compatibility imports.
+tests under `server/test/watermarking/` (one folder per larger method, e.g.
+`davide/`), next to the shared contract and CLI tests. HTTP tests live in
+`server/test/api/` and RMAP tests in `server/test/rmap/`. `toy-eof` is not
+registered: `server/test/conftest.py` registers it only for the tests that
+need a fast method.
 
 ### Deploy
 
@@ -184,8 +187,8 @@ RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 Every completed handshake produces a new version, watermarked with the peer's
 identity and session link, records it with the generated 32-character link,
 and returns that link. `RMAP_WATERMARK_METHOD` must name a registered
-watermarking method. The bundled `toy-eof` and `bash-bridge-eof` methods are
-easily stripped; use `davide-watermark` for the course document. It
+watermarking method. The only registered method is `davide-watermark`
+(`toy-eof` is easily stripped and kept only for the test suite). It
 watermarks the PDF's images and can attribute cropped, rescaled or recompressed
 leaks through `read-watermark`.
 

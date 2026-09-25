@@ -10,6 +10,8 @@ from sqlalchemy import create_engine, text
 from watermarking_method import WatermarkingError
 from watermarking_utils import read_watermark
 
+pytestmark = pytest.mark.usefixtures("toy_eof_method")
+
 
 def _write_keypair(directory, stem, name, passphrase=None):
     key = generate_keypair(name, f"{stem}@example.test", passphrase=passphrase)

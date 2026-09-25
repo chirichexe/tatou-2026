@@ -12,6 +12,8 @@ from rmap.keygen import generate_keypair
 from sqlalchemy import create_engine, text
 from watermarking_utils import apply_watermark
 
+pytestmark = pytest.mark.usefixtures("toy_eof_method")
+
 METHOD = "toy-eof"
 KEY = "test-watermark-key"
 

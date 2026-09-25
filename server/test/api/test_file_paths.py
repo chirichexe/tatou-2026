@@ -13,6 +13,8 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import BadRequest, InternalServerError
 
+pytestmark = pytest.mark.usefixtures("toy_eof_method")
+
 
 def make_pdf(*, encrypted=False):
     document = fitz.open()
