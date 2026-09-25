@@ -34,6 +34,7 @@ import re
 from typing import Any, Final
 
 from davide_watermark.method import DavideWatermark
+from khaled_watermark.method import KhaledTextImageWatermark, KhaledTextSpacingWatermark
 from watermarking_method import (
     PdfSource,
     WatermarkingMethod,
@@ -49,6 +50,8 @@ logger = logging.getLogger(__name__)
 # toy-eof is kept only for tests (see test/conftest.py): anyone can strip it
 METHODS: dict[str, WatermarkingMethod] = {
     DavideWatermark.name: DavideWatermark(),
+    KhaledTextSpacingWatermark.name: KhaledTextSpacingWatermark(),
+    KhaledTextImageWatermark.name: KhaledTextImageWatermark(),
 }
 """Registry of available watermarking methods.
 
@@ -100,8 +103,8 @@ def is_watermarking_applicable(
     method: str | WatermarkingMethod,
     pdf: PdfSource,
     position: str | None = None,
-) -> bytes:
-    """Apply a watermark using the specified method and return new PDF bytes."""
+) -> bool:
+    """Return whether the specified method supports this PDF and position."""
     m = get_method(method)
     return m.is_watermark_applicable(pdf=pdf, position=position)
 

@@ -170,7 +170,8 @@ class DavideWatermark(WatermarkingMethod):
             if not marked:
                 raise WatermarkingError("PDF does not contain a large enough image")
             # garbage=3 drops the old unmarked image streams
-            return doc.tobytes(garbage=3, deflate=True, encryption=fitz.PDF_ENCRYPT_NONE)
+            return doc.tobytes(garbage=3, deflate=True, no_new_id=True,
+                               encryption=fitz.PDF_ENCRYPT_NONE)
 
     @classmethod
     def read_secret(cls, pdf: PdfSource, key: str) -> str:

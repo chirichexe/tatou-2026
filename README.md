@@ -187,10 +187,22 @@ RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 Every completed handshake produces a new version, watermarked with the peer's
 identity and session link, records it with the generated 32-character link,
 and returns that link. `RMAP_WATERMARK_METHOD` must name a registered
-watermarking method. The only registered method is `davide-watermark`
-(`toy-eof` is easily stripped and kept only for the test suite). It
-watermarks the PDF's images and can attribute cropped, rescaled or recompressed
-leaks through `read-watermark`.
+watermarking method. The registered methods are:
+
+- `davide-watermark`: embeds in suitable PDF images and supports image
+  fingerprint attribution after cropping, resizing, or recompression.
+- `khaled-text-spacing-watermark`: embeds an authenticated secret in small,
+  compensated glyph spacing changes in selectable PDF text. It accepts up to 48 UTF-8 bytes and
+  supports simple, horizontally drawn, one-byte fonts. Plain-text copying,
+  reflow, or rasterization removes this text signal.
+- `khaled-text-image-watermark`: requires both carriers and stores the same
+  secret in each. It can read one surviving carrier and delegates image
+  fingerprint attribution.
+
+`toy-eof` is easily stripped and kept only for the test suite. Text-gap
+capacity varies by document; check applicability before choosing it for RMAP.
+The [Khaled watermark design and measured limits](docs/khaled-watermark-design.md)
+describe its supported PDFs and verification plan.
 
 When the server private key has a passphrase, create
 `rmap-keys/server_passphrase` locally with mode `600`, place the passphrase in
