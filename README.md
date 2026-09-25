@@ -190,7 +190,7 @@ with the generated 32-character link,
 and returns that link. `RMAP_WATERMARK_METHOD` must name a registered
 watermarking method (`toy-eof` is easily stripped and kept only for the test suite):
 - `davide-watermark`: watermarks the PDF's images and can attribute cropped, rescaled or recompressed leaks through `read-watermark`.
-- `francesco-watermark`: native PDF overlay with authenticated opaque QR codes and OCR-readable visible ciphertext. Uses a separate random 32-byte hexadecimal `RMAP_WATERMARK_KEY`. New RMAP versions use an opaque random copy identifier, linked to the authenticated group in `Versions`, rather than embedding the download link in the PDF. See [the Francesco watermark guide](server/FRANCESCO_WATERMARK.md) for local and production usage, verification, composition order and limitations.
+- `francesco-watermark`: native PDF overlay with authenticated opaque QR codes and OCR-readable visible ciphertext. Uses a separate random 32-byte hexadecimal `RMAP_WATERMARK_KEY`. New RMAP versions use an opaque random copy identifier, linked to the authenticated group in `Versions`, rather than embedding the download link in the PDF.
 
 When the server private key has a passphrase, create
 `rmap-keys/server_passphrase` locally with mode `600`, place the passphrase in
