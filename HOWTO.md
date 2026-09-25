@@ -29,7 +29,7 @@ RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/public_key.asc
 RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/private_key.asc
 RMAP_SERVER_KEY_PASSPHRASE_FILE=         # only if the private key is protected (file must be mode 600)
 RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
-RMAP_WATERMARK_METHOD=toy-eof            # the add-after-eof method's registered name
+RMAP_WATERMARK_METHOD=davide-watermark   # image watermark + fingerprint (toy-eof for quick tests)
 RMAP_WATERMARK_KEY=<random value>
 RMAP_DOCUMENT_ID=<id of the source PDF>
 ```
@@ -47,8 +47,10 @@ Check that it's running: `curl http://127.0.0.1:5000/healthz`
 
 ## 3. Client: get a watermarked copy
 
-A group is accepted if `clients/<Identity>.asc` exists. It must also hold that key's
-**private** key, because the server encrypts its replies to it.
+A group is accepted if `clients/<Identity>.asc` exists. Keys are loaded at startup, so
+restart the server after adding or removing one. The client must also hold that key's
+**private** key, because the server encrypts its replies to it. A handshake left half-done
+across a restart fails with `400`; just start a new one.
 
 ```sh
 rmap-client --url http://127.0.0.1:5000 --identity Group_13 \
@@ -78,11 +80,13 @@ Expected results:
 curl -X POST http://127.0.0.1:5000/api/read-watermark/<DOC_ID> \
   -H "Authorization: Bearer <TOKEN>" -H "X-CSRF-Protection: 1" \
   -H "Content-Type: application/json" \
-  -d '{"method": "toy-eof", "key": "<RMAP_WATERMARK_KEY>"}'
+  -d '{"method": "davide-watermark", "key": "<RMAP_WATERMARK_KEY>"}'
 # → {"secret": "Group_13:<link>", "attribution": {"intended_for": "Group_13", "link": "<link>"}, ...}
 ```
 
 Only the owner of `RMAP_DOCUMENT_ID` gets the `attribution` field. Other users get the plain response.
+If the leak was cropped, rescaled or recompressed, `secret` is `null` and `attribution` comes from
+the fingerprint, which compares the leak with the source PDF and every issued version.
 
 **Raw read (toy-eof only).** The watermark is a base64 JSON record after `%%EOF`.
 The HMAC authenticates it but does not hide it:
@@ -106,3 +110,4 @@ tail -n 1 copy.pdf | tr -- '-_' '+/' | base64 -d | python3 -c \
 - If RMAP fails, check `docker compose logs server`. `PassphraseRequiredException` means the
   passphrase is missing or wrong. Errors sent to clients are always generic.
 - Unit tests: `cd server && SECRET_KEY=$(python -c 'import secrets;print(secrets.token_hex(32))') pytest`
+- End-to-end tests (isolated Docker stack, generated keys): `cd server && pytest test_e2e`

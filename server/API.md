@@ -242,8 +242,8 @@ _None_
 {
   "versions": [
     {
-      "id": <string>,
-      "documentid": <string>,
+      "id": <int>,
+      "documentid": <int>,
       "link": <string>,
       "intended_for": <string>,
       "secret": <string>,
@@ -276,16 +276,19 @@ _None_
 {
   "versions": [
     {
-      "id": <string>,
-      "documentid": <string>,
+      "id": <int>,
+      "documentid": <int>,
       "link": <string>,
       "intended_for": <string>,
-      "secret": <string>,
       "method": <string>
     }
   ]
 }
 ```
+
+Unlike `list-versions`, this listing does **not** include `secret` (the course
+table lists it). This is the upstream implementation's behaviour; per-document
+secrets remain available to the owner through `list-versions`.
 
 **Specification**
  * Requires authentication
@@ -364,7 +367,7 @@ This endpoint reads information contain in a pdf document's watermark with the p
 ```
  
 **Path**
-`POST /api/read-watermark<int:document_id>`
+`POST /api/read-watermark/<int:document_id>`
 
 
 **Parameters**
@@ -403,8 +406,39 @@ field. The recovered secret is looked up in `Versions` for that document:
 `attribution` is `null` when no RMAP version has that secret. For every other
 user the response is unchanged and has no `attribution` field.
 
+If the method supports informed detection (`davide-watermark`) and the
+secret cannot be read or matches no version, the leak's fingerprint is compared
+with the RMAP source document and every version issued with that method. The
+best match is returned when its score clears the method's threshold; `secret`
+is then `null`. If nothing is read and nothing matches, the response is `400`,
+as for a normal read. The fingerprint needs the watermark key and is never
+available to other users, so the endpoint is not a public detection oracle.
+
+With several colluding recipients (copies averaged together) the fingerprints
+of all of them are present, but only the best-scoring version is returned.
+
+**Status codes**
+| Code | When |
+|---|---|
+| 201 | Watermark read (or, for the RMAP service account, attributed) |
+| 400 | Missing `method`/`key`, or nothing readable with that key |
+| 401 | Missing or invalid bearer token |
+| 403 | Missing `X-CSRF-Protection` header |
+| 404 | Document does not exist or belongs to another user |
+| 410 | Document file missing on disk |
+| 503 | Database unavailable |
+| 500 | Unknown `method` name (unhandled `KeyError` in the shared route; generic error body) |
+
+A wrong key, an unmarked document and a stripped watermark all return the same
+`400 {"error": "could not read watermark"}`, so the endpoint does not reveal
+whether a document carries a watermark.
+
+`position` is echoed back; `davide-watermark` ignores it (it marks every
+suitable image).
+
 **Specification**
- * The endpoint MUST return the secret read in the document.
+ * The endpoint MUST return the secret read in the document, except for the
+   RMAP service account's fingerprint-only matches described above (`secret: null`).
 
 
    ## create-watermark
@@ -463,6 +497,17 @@ This endpoint reads information contain in a pdf document's watermark with the p
  * `position` is retained for compatibility. `francesco-watermark` ignores it,
    always enables QR and visible text, and returns `null` for this field.
  * The payload is a gpg encrypted JSON presented as ASCII armored base64, without any GPG headers.
+
+## get-version
+
+**Path**
+`GET /api/get-version/<link>`
+
+**Description**
+Public download of a watermarked version (`application/pdf`). No token: the
+32-hex link is a bearer secret (128 bits, unguessable). Anyone holding a link
+can download that copy, so recipients must keep their link private. Unknown
+links return `404`. Links are persistent.
 
  ## rmap-initiate
  
@@ -553,6 +598,32 @@ should decrypt to:
 
 **Specification**
  * `get-version/<result>` SHOULD point to a watermarked version of a PDF specific to the group authenticated by the public key of the client.
+
+## RMAP behaviour
+
+**Status codes** (both routes return `{"error": <generic message>}` on failure;
+details are only logged):
+
+| Code | Route | When |
+|---|---|---|
+| 200 | both | Success |
+| 400 | both | Non-JSON or malformed body, undecryptable payload, unknown identity, wrong `nonceServer` |
+| 409 | rmap-get-link | Session already completed (replayed message 2) |
+| 404 | rmap-get-link | RMAP source document not in the database |
+| 410 | rmap-get-link | RMAP source file missing on disk |
+| 500 | rmap-get-link | Watermarking failed: no link, no version row, no file |
+| 503 | both | RMAP not configured, or database unavailable |
+
+* **Identities** are the client key file names without `.asc`
+  (`Group_07`, not `Group 07`). Keys are loaded at startup: adding or removing
+  a key file takes effect after a server restart.
+* **Sessions** between message 1 and message 2 live in the server process
+  (single gunicorn worker). A restart drops them: the client gets `400` and
+  simply starts a new handshake. Completed versions are stored in the database
+  and survive restarts.
+* **Keys**: recipients' PGP keys only authenticate the handshake. The watermark
+  is keyed by the server-side `RMAP_WATERMARK_KEY`; no recipient key can read
+  or detect any watermark, including the one in its own copy.
 
 ## RMAP configuration
 

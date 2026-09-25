@@ -33,10 +33,8 @@ import logging
 import re
 from typing import Any, Final
 
-from add_after_eof import AddAfterEOF
 from davide_watermark.method import DavideWatermark
 from francesco_watermark import FrancescoWatermark
-from unsafe_bash_bridge_append_eof import UnsafeBashBridgeAppendEOF
 from watermarking_method import (
     PdfSource,
     WatermarkingMethod,
@@ -49,11 +47,10 @@ logger = logging.getLogger(__name__)
 # Method registry
 # --------------------
 
+# toy-eof is kept only for tests (see test/conftest.py): anyone can strip it
 METHODS: dict[str, WatermarkingMethod] = {
-    AddAfterEOF.name: AddAfterEOF(),
-    FrancescoWatermark.name: FrancescoWatermark(),
-    UnsafeBashBridgeAppendEOF.name: UnsafeBashBridgeAppendEOF(),
     DavideWatermark.name: DavideWatermark(),
+    FrancescoWatermark.name: FrancescoWatermark(),
 }
 """Registry of available watermarking methods.
 

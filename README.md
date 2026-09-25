@@ -31,15 +31,23 @@ python -m pip install -e ".[dev]"
 # Run the unit tests
 export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
 python -m pytest
+
+# Run the end-to-end tests (real server image + MariaDB in Docker, test keys only)
+python -m pytest test_e2e
 ```
+See `server/test_e2e/README.md` for what the end-to-end suite covers.
 
 ### Add a watermarking method
 
-Implement the `WatermarkingMethod` interface in `server/src/watermarking_method.py`.
-Concrete methods can live in their own file or dedicated package under `server/src/`
-(e.g., `server/src/francesco_watermark/`). Register the method explicitly in
-`server/src/watermarking_utils.py`; the server and CLI use that registry, and no
-modules are loaded dynamically. Keep tests in matching files under `server/test/`.
+Put each concrete method in its own module or dedicated package under `server/src/`
+(e.g., `server/src/davide_watermark/`, `server/src/francesco_watermark/`) and implement
+the `WatermarkingMethod` interface in `server/src/watermarking_method.py`.
+Register the method explicitly in `server/src/watermarking_utils.py`; the server and
+CLI use that registry, and no modules are loaded dynamically. Keep method-specific
+tests under `server/test/` (e.g. `server/test/watermarking/davide/`, `server/test/francesco_watermark_test/`),
+next to the shared contract and CLI tests. HTTP tests live in `server/test/api/` and RMAP
+tests in `server/test/rmap/`. `toy-eof` is not registered: `server/test/conftest.py`
+registers it only for the tests that need a fast method.
 
 ### Deploy
 
@@ -180,14 +188,9 @@ Every completed handshake produces a new version, watermarked with the peer's
 opaque copy identifier, associates it with the authenticated peer, records it
 with the generated 32-character link,
 and returns that link. `RMAP_WATERMARK_METHOD` must name a registered
-watermarking method. The bundled `toy-eof` and `bash-bridge-eof` methods are
-easily stripped; configure the group's stronger method for the course document.
-For the Group 13 document, use `francesco-watermark` and a separate random 32-byte
-hexadecimal `RMAP_WATERMARK_KEY`. New RMAP versions use an opaque random copy
-identifier, linked to the authenticated group in `Versions`, rather than
-embedding the download link in the PDF. See
-[the Francesco watermark guide](server/FRANCESCO_WATERMARK.md) for local and
-production usage, verification, composition order and limitations.
+watermarking method (`toy-eof` is easily stripped and kept only for the test suite):
+- `davide-watermark`: watermarks the PDF's images and can attribute cropped, rescaled or recompressed leaks through `read-watermark`.
+- `francesco-watermark`: native PDF overlay with authenticated opaque QR codes and OCR-readable visible ciphertext. Uses a separate random 32-byte hexadecimal `RMAP_WATERMARK_KEY`. New RMAP versions use an opaque random copy identifier, linked to the authenticated group in `Versions`, rather than embedding the download link in the PDF. See [the Francesco watermark guide](server/FRANCESCO_WATERMARK.md) for local and production usage, verification, composition order and limitations.
 
 When the server private key has a passphrase, create
 `rmap-keys/server_passphrase` locally with mode `600`, place the passphrase in

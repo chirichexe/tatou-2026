@@ -1,4 +1,4 @@
-"""add_after_eof.py
+"""Toy EOF watermarking method.
 
 Toy watermarking method that appends an authenticated payload *after* the
 PDF's final EOF marker.
@@ -64,7 +64,7 @@ class AddAfterEOF(WatermarkingMethod):
     # ---------------------
     # Public API overrides
     # ---------------------
-    
+
     @staticmethod
     def get_usage() -> str:
         return "Toy method that appends a watermark record after the PDF EOF. Position is ignored."
@@ -99,14 +99,14 @@ class AddAfterEOF(WatermarkingMethod):
             out += b"\n"
         out += self._MAGIC + payload + b"\n"
         return out
-        
+
     def is_watermark_applicable(
         self,
         pdf: PdfSource,
         position: str | None = None,
     ) -> bool:
         return True
-    
+
 
     def read_secret(self, pdf, key: str) -> str:
         """Extract the secret if present and authenticated by ``key``.

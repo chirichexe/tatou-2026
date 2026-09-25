@@ -1,10 +1,11 @@
-"""Behavior of the toy EOF method."""
+"""Behavior of the toy EOF method (test-only, not registered)."""
+
 from io import BytesIO
 
-import pymupdf as fitz
+import fitz
 import pytest
-from add_after_eof import AddAfterEOF
 from watermarking_method import InvalidKeyError, SecretNotFoundError
+from watermarking_methods.add_after_eof import AddAfterEOF
 from watermarking_utils import METHODS
 
 
@@ -48,5 +49,5 @@ def test_embedding_is_deterministic(pdf_bytes):
     )
 
 
-def test_registry_is_compatible():
-    assert isinstance(METHODS["toy-eof"], AddAfterEOF)
+def test_method_is_not_registered():
+    assert "toy-eof" not in METHODS

@@ -8,6 +8,8 @@ import pymupdf as fitz
 import pytest
 from sqlalchemy import create_engine, event, text
 
+pytestmark = pytest.mark.usefixtures("toy_eof_method")
+
 
 def make_pdf():
     document = fitz.open()
