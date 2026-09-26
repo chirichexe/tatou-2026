@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from francesco_watermark import crypto, visible
+from watermarking_methods.francesco import crypto, visible
 from watermarking_method import InvalidKeyError
 
 DUMMY_KEY = "0123456789abcdef" * 4

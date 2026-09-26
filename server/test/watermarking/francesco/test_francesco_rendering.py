@@ -6,7 +6,7 @@ import io
 
 import pymupdf as fitz
 import pytest
-from francesco_watermark import rendering
+from watermarking_methods.francesco import rendering
 from PIL import Image
 
 KEY = "0123456789abcdef" * 4

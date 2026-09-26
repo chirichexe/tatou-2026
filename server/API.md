@@ -434,9 +434,11 @@ A wrong key, an unmarked document and a stripped watermark all return the same
 `400 {"error": "could not read watermark"}`, so the endpoint does not reveal
 whether a document carries a watermark.
 
-`position` is echoed back; `davide-watermark` and `group13-watermark` ignore
-it (they mark every suitable image and text run). `group13-watermark` accepts
-secrets of at most 48 UTF-8 bytes.
+`position` is echoed back; the methods of the group ignore it (they mark every
+suitable image, text run or page), except `khaled-text-spacing-watermark`,
+which accepts only an empty position or `auto`. Maximum secret length:
+128 UTF-8 bytes for `davide-watermark`, 64 for `francesco-watermark`, 48 for
+`khaled-text-spacing-watermark` and `group13-watermark`.
 
 **Specification**
  * The endpoint MUST return the secret read in the document, except for the

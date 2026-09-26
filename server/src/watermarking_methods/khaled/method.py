@@ -2,7 +2,7 @@
 
 Each bit moves only the middle glyph of a three-glyph group. The two PDF TJ
 adjustments have opposite changes, so the line's later glyphs stay in place.
-The v1 reader deliberately supports only simple horizontal, one-byte text.
+The reader deliberately supports only simple horizontal, one-byte text.
 """
 
 from __future__ import annotations
@@ -165,7 +165,7 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
                     target = _nearest_lattice(current, _dither(dither_key, item), bit)
                     shift_pt = (target - current) / 2
                     if abs(shift_pt) > STEP_PT / 2 + 1e-8:
-                        raise WatermarkingError("Text displacement exceeds v1 limit")
+                        raise WatermarkingError("Text displacement exceeds the limit")
                     adjustment = shift_pt * 1000 / run.font_size
                     run.gaps[item.middle - 1] -= adjustment
                     run.gaps[item.middle] += adjustment

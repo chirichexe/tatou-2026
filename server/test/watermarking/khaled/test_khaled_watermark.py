@@ -9,9 +9,9 @@ import pymupdf as fitz
 import pytest
 from PIL import Image
 
-from khaled_watermark import KhaledTextSpacingWatermark
-from khaled_watermark.method import STEP_PT, _keys, _ordered
-from khaled_watermark.pdf_text import carriers, collect_runs, replace_runs
+from watermarking_methods.khaled import KhaledTextSpacingWatermark
+from watermarking_methods.khaled.method import STEP_PT, _keys, _ordered
+from watermarking_methods.khaled.pdf_text import carriers, collect_runs, replace_runs
 from watermarking_method import SecretNotFoundError, WatermarkingError
 
 

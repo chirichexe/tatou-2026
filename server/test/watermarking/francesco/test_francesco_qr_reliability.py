@@ -5,8 +5,8 @@ from __future__ import annotations
 import pymupdf as fitz
 import zxingcpp
 
-from francesco_watermark import FrancescoWatermark, crypto
-from francesco_watermark import pdf as pdf_ops
+from watermarking_methods.francesco import FrancescoWatermark, crypto
+from watermarking_methods.francesco import pdf as pdf_ops
 
 KEY = "0123456789abcdef" * 4
 SECRET = "Group_07:da0bb583c432fbfd078959ecc9b62902"

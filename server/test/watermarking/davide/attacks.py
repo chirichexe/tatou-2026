@@ -11,7 +11,7 @@ import numpy as np
 import pymupdf as fitz
 from PIL import Image, ImageFilter, ImageOps
 
-from davide_watermark.method import _replace_image
+from watermarking_methods.davide.method import _replace_image
 
 
 def edit_image(pdf: bytes, change) -> bytes:

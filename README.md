@@ -187,15 +187,25 @@ RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 Every completed handshake produces a new version, watermarked with the peer's
 identity and session link, records it with the generated 32-character link,
 and returns that link. `RMAP_WATERMARK_METHOD` must name a registered
-watermarking method. Use `group13-watermark`: it stacks the group's three
-methods with the same encrypted secret, each surviving different attacks:
-the image layer of `davide-watermark` (with the recipient fingerprint that
-attributes cropped, rescaled or screenshotted leaks through `read-watermark`),
-a text-spacing layer and a QR/visible-label overlay. Layers that do not fit
-the PDF are skipped. `davide-watermark` alone stays registered to read the
-versions issued before (`toy-eof` is easily stripped and kept only for the
-test suite). `server/test_robustness/` measures every layer against a set
-of removal attacks.
+watermarking method. The group's methods live in
+`server/src/watermarking_methods/<name>/`, each with one public class and its
+private helpers, and are all registered with the same interface, so any of
+them can be used here:
+
+| Method | Carrier |
+|---|---|
+| `davide-watermark` | images: encrypted secret + recipient fingerprint |
+| `khaled-text-spacing-watermark` | spacing of the selectable text |
+| `francesco-watermark` | QR codes and visible labels drawn on the pages |
+| `group13-watermark` | the three above in one pipeline (recommended) |
+
+`group13-watermark` only calls the other three with the same secret; layers
+that do not fit the PDF are skipped, and it can read a copy made by any of
+them. The fingerprint attributes cropped, rescaled or screenshotted leaks
+through `read-watermark` (`davide-watermark` and `group13-watermark`).
+`toy-eof` is easily stripped and kept only for the test suite.
+`server/test_robustness/` measures every method against a set of removal
+attacks.
 
 When the server private key has a passphrase, create
 `rmap-keys/server_passphrase` locally with mode `600`, place the passphrase in

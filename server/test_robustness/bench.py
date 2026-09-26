@@ -18,10 +18,10 @@ from concurrent.futures import ProcessPoolExecutor
 
 import attacks as A
 
-from davide_watermark.method import DavideWatermark
-from francesco_watermark import FrancescoWatermark
-from group13_watermark import Group13Watermark
-from khaled_watermark import KhaledTextSpacingWatermark
+from watermarking_methods.davide.method import DavideWatermark
+from watermarking_methods.francesco import FrancescoWatermark
+from watermarking_methods.group13 import Group13Watermark
+from watermarking_methods.khaled import KhaledTextSpacingWatermark
 
 D, K, F, G = DavideWatermark(), KhaledTextSpacingWatermark(), FrancescoWatermark(), Group13Watermark()
 METHODS = {"D": D, "K": K, "F": F, "G": G}

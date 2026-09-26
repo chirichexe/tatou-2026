@@ -8,10 +8,10 @@ import shutil
 import pymupdf as fitz
 import pytest
 import zxingcpp
-from davide_watermark.method import DavideWatermark as StructuralWatermark
-from francesco_watermark import crypto
-from francesco_watermark.method import FrancescoWatermark
-from francesco_watermark import visible
+from watermarking_methods.davide.method import DavideWatermark as StructuralWatermark
+from watermarking_methods.francesco import crypto
+from watermarking_methods.francesco.method import FrancescoWatermark
+from watermarking_methods.francesco import visible
 from PIL import Image
 from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
 

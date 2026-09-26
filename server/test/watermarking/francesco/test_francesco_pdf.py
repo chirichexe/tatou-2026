@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pymupdf as fitz
-from francesco_watermark import pdf as pdf_ops
-from francesco_watermark.method import FrancescoWatermark
+from watermarking_methods.francesco import pdf as pdf_ops
+from watermarking_methods.francesco.method import FrancescoWatermark
 
 KEY = "0123456789abcdef" * 4
 

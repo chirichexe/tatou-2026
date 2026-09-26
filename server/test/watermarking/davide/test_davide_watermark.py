@@ -15,10 +15,10 @@ import pymupdf as fitz
 import pytest
 from PIL import Image
 
-import davide_watermark.method as method_module
+import watermarking_methods.davide.method as method_module
 from attacks import ATTACKS, KNOWN_FAILURES, edit_image
-from davide_watermark.image import embed_payload, read_votes, vote
-from davide_watermark.method import DavideWatermark, _images, _replace_image, encrypt
+from watermarking_methods.davide.image import embed_payload, read_votes, vote
+from watermarking_methods.davide.method import DavideWatermark, _images, _replace_image, encrypt
 from photos import make_photo, photo_pdf
 from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
 from watermarking_utils import METHODS, apply_watermark, read_watermark

@@ -33,13 +33,15 @@ import logging
 import re
 from typing import Any, Final
 
-from davide_watermark.method import DavideWatermark
-from group13_watermark import Group13Watermark
 from watermarking_method import (
     PdfSource,
     WatermarkingMethod,
     load_pdf_bytes,
 )
+from watermarking_methods.davide import DavideWatermark
+from watermarking_methods.francesco import FrancescoWatermark
+from watermarking_methods.group13 import Group13Watermark
+from watermarking_methods.khaled import KhaledTextSpacingWatermark
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +49,14 @@ logger = logging.getLogger(__name__)
 # Method registry
 # --------------------
 
+# Every method of the group, alone or all together (group13): they share the
+# same interface, so any of them can be used in create-watermark,
+# read-watermark and RMAP_WATERMARK_METHOD.
 # toy-eof is kept only for tests (see test/conftest.py): anyone can strip it
 METHODS: dict[str, WatermarkingMethod] = {
     DavideWatermark.name: DavideWatermark(),
+    KhaledTextSpacingWatermark.name: KhaledTextSpacingWatermark(),
+    FrancescoWatermark.name: FrancescoWatermark(),
     Group13Watermark.name: Group13Watermark(),
 }
 """Registry of available watermarking methods.

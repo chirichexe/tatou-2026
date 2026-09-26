@@ -1,10 +1,10 @@
 """Native PDF watermarking with authenticated QR and visible ciphertext layers.
 
 Aggregates modular components:
-- crypto: Key derivation (HKDF) and authenticated AES-SIV QR payloads
-- qr: Opaque QR generation, collision-free border placement, and detection
-- rendering: Typography and visible label overlays
-- pdf: Native PDF stamping without rasterizing the source document
+- crypto: key derivation and authenticated AES-SIV payloads
+- rendering: opaque QR codes, collision-free border placement, visible labels
+- pdf: document limits, page rasterization, native PDF stamping
+- visible: OCR recovery of the visible labels
 
 The shared ``position`` argument is accepted for API compatibility and ignored.
 """
