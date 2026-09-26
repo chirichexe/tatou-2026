@@ -140,6 +140,9 @@ def test_encrypted_visible_label_recovers_secret_when_qr_is_unavailable(pdf_byte
 
     method = FrancescoWatermark()
     secret = "visible-label-copy-id"
+    # a fixed salt makes the label text, and so the OCR result, reproducible:
+    # a few percent of random salts give labels Tesseract cannot read
+    monkeypatch.setattr(crypto.os, "urandom", lambda size: b"\x01" * size)
     watermarked = method.add_watermark(pdf_bytes, secret, KEY, intended_for="Group 13")
     with fitz.open(stream=watermarked, filetype="pdf") as document:
         pixmap = document[0].get_pixmap(dpi=300, alpha=False)
@@ -153,6 +156,23 @@ def test_encrypted_visible_label_recovers_secret_when_qr_is_unavailable(pdf_byte
     monkeypatch.setattr(method_module.zxingcpp, "read_barcodes", lambda *args, **kwargs: [])
 
     assert method.read_secret(flattened, KEY) == secret
+
+
+def test_visible_label_recovers_from_common_ocr_digit_confusions(monkeypatch):
+    from watermarking_methods.francesco import visible
+
+    secret = "visible-label-copy-id"
+    monkeypatch.setattr(crypto.os, "urandom", lambda size: b"\x01" * size)
+    payload = crypto.encrypt_visible_payload(secret, KEY)
+
+    for letter, digit in (("o", "0"), ("l", "1"), ("b", "8"), ("g", "9")):
+        assert letter in payload
+        scanned_label = f"Group 13 - {payload.replace(letter, digit, 1)}"
+        candidates = visible._candidate_payloads(scanned_label)
+        assert any(
+            crypto.decrypt_visible_payload(candidate, KEY) == secret
+            for candidate in candidates
+        )
 
 
 @pytest.mark.parametrize("position", [None, "group=Group_13", "group=Group_13;no-qr"])

@@ -19,14 +19,16 @@ from watermarking_method import InvalidKeyError, WatermarkingError
 from . import crypto
 from .rendering import DEFAULT_VISIBLE_TEXT_COUNT
 
-_PAYLOAD_PATTERN = re.compile(r"[A-Za-z2-7]{44,200}", re.IGNORECASE)
+_PAYLOAD_PATTERN = re.compile(r"[A-Za-z0-9]{44,200}", re.IGNORECASE)
 _LABEL_PAYLOAD_PATTERN = re.compile(
-    r"GROUP[_A-Za-z0-9]*-_*([A-Za-z2-7]{44,200})", re.IGNORECASE,
+    r"GROUP[\s_A-Za-z0-9]*\s*-\s*([A-Za-z0-9]{44,200})", re.IGNORECASE,
 )
 _BASE32_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567"
 # 0, 1, 8 and 9 are not Base32: allowing them lets Tesseract read "o" as "0"
-# or "l" as "1" (sometimes both, "o0"), which splits or lengthens the payload
+# or "l" as "1", sometimes both ("o0"), which adds a character Reed-Solomon
+# cannot repair. The translation below still covers digits from other sources.
 _OCR_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz234567_-"
+_OCR_DIGIT_TRANSLATION = str.maketrans({"0": "o", "1": "l", "8": "b", "9": "g"})
 # OCR runs whenever no QR code authenticates, i.e. on any uploaded PDF, so its
 # cost is capped: the labels repeat on every page, the first pages are enough
 _MAX_OCR_PAGES = 2
@@ -78,9 +80,12 @@ def _candidate_payloads(text: str) -> list[str]:
     for line in text.splitlines():
         label_match = _LABEL_PAYLOAD_PATTERN.search(line)
         if label_match:
-            candidates.append(label_match.group(1))
+            candidates.append(label_match.group(1).translate(_OCR_DIGIT_TRANSLATION))
         else:
-            candidates.extend(_PAYLOAD_PATTERN.findall(line))
+            candidates.extend(
+                candidate.translate(_OCR_DIGIT_TRANSLATION)
+                for candidate in _PAYLOAD_PATTERN.findall(line)
+            )
     return candidates
 
 
