@@ -375,6 +375,7 @@ def create_app():
                 key=app.config["RMAP_WATERMARK_KEY"],
                 method=app.config["RMAP_WATERMARK_METHOD"],
                 position=app.config["RMAP_WATERMARK_POSITION"],
+                intended_for=identity,
             )
             if not isinstance(wm_bytes, (bytes, bytearray)) or not wm_bytes:
                 raise RuntimeError("watermarking returned no document")
@@ -977,6 +978,7 @@ def create_app():
         intended_slug = secure_filename(intended_for)[:60]
         if not intended_slug:
             return jsonify({"error": "invalid intended_for"}), 400
+        visible_intended_for = " ".join(intended_for.split())[:60]
 
         # lookup the document; enforce ownership
         try:
@@ -1030,7 +1032,8 @@ def create_app():
                 secret=secret,
                 key=key,
                 method=method,
-                position=position
+                position=position,
+                intended_for=visible_intended_for,
             )
             if not isinstance(wm_bytes, (bytes, bytearray)) or len(wm_bytes) == 0:
                 return jsonify({"error": "watermarking failed"}), 500

@@ -1,4 +1,4 @@
-"""OCR recovery for the repeated semi-transparent watermark token on every page."""
+"""OCR recovery for legacy encrypted labels drawn on PDF pages."""
 
 from __future__ import annotations
 

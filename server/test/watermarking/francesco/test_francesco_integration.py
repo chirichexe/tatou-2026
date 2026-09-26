@@ -12,7 +12,7 @@ from PIL import Image
 
 from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
 from watermarking_methods.davide.method import DavideWatermark as StructuralWatermark
-from watermarking_methods.francesco import crypto, visible
+from watermarking_methods.francesco import crypto, rendering
 from watermarking_methods.francesco.method import FrancescoWatermark
 
 KEY = "0123456789abcdef" * 4
@@ -120,20 +120,29 @@ def test_layer_toggles_and_prerequisites(pdf_bytes, monkeypatch):
         assert any(image[2] == image[3] for image in images)
 
 
-@needs_ocr
-def test_qr_and_visible_layers_use_distinct_ciphertexts(pdf_bytes, monkeypatch):
+def test_qr_encodes_secret_and_visible_label_contains_it_in_clear(pdf_bytes, monkeypatch):
     method = FrancescoWatermark()
-    secret = "copy-with-three-ciphertexts"
+    secret = "copy-link-identifier"
+    intended_for = "Group_13"
     encrypted_payloads: list[str] = []
+    visible_labels: list[str] = []
     original_payload = method._payload
+    original_stamp = rendering.stamp_random_native_visible_text
 
     def capture_payload(value: str, key: str) -> str:
         payload = original_payload(value, key)
         encrypted_payloads.append(payload)
         return payload
 
+    def capture_visible_label(**kwargs):
+        visible_labels.append(kwargs["label"])
+        return original_stamp(**kwargs)
+
     monkeypatch.setattr(method, "_payload", capture_payload)
-    watermarked = method.add_watermark(pdf_bytes, secret, KEY)
+    monkeypatch.setattr(rendering, "stamp_random_native_visible_text", capture_visible_label)
+    watermarked = method.add_watermark(
+        pdf_bytes, secret, KEY, intended_for=intended_for
+    )
 
     with fitz.open(stream=watermarked, filetype="pdf") as document:
         pixmap = document[0].get_pixmap(dpi=300, colorspace=fitz.csRGB, alpha=False)
@@ -145,18 +154,14 @@ def test_qr_and_visible_layers_use_distinct_ciphertexts(pdf_bytes, monkeypatch):
             )
             if crypto.is_candidate_payload(result.text)
         }
-        visible_tokens = visible.extract_visible_tokens(document)
 
-    assert len(encrypted_payloads) == 2
-    assert len(set(encrypted_payloads)) == 2
+    assert len(encrypted_payloads) == 1
     assert qr_payloads == {encrypted_payloads[0]}
-    assert visible_tokens
-    assert visible.decrypt_visible_tokens(visible_tokens, KEY) == {secret}
+    assert visible_labels == [f"GROUP {intended_for} - {secret}"]
     assert {
         crypto.decrypt_qr_payload(payload, KEY) for payload in qr_payloads
     } == {secret}
 
-    assert encrypted_payloads[1] not in qr_payloads
 
 
 @pytest.mark.parametrize(
@@ -182,7 +187,7 @@ def test_position_is_ignored_and_both_layers_stay_enabled(pdf_bytes, position):
 
 
 @needs_ocr
-def test_visible_ciphertext_survives_flattening_without_qr(pdf_bytes, monkeypatch):
+def test_visible_label_does_not_replace_qr_secret_carrier(pdf_bytes, monkeypatch):
     method = FrancescoWatermark()
     secret = "text-fallback-copy"
     monkeypatch.setattr(FrancescoWatermark, "ENABLE_QR_WATERMARK", False)
@@ -212,7 +217,8 @@ def test_visible_ciphertext_survives_flattening_without_qr(pdf_bytes, monkeypatc
         page.insert_image(page.rect, stream=buffer.getvalue())
         flattened = rebuilt.tobytes()
 
-    assert method.read_secret(flattened, KEY) == secret
+    with pytest.raises(SecretNotFoundError):
+        method.read_secret(flattened, KEY)
 
 
 def test_non_ascii_secret_roundtrip(pdf_bytes):

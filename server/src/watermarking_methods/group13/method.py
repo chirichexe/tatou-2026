@@ -60,7 +60,14 @@ class Group13Watermark(WatermarkingMethod):
         return DAVIDE.is_watermark_applicable(data) or KHALED.is_watermark_applicable(data)
 
     @classmethod
-    def add_watermark(cls, pdf: PdfSource, secret: str, key: str, position: str | None = None) -> bytes:
+    def add_watermark(
+        cls,
+        pdf: PdfSource,
+        secret: str,
+        key: str,
+        position: str | None = None,
+        intended_for: str | None = None,
+    ) -> bytes:
         if not key:
             raise InvalidKeyError("Key must not be empty")
         if not isinstance(secret, str) or not 0 < len(secret.encode("utf-8")) <= MAX_SECRET_BYTES:
@@ -86,7 +93,12 @@ class Group13Watermark(WatermarkingMethod):
         # only here we learn if the page borders have room for the QR codes
         if FRANCESCO.is_watermark_applicable(data):
             try:
-                data = FRANCESCO.add_watermark(data, secret, key)
+                data = FRANCESCO.add_watermark(
+                    data,
+                    secret,
+                    key,
+                    intended_for=intended_for,
+                )
                 applied.append(FRANCESCO)
             except ValueError as error:
                 logger.warning("group13-watermark: %s skipped: %s", FRANCESCO.name, error)

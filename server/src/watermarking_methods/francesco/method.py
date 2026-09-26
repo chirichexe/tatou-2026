@@ -1,4 +1,4 @@
-"""Native PDF watermarking with authenticated QR and visible ciphertext layers.
+"""Native PDF watermarking with an authenticated QR and a visible copy label.
 
 Aggregates modular components:
 - crypto: key derivation and authenticated AES-SIV payloads
@@ -33,7 +33,7 @@ from . import visible as visible_ops
 
 
 class FrancescoWatermark(WatermarkingMethod):
-    """Independent AES-SIV QR payloads plus a repeated visible ciphertext."""
+    """An AES-SIV QR payload and repeated visible recipient/secret labels."""
 
     name: Final[str] = "francesco-watermark"
     MAX_SECRET_BYTES: Final[int] = 64
@@ -46,8 +46,8 @@ class FrancescoWatermark(WatermarkingMethod):
     @staticmethod
     def get_usage() -> str:
         return (
-            "Native PDF overlay with authenticated opaque QR codes and an OCR-readable "
-            "visible ciphertext; "
+            "Native PDF overlay with an authenticated opaque QR code and visible "
+            "recipient/secret labels; "
             "preserves original text streams. Supports any passphrase or hex key."
         )
 
@@ -81,6 +81,7 @@ class FrancescoWatermark(WatermarkingMethod):
         secret: str,
         key: str,
         position: str | None = None,
+        intended_for: str | None = None,
     ) -> bytes:
         if not self.ENABLE_BASE_LAYER:
             raise WatermarkingError(
@@ -103,10 +104,9 @@ class FrancescoWatermark(WatermarkingMethod):
         qr_images = [
             render_ops.build_opaque_qr_bytes(payload) for payload in qr_payloads
         ]
-        visible_payload = self._payload(secret, key) if enable_text else ""
         visible_label = (
-            crypto.qr_payload_to_visible_token(visible_payload)
-            if visible_payload
+            f"GROUP {intended_for or 'UNKNOWN'} - {secret}"
+            if enable_text
             else ""
         )
 

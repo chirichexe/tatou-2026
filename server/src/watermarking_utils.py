@@ -101,9 +101,18 @@ def apply_watermark(
     secret: str,
     key: str,
     position: str | None = None,
+    intended_for: str | None = None,
 ) -> bytes:
     """Apply a watermark using the specified method and return new PDF bytes."""
     m = get_method(method)
+    if m.name in {"francesco-watermark", "group13-watermark"}:
+        return m.add_watermark(
+            pdf=pdf,
+            secret=secret,
+            key=key,
+            position=position,
+            intended_for=intended_for,
+        )
     return m.add_watermark(pdf=pdf, secret=secret, key=key, position=position)
 
 def is_watermarking_applicable(
