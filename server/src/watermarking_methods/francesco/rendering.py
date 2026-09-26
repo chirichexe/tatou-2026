@@ -1,7 +1,4 @@
-"""Visual rendering components: typography, visible labels, and opaque QR codes.
-
-Consolidates all visual watermark layers and collision-free random layout generation.
-"""
+"""Drawing of the watermark: the opaque QR code, its placement and the visible labels"""
 
 from __future__ import annotations
 
@@ -14,44 +11,39 @@ import pymupdf as fitz
 import zxingcpp
 from PIL import Image, ImageDraw, ImageFont
 
-# -----------------------------------------------------------------------------
-# Configuration Constants
-# -----------------------------------------------------------------------------
-# QR codes are deliberately opaque for maximum scanner contrast.
-DEFAULT_ALPHA_BG: Final[int] = 255
-DEFAULT_ALPHA_DARK: Final[int] = 255
+Box = tuple[float, float, float, float]
+
 # ~10% of the shortest page dimension (about 2 cm on A4): at 6% a code has
 # fewer than 2 pixels per module at the 300 DPI read resolution and did not decode reliably
 DEFAULT_QR_FRACTION: Final[float] = 0.10
 DEFAULT_VISIBLE_TEXT_COUNT: Final[int] = 6
 VISIBLE_TEXT_ALPHA: Final[int] = 110
-VISIBLE_TEXT_STROKE_ALPHA: Final[int] = 125
-VISIBLE_TEXT_CHUNK_SIZE: Final[int] = 32
+
+
+def _rng(seed_material: bytes, label: bytes) -> random.Random:
+    # placement only, nothing secret depends on it: the same copy gets the same layout
+    seed = hashlib.sha256(seed_material + label).digest()[:8]
+    return random.Random(int.from_bytes(seed, "big"))  # noqa: S311
+
 
 # -----------------------------------------------------------------------------
-# Geometry & Collision Avoidance
+# Geometry & collision avoidance
 # -----------------------------------------------------------------------------
-def collect_page_content_boxes(
-    page: fitz.Page,
-    padding: float = 8.0,
-) -> list[tuple[float, float, float, float]]:
+def collect_page_content_boxes(page: fitz.Page, padding: float = 8.0) -> list[Box]:
     """Return padded boxes for existing text, images, and vector drawings."""
-
     bounds = page.rect
-    boxes: list[tuple[float, float, float, float]] = []
+    boxes: list[Box] = []
 
     def add(rect_like) -> None:
         rect = fitz.Rect(rect_like) & bounds
         if rect.is_empty or rect.is_infinite:
             return
-        boxes.append(
-            (
-                max(bounds.x0, rect.x0 - padding),
-                max(bounds.y0, rect.y0 - padding),
-                min(bounds.x1, rect.x1 + padding),
-                min(bounds.y1, rect.y1 + padding),
-            )
-        )
+        boxes.append((
+            max(bounds.x0, rect.x0 - padding),
+            max(bounds.y0, rect.y0 - padding),
+            min(bounds.x1, rect.x1 + padding),
+            min(bounds.y1, rect.y1 + padding),
+        ))
 
     for block in page.get_text("blocks"):
         add(block[:4])
@@ -64,12 +56,8 @@ def collect_page_content_boxes(
     return boxes
 
 
-def boxes_overlap(
-    box1: tuple[float, float, float, float],
-    box2: tuple[float, float, float, float],
-    min_gap: float = 0.05,
-) -> bool:
-    """Return True if two normalized (x0, y0, x1, y1) bounding boxes overlap or are closer than min_gap."""
+def boxes_overlap(box1: Box, box2: Box, min_gap: float) -> bool:
+    """Return True if two (x0, y0, x1, y1) boxes overlap or are closer than min_gap."""
     x0_1, y0_1, x1_1, y1_1 = box1
     x0_2, y0_2, x1_2, y1_2 = box2
     return not (
@@ -81,33 +69,24 @@ def boxes_overlap(
 
 
 # -----------------------------------------------------------------------------
-# QR Code Generation & Styling
+# QR code
 # -----------------------------------------------------------------------------
-def build_opaque_qr_bytes(
-    payload: str,
-    target_pixel_size: int = 240,
-    alpha_bg: int = DEFAULT_ALPHA_BG,
-    alpha_dark: int = DEFAULT_ALPHA_DARK,
-) -> bytes:
-    """Generate an opaque QR code and return its PNG bytes for PDF stamping."""
-    barcode = zxingcpp.create_barcode(
-        payload,
-        zxingcpp.BarcodeFormat.QRCode,
-        ec_level="H",
-    )
+def build_opaque_qr_bytes(payload: str, target_pixel_size: int = 240) -> bytes:
+    """Generate an opaque QR code (maximum scanner contrast) as PNG bytes."""
+    barcode = zxingcpp.create_barcode(payload, zxingcpp.BarcodeFormat.QRCode, ec_level="H")
     # Integer pixels per module: resizing to an arbitrary size makes modules
     # uneven, and about half of the codes then failed to decode at 300 DPI.
     modules = barcode.to_image(scale=1).shape[0]
     raw_img = barcode.to_image(scale=max(1, target_pixel_size // modules))
     qr_mask = Image.fromarray(raw_img).convert("L")
 
-    dark_layer = Image.new("RGBA", qr_mask.size, (15, 25, 35, alpha_dark))
-    light_layer = Image.new("RGBA", qr_mask.size, (255, 255, 255, alpha_bg))
+    dark_layer = Image.new("RGBA", qr_mask.size, (15, 25, 35, 255))
+    light_layer = Image.new("RGBA", qr_mask.size, (255, 255, 255, 255))
     qr_layer = Image.composite(light_layer, dark_layer, qr_mask)
 
     border = max(6, target_pixel_size // 16)
     total_side = target_pixel_size + 2 * border
-    backed = Image.new("RGBA", (total_side, total_side), (255, 255, 255, alpha_bg))
+    backed = Image.new("RGBA", (total_side, total_side), (255, 255, 255, 255))
     backed.paste(qr_layer, (border, border), qr_layer)
 
     buffer = io.BytesIO()
@@ -115,294 +94,143 @@ def build_opaque_qr_bytes(
     return buffer.getvalue()
 
 
-def generate_random_qr_rects(
+def random_qr_rect(
     page_width: float,
     page_height: float,
-    count: int = 2,
-    placed_boxes: list[tuple[float, float, float, float]] | None = None,
-    seed_material: bytes | None = None,
+    placed_boxes: list[Box],
+    seed_material: bytes,
     min_gap: float = 8.0,
     qr_fraction: float = DEFAULT_QR_FRACTION,
-) -> list[tuple[float, float, float, float]]:
-    """Generate random, collision-free QR boxes along the page borders.
+) -> Box:
+    """A random QR box along the page border that does not touch `placed_boxes`.
 
-    Existing text/content boxes are hard constraints. If the requested number of
-    border positions does not exist, fail instead of covering page content.
+    Existing content boxes are hard constraints: if there is no free border
+    position, fail instead of covering page content.
     """
-    boxes = placed_boxes if placed_boxes is not None else []
-    rng = (
-        random.Random(
-            int.from_bytes(hashlib.sha256(seed_material + b"/qr").digest()[:8], "big")
-        )
-        if seed_material is not None
-        else random.Random()
-    )
-
+    rng = _rng(seed_material, b"/qr")
     qr_side = min(page_width, page_height) * qr_fraction
     edge_inset = max(4.0, min(page_width, page_height) * 0.012)
     if page_width < qr_side + 2 * edge_inset or page_height < qr_side + 2 * edge_inset:
         raise ValueError("Page is too small for a border QR code")
 
-    chosen: list[tuple[float, float, float, float]] = []
+    for _attempt in range(500):
+        edge = rng.randrange(4)
+        if edge == 0:  # top
+            x0, y0 = rng.uniform(edge_inset, page_width - qr_side - edge_inset), edge_inset
+        elif edge == 1:  # bottom
+            x0 = rng.uniform(edge_inset, page_width - qr_side - edge_inset)
+            y0 = page_height - qr_side - edge_inset
+        elif edge == 2:  # left
+            x0, y0 = edge_inset, rng.uniform(edge_inset, page_height - qr_side - edge_inset)
+        else:  # right
+            x0 = page_width - qr_side - edge_inset
+            y0 = rng.uniform(edge_inset, page_height - qr_side - edge_inset)
+        candidate = (x0, y0, x0 + qr_side, y0 + qr_side)
+        if not any(boxes_overlap(candidate, box, min_gap) for box in placed_boxes):
+            return candidate
 
-    for _ in range(count):
-        best_candidate: tuple[float, float, float, float] | None = None
-
-        for _attempt in range(500):
-            edge = rng.randrange(4)
-            if edge == 0:  # top
-                x0 = rng.uniform(edge_inset, page_width - qr_side - edge_inset)
-                y0 = edge_inset
-            elif edge == 1:  # bottom
-                x0 = rng.uniform(edge_inset, page_width - qr_side - edge_inset)
-                y0 = page_height - qr_side - edge_inset
-            elif edge == 2:  # left
-                x0 = edge_inset
-                y0 = rng.uniform(edge_inset, page_height - qr_side - edge_inset)
-            else:  # right
-                x0 = page_width - qr_side - edge_inset
-                y0 = rng.uniform(edge_inset, page_height - qr_side - edge_inset)
-            candidate = (x0, y0, x0 + qr_side, y0 + qr_side)
-
-            collision = False
-            for bx0, by0, bx1, by1 in boxes:
-                if not (
-                    candidate[2] + min_gap <= bx0
-                    or bx1 + min_gap <= candidate[0]
-                    or candidate[3] + min_gap <= by0
-                    or by1 + min_gap <= candidate[1]
-                ):
-                    collision = True
-                    break
-
-            if not collision:
-                best_candidate = candidate
-                break
-
-        if best_candidate is None:
-            raise ValueError("No text-free border position available for QR code")
-
-        boxes.append(best_candidate)
-        chosen.append(best_candidate)
-
-    return chosen
+    raise ValueError("No text-free border position available for QR code")
 
 
-def generate_edge_qr_rects(
+def corner_qr_rect(
     page_width: float,
     page_height: float,
-    count: int = 2,
-    seed_material: bytes | None = None,
+    seed_material: bytes,
     qr_fraction: float = DEFAULT_QR_FRACTION,
-) -> list[tuple[float, float, float, float]]:
-    """Place fixed-size QR boxes flush to page corners, allowing content overlap."""
-    if count < 1 or page_width <= 0 or page_height <= 0 or not 0 < qr_fraction <= 0.5:
+) -> Box:
+    """A QR box flush to a random page corner, allowed to cover content."""
+    if page_width <= 0 or page_height <= 0 or not 0 < qr_fraction <= 0.5:
         raise ValueError("Invalid page dimensions or QR placement parameters")
-
     side = min(page_width, page_height) * qr_fraction
-    if seed_material is None:
-        rng = random.Random()
-    else:
-        seed = int.from_bytes(
-            hashlib.sha256(seed_material + b"/qr-edge").digest()[:8], "big"
-        )
-        rng = random.Random(seed)
-
-    x_positions = (0.0, page_width - side)
-    y_positions = (0.0, page_height - side)
-    corners = [
-        (x, y, x + side, y + side)
-        for y in y_positions
-        for x in x_positions
-    ]
-    rng.shuffle(corners)
-    chosen: list[tuple[float, float, float, float]] = []
-    for candidate in corners:
-        if all(not boxes_overlap(candidate, placed) for placed in chosen):
-            chosen.append(candidate)
-            if len(chosen) == count:
-                return chosen
-    raise ValueError("Not enough distinct page corners for QR codes")
+    x = _rng(seed_material, b"/qr-edge").choice((0.0, page_width - side))
+    y = _rng(seed_material, b"/qr-edge-y").choice((0.0, page_height - side))
+    return (x, y, x + side, y + side)
 
 
+# -----------------------------------------------------------------------------
+# Visible labels
+# -----------------------------------------------------------------------------
 def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """Load an OCR-friendly monospaced font or fall back to PIL's default."""
+    """Load a monospaced font or fall back to PIL's default."""
     try:
         return ImageFont.truetype("DejaVuSansMono.ttf", size)
     except OSError:
         return ImageFont.load_default(size=size)
 
 
+def _label_png(label: str, fontsize: float, rotate: int) -> tuple[bytes, float, float]:
+    """The label as a rotated transparent PNG, and its size in points"""
+    scale = 6  # render at 6x the point size, so the label stays sharp when zoomed
+    font = load_font(max(1, round(fontsize * scale)))
+    padding = max(4, round(fontsize * scale * 0.25))
+    x0, y0, x1, y1 = ImageDraw.Draw(Image.new("RGBA", (1, 1))).textbbox((0, 0), label, font=font)
+    canvas = Image.new("RGBA", (x1 - x0 + 2 * padding, y1 - y0 + 2 * padding), (255, 255, 255, 0))
+    ImageDraw.Draw(canvas).text(
+        (padding - x0, padding - y0), label, font=font, fill=(38, 56, 76, VISIBLE_TEXT_ALPHA),
+    )
+    rotated = canvas.rotate(rotate, expand=True, resample=Image.Resampling.BICUBIC)
+    buffer = io.BytesIO()
+    rotated.save(buffer, format="PNG")
+    return buffer.getvalue(), rotated.width / scale, rotated.height / scale
+
+
 def stamp_random_native_visible_text(
     page: fitz.Page,
     label: str,
-    placed_boxes: list[tuple[float, float, float, float]],
+    placed_boxes: list[Box],
     count: int = DEFAULT_VISIBLE_TEXT_COUNT,
     fontsize: float = 8.0,
     rotate: int = 30,
-    seed_material: bytes | None = None,
+    seed_material: bytes = b"",
     min_gap: float = 8.0,
-) -> list[tuple[float, float, float, float]]:
-    """Stamp semi-transparent labels without adding PDF text operators.
+) -> list[Box]:
+    """Stamp semi-transparent labels as images, without adding PDF text operators.
 
-    The supplied boxes are hard exclusions, normally the QR areas. Labels may
+    The supplied boxes are hard exclusions, normally the QR area. Labels may
     cross document content; their centers are spread across the page to limit
     mutual overlap without making placement fail on small pages.
     """
-    width = page.rect.width
-    height = page.rect.height
+    width, height = page.rect.width, page.rect.height
     protected_boxes = tuple(placed_boxes)
-    rng = (
-        random.Random(
-            int.from_bytes(hashlib.sha256(seed_material + b"/text").digest()[:8], "big")
-        )
-        if seed_material is not None
-        else random.Random()
-    )
+    rng = _rng(seed_material, b"/text")
 
-    prefix, separator, encoded = label.rpartition("-")
-    if separator and encoded:
-        chunks = [
-            encoded[offset : offset + VISIBLE_TEXT_CHUNK_SIZE]
-            for offset in range(0, len(encoded), VISIBLE_TEXT_CHUNK_SIZE)
-        ]
-        rendered_label = "\n".join([f"{prefix}-{chunks[0]}", *chunks[1:]])
-    else:
-        rendered_label = label
-
-    estimated_width_per_character = 0.62
-    max_label_width = width * 0.72
-    longest_line = max(rendered_label.splitlines(), key=len)
-    effective_fontsize = min(
-        fontsize,
-        max(
-            6.0,
-            max_label_width
-            / (len(longest_line) * estimated_width_per_character),
-        ),
-    )
-
-    scale = 6
-    font = load_font(max(1, round(effective_fontsize * scale)))
-    stroke_width = 0
-    padding = max(4, round(effective_fontsize * scale * 0.25))
-    probe = Image.new("RGBA", (1, 1), (255, 255, 255, 0))
-    text_bbox = ImageDraw.Draw(probe).multiline_textbbox(
-        (0, 0),
-        rendered_label,
-        font=font,
-        spacing=round(effective_fontsize * scale * 0.15),
-        stroke_width=stroke_width,
-    )
-    canvas_width = text_bbox[2] - text_bbox[0] + 2 * padding
-    canvas_height = text_bbox[3] - text_bbox[1] + 2 * padding
-    canvas = Image.new(
-        "RGBA",
-        (max(1, canvas_width), max(1, canvas_height)),
-        (255, 255, 255, 0),
-    )
-    draw = ImageDraw.Draw(canvas)
-    draw.multiline_text(
-        (padding - text_bbox[0], padding - text_bbox[1]),
-        rendered_label,
-        font=font,
-        spacing=round(effective_fontsize * scale * 0.15),
-        fill=(38, 56, 76, VISIBLE_TEXT_ALPHA),
-        stroke_width=stroke_width,
-        stroke_fill=(255, 255, 255, VISIBLE_TEXT_STROKE_ALPHA),
-    )
-    rotated = canvas.rotate(rotate, expand=True, resample=Image.Resampling.BICUBIC)
-    span_x = rotated.width / scale
-    span_y = rotated.height / scale
-    label_buffer = io.BytesIO()
-    rotated.save(label_buffer, format="PNG")
-    label_png = label_buffer.getvalue()
+    # shrink long labels to about 72% of the page width, never below 6 pt
+    effective_fontsize = min(fontsize, max(6.0, width * 0.72 / (len(label) * 0.62)))
+    label_png, span_x, span_y = _label_png(label, effective_fontsize, rotate)
 
     margin_x = max(20.0, width * 0.05)
     margin_y = max(20.0, height * 0.05)
+    max_x = max(margin_x + 1.0, width - span_x - margin_x)
+    max_y = max(margin_y + 1.0, height - span_y - margin_y)
 
-    chosen_boxes: list[tuple[float, float, float, float]] = []
-
+    chosen_boxes: list[Box] = []
     for _ in range(count):
-        best_pt: tuple[float, float] | None = None
-        best_box: tuple[float, float, float, float] | None = None
+        best_box: Box | None = None
         best_distance = -1.0
 
         for _attempt in range(1000):
-            min_x = margin_x
-            max_x = max(min_x + 1.0, width - span_x - margin_x)
-            min_y = margin_y
-            max_y = max(min_y + 1.0, height - span_y - margin_y)
-
-            px = rng.uniform(min_x, max_x)
-            py = rng.uniform(min_y, max_y)
-
-            cand_box = (
-                min(px, px + span_x) - 10.0,
-                min(py, py + span_y) - 10.0,
-                max(px, px + span_x) + 10.0,
-                max(py, py + span_y) + 10.0,
-            )
-
-            collision = False
-            for bx0, by0, bx1, by1 in protected_boxes:
-                if not (
-                    cand_box[2] + min_gap <= bx0
-                    or bx1 + min_gap <= cand_box[0]
-                    or cand_box[3] + min_gap <= by0
-                    or by1 + min_gap <= cand_box[1]
-                ):
-                    collision = True
-                    break
-
-            if not collision:
-                center_x = (cand_box[0] + cand_box[2]) / 2
-                center_y = (cand_box[1] + cand_box[3]) / 2
-                distance = min(
-                    (
-                        center_x - (box[0] + box[2]) / 2
-                    ) ** 2
-                    + (
-                        center_y - (box[1] + box[3]) / 2
-                    ) ** 2
-                    for box in chosen_boxes
-                ) if chosen_boxes else 0.0
-                if distance <= best_distance:
-                    continue
-                best_pt = (px, py)
+            px, py = rng.uniform(margin_x, max_x), rng.uniform(margin_y, max_y)
+            cand_box = (px - 10.0, py - 10.0, px + span_x + 10.0, py + span_y + 10.0)
+            if any(boxes_overlap(cand_box, box, min_gap) for box in protected_boxes):
+                continue
+            if not chosen_boxes:
                 best_box = cand_box
-                best_distance = distance
-                if not chosen_boxes:
-                    break
+                break
+            # keep the candidate farthest from the labels already placed
+            center_x, center_y = (cand_box[0] + cand_box[2]) / 2, (cand_box[1] + cand_box[3]) / 2
+            distance = min(
+                (center_x - (box[0] + box[2]) / 2) ** 2 + (center_y - (box[1] + box[3]) / 2) ** 2
+                for box in chosen_boxes
+            )
+            if distance > best_distance:
+                best_box, best_distance = cand_box, distance
 
-        if best_pt is None or best_box is None:
+        if best_box is None:
             raise ValueError("Page has insufficient room for visible labels")
 
         placed_boxes.append(best_box)
         chosen_boxes.append(best_box)
-
-        page.insert_image(
-            fitz.Rect(best_pt[0], best_pt[1], best_pt[0] + span_x, best_pt[1] + span_y),
-            stream=label_png,
-            overlay=True,
-        )
+        px, py = best_box[0] + 10.0, best_box[1] + 10.0
+        page.insert_image(fitz.Rect(px, py, px + span_x, py + span_y), stream=label_png, overlay=True)
 
     return chosen_boxes
-
-
-__all__ = [
-    # Constants
-    "DEFAULT_ALPHA_BG",
-    "DEFAULT_ALPHA_DARK",
-    "DEFAULT_QR_FRACTION",
-    "DEFAULT_VISIBLE_TEXT_COUNT",
-    # Geometry & collision
-    "boxes_overlap",
-    "build_opaque_qr_bytes",
-    "collect_page_content_boxes",
-    # QR code operations
-    # Text operations
-    "generate_random_qr_rects",
-    "load_font",
-    "stamp_random_native_visible_text",
-]

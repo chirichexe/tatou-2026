@@ -1,4 +1,4 @@
-"""QR codes must decode on their own, without the OCR fallback."""
+"""QR codes must decode reliably: they are the only thing francesco reads back."""
 
 from __future__ import annotations
 

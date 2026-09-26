@@ -40,7 +40,8 @@ def register(leak: Image.Image, original: Image.Image) -> Image.Image:
         if angle_step < 0.03:
             break
         flip, angle, scale = guess
-        neighbours = [(flip, angle + i * angle_step, scale * (1 + j * scale_step)) for i in (-1, 0, 1) for j in (-1, 0, 1)]
+        neighbours = [(flip, angle + i * angle_step, scale * (1 + j * scale_step))
+                      for i in (-1, 0, 1) for j in (-1, 0, 1)]
         # a tiny scale would blow the leak up to a huge image
         neighbours = [(f, a, s) for f, a, s in neighbours if abs(a) <= 6 and 0.2 <= s <= 1.5] or [guess]
         best = _best(leak, original, min(1.0, (256 if angle_step > 0.3 else 512) / side), neighbours)

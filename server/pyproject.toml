@@ -19,13 +19,31 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0"
+    "pytest>=7.0.0",
+    "ruff==0.16.9"
 ]
 
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["test/"]
 python_files = ["test_*.py"]
+
+[tool.ruff]
+line-length = 120
+src = ["src", "test"]
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, isort, bugbear, pyupgrade, bandit (security),
+# simplify, comprehensions, ruff-specific
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "C4", "RUF"]
+
+[tool.ruff.lint.isort]
+# the rmap library, not the test/rmap folder
+known-third-party = ["rmap"]
+
+[tool.ruff.lint.per-file-ignores]
+# tests use assert, fixed dummy passwords, temp paths and local tools
+"test/**" = ["S101", "S105", "S106", "S107", "S108", "S603", "S607"]
 
 [project.scripts]
 pdfwm = "watermarking_cli:main"                 # now you can run `pdfwm methods`

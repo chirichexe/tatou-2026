@@ -150,7 +150,7 @@ def test_all_versions_are_private_with_duplicate_logins(version_app):
         assert versions[0]["link"] == user.version["link"]
 
 
-@pytest.mark.parametrize("route", DOCUMENT_ROUTES + ["/api/list-all-versions"])
+@pytest.mark.parametrize("route", [*DOCUMENT_ROUTES, "/api/list-all-versions"])
 @pytest.mark.parametrize("headers", [{}, {"Authorization": "Bearer invalid"}])
 def test_version_listings_require_authentication(version_app, route, headers):
     response = version_app.client.get(

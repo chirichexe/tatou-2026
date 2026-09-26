@@ -93,12 +93,17 @@ def _images(doc) -> Iterator[tuple[int, Image.Image]]:
             if doc.xref_get_key(xref, "ImageMask")[1] == "true":
                 continue
             try:
-                img = Image.open(io.BytesIO(doc.extract_image(xref)["image"])).convert("RGB")
-            except (KeyError, OSError, RuntimeError, ValueError) as error:
+                img = Image.open(io.BytesIO(doc.extract_image(xref)["image"]))
+                # the size in the PDF may lie: check the real one before decoding
+                pixels = max(width * height, img.width * img.height)
+                if pixels > min(_MAX_PIXELS, budget):
+                    continue
+                img = img.convert("RGB")
+            except (KeyError, OSError, RuntimeError, ValueError, Image.DecompressionBombError) as error:
                 logger.debug("Skipping unreadable PDF image %s: %s", xref, error)
                 continue
 
-            budget -= width * height
+            budget -= pixels
             yield xref, img
 
 

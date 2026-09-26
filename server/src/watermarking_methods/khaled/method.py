@@ -158,7 +158,7 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
                     )
                 original_ids = [item.identity for item in selected]
                 changed: dict[int, object] = {}
-                for item, bit in zip(selected, _bits(packet)):
+                for item, bit in zip(selected, _bits(packet), strict=False):
                     run = item.run
                     current = _difference(item)
                     target = _nearest_lattice(current, _dither(dither_key, item), bit)

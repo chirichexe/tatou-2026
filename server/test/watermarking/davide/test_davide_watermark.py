@@ -209,6 +209,20 @@ def test_images_above_the_pixel_limit_are_left_untouched():
     assert DavideWatermark.read_secret(out, KEY) == LEAKER
 
 
+def test_real_image_size_is_checked_before_decoding():
+    # the PDF says 640x640, the JPEG inside is bigger than the pixel limit
+    side = int(method_module._MAX_PIXELS ** 0.5) + 8
+    buf = io.BytesIO()
+    Image.new("RGB", (side, side)).save(buf, "JPEG")
+    pdf = photo_pdf([make_photo(640, 640)])
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        xref = doc[0].get_images()[0][0]
+        doc.update_stream(xref, buf.getvalue(), compress=False)
+        doc.xref_set_key(xref, "Filter", "/DCTDecode")
+        assert doc[0].get_images()[0][2:4] == (640, 640)
+        assert list(_images(doc)) == []
+
+
 def test_total_pixel_budget_bounds_the_work(monkeypatch):
     monkeypatch.setattr(method_module, "_MAX_TOTAL_PIXELS", 2 * 640 * 640)
     pdf = photo_pdf([make_photo(640, 640, seed=s) for s in (1, 2, 3)])

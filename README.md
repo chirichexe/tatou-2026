@@ -195,7 +195,7 @@ also used by the combined pipeline:
 | Method | Carrier |
 |---|---|
 | `davide-watermark` | PDF images |
-| `francesco-watermark` | encrypted QR and clear recipient/secret labels |
+| `francesco-watermark` | encrypted QR code and visible labels with the secret |
 | `khaled-text-spacing-watermark` | spacing between selectable text glyphs |
 | `group13-watermark` | all three component methods |
 

@@ -40,7 +40,8 @@ def structural_carrier_pdf() -> bytes:
     light = np.zeros((512, 512))
     for cell in (64, 16, 4):
         blobs = rng.normal(0, 1, (512 // cell + 2, 512 // cell + 2)).astype(np.float32)
-        light += np.sqrt(cell) * np.asarray(Image.fromarray(blobs).resize((512 + 2 * cell, 512 + 2 * cell), Image.BICUBIC))[:512, :512]
+        noise = Image.fromarray(blobs).resize((512 + 2 * cell, 512 + 2 * cell), Image.BICUBIC)
+        light += np.sqrt(cell) * np.asarray(noise)[:512, :512]
     light = 110 + 45 * light / light.std()
     pixels = light[..., None] + np.array([10, 40, -20]) + rng.normal(0, 6, (512, 512, 3))
     img = Image.fromarray(np.clip(pixels, 0, 255).astype(np.uint8), "RGB")

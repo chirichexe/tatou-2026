@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import io
-import shutil
 
 import pymupdf as fitz
 import pytest
 import zxingcpp
 from PIL import Image
 
-from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
+from watermarking_method import SecretNotFoundError, WatermarkingError
 from watermarking_methods.davide.method import DavideWatermark as StructuralWatermark
 from watermarking_methods.francesco import crypto, rendering
 from watermarking_methods.francesco.method import FrancescoWatermark
@@ -18,9 +17,6 @@ from watermarking_methods.francesco.method import FrancescoWatermark
 KEY = "0123456789abcdef" * 4
 OTHER_KEY = "fedcba9876543210" * 4
 GROUP_POSITION = "group=Group_13"
-
-needs_ocr = pytest.mark.skipif(shutil.which("tesseract") is None,
-                               reason="tesseract not installed (visible-label OCR)")
 
 
 def test_roundtrip_preserves_page_and_text(pdf_bytes):
@@ -36,18 +32,12 @@ def test_roundtrip_preserves_page_and_text(pdf_bytes):
         assert len(doc[0].get_images()) >= 1
 
 
-@needs_ocr
 def test_wrong_key_and_secret_not_found(pdf_bytes):
     method = FrancescoWatermark()
-    watermarked = method.add_watermark(
-        pdf_bytes, "copy-42", KEY, position=GROUP_POSITION
-    )
+    watermarked = method.add_watermark(pdf_bytes, "copy-42", KEY, position=GROUP_POSITION)
 
-    # Wrong key
-    with pytest.raises(InvalidKeyError):
+    with pytest.raises(SecretNotFoundError):
         method.read_secret(watermarked, OTHER_KEY)
-
-    # Document without watermark
     with pytest.raises(SecretNotFoundError):
         method.read_secret(pdf_bytes, KEY)
 
@@ -67,6 +57,25 @@ def test_conflicting_valid_copies_rejected(pdf_bytes):
 
     with pytest.raises(WatermarkingError, match="Conflicting"):
         method.read_secret(stitched, KEY)
+
+
+@pytest.mark.parametrize("decoy", ["other-key", "random"])
+def test_decoy_qr_does_not_hide_the_real_one(pdf_bytes, decoy):
+    method = FrancescoWatermark()
+    watermarked = method.add_watermark(pdf_bytes, "real-copy", KEY)
+    payload = (
+        crypto.encrypt_qr_payload("fake-copy", OTHER_KEY)
+        if decoy == "other-key"
+        else "A" * 60
+    )
+
+    # the leaker pastes a QR code of their own in the middle of the page
+    with fitz.open(stream=watermarked, filetype="pdf") as doc:
+        doc[0].insert_image(fitz.Rect(220, 350, 380, 510),
+                            stream=rendering.build_opaque_qr_bytes(payload))
+        with_decoy = doc.tobytes()
+
+    assert method.read_secret(with_decoy, KEY) == "real-copy"
 
 
 def test_survives_jpeg_raster_roundtrip(pdf_bytes):
@@ -93,89 +102,38 @@ def test_survives_jpeg_raster_roundtrip(pdf_bytes):
     assert method.read_secret(candidate, KEY) == "copy-through-jpeg"
 
 
-def test_layer_toggles_and_prerequisites(pdf_bytes, monkeypatch):
+def test_qr_encodes_the_secret_and_the_label_shows_it(pdf_bytes, monkeypatch):
     method = FrancescoWatermark()
-
-    # Base layer is mandatory
-    monkeypatch.setattr(FrancescoWatermark, "ENABLE_BASE_LAYER", False)
-    with pytest.raises(WatermarkingError, match="Base layer"):
-        method.add_watermark(pdf_bytes, "test-copy", KEY)
-    monkeypatch.undo()
-
-    # Disabling QR watermark prevents reading secret
-    monkeypatch.setattr(FrancescoWatermark, "ENABLE_QR_WATERMARK", False)
-    with pytest.raises(WatermarkingError, match="QR watermark layer is disabled"):
-        method.read_secret(pdf_bytes, KEY)
-    monkeypatch.undo()
-
-    # Both the authenticated QR and aesthetic text layers are active by default.
-    assert FrancescoWatermark.ENABLE_QR_WATERMARK is True
-    assert FrancescoWatermark.ENABLE_VISIBLE_TEXT is True
-    watermarked_default = method.add_watermark(
-        pdf_bytes, "copy-id", KEY, position="group=Group_13"
-    )
-    assert method.read_secret(watermarked_default, KEY) == "copy-id"
-    with fitz.open(stream=watermarked_default, filetype="pdf") as doc:
-        images = doc[0].get_images(full=True)
-        assert any(image[2] == image[3] for image in images)
-
-
-def test_qr_encodes_secret_and_visible_label_contains_it_in_clear(pdf_bytes, monkeypatch):
-    method = FrancescoWatermark()
-    secret = "copy-link-identifier"
-    intended_for = "Group_13"
-    encrypted_payloads: list[str] = []
-    visible_labels: list[str] = []
-    original_payload = method._payload
+    secret = "Group_07:da0bb583c432fbfd078959ecc9b62902"
+    labels: list[str] = []
     original_stamp = rendering.stamp_random_native_visible_text
 
-    def capture_payload(value: str, key: str) -> str:
-        payload = original_payload(value, key)
-        encrypted_payloads.append(payload)
-        return payload
-
-    def capture_visible_label(**kwargs):
-        visible_labels.append(kwargs["label"])
+    def capture_label(**kwargs):
+        labels.append(kwargs["label"])
         return original_stamp(**kwargs)
 
-    monkeypatch.setattr(method, "_payload", capture_payload)
-    monkeypatch.setattr(rendering, "stamp_random_native_visible_text", capture_visible_label)
-    watermarked = method.add_watermark(
-        pdf_bytes, secret, KEY, intended_for=intended_for
-    )
+    monkeypatch.setattr(rendering, "stamp_random_native_visible_text", capture_label)
+    watermarked = method.add_watermark(pdf_bytes, secret, KEY)
 
     with fitz.open(stream=watermarked, filetype="pdf") as document:
         pixmap = document[0].get_pixmap(dpi=300, colorspace=fitz.csRGB, alpha=False)
-        qr_payloads = {
+        qr_payloads = [
             result.text
             for result in zxingcpp.read_barcodes(
                 Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples),
                 formats=zxingcpp.BarcodeFormat.QRCode,
             )
-            if crypto.is_candidate_payload(result.text)
-        }
+        ]
 
-    assert len(encrypted_payloads) == 1
-    assert qr_payloads == {encrypted_payloads[0]}
-    assert visible_labels == [f"GROUP {intended_for} - {secret}"]
-    assert {
-        crypto.decrypt_qr_payload(payload, KEY) for payload in qr_payloads
-    } == {secret}
+    assert labels == [secret]
+    # the QR carries the ciphertext, never the secret itself
+    assert len(qr_payloads) == 1
+    assert secret not in qr_payloads[0]
+    assert crypto.decrypt_qr_payload(qr_payloads[0], KEY) == secret
 
 
-
-@pytest.mark.parametrize(
-    "position",
-    [
-        None,
-        "group=Group_13",
-        "group=Group_13;qr-only",
-        "group=Group_13;no-text",
-        "group=Group_13;text-only",
-        "group=Group_13;no-qr",
-    ],
-)
-def test_position_is_ignored_and_both_layers_stay_enabled(pdf_bytes, position):
+@pytest.mark.parametrize("position", [None, "group=Group_13", "group=Group_13;no-qr"])
+def test_position_is_ignored(pdf_bytes, position):
     method = FrancescoWatermark()
     watermarked = method.add_watermark(pdf_bytes, "copy-options", KEY, position)
 
@@ -186,41 +144,6 @@ def test_position_is_ignored_and_both_layers_stay_enabled(pdf_bytes, position):
     assert method.read_secret(watermarked, KEY) == "copy-options"
 
 
-@needs_ocr
-def test_visible_label_does_not_replace_qr_secret_carrier(pdf_bytes, monkeypatch):
-    method = FrancescoWatermark()
-    secret = "text-fallback-copy"
-    monkeypatch.setattr(FrancescoWatermark, "ENABLE_QR_WATERMARK", False)
-    text_only = method.add_watermark(pdf_bytes, secret, KEY)
-    monkeypatch.undo()
-
-    with (
-        fitz.open(stream=text_only, filetype="pdf") as source,
-        fitz.open() as rebuilt,
-    ):
-        pixmap = source[0].get_pixmap(
-            dpi=300,
-            colorspace=fitz.csRGB,
-            alpha=False,
-        )
-        image = Image.frombytes(
-            "RGB",
-            (pixmap.width, pixmap.height),
-            pixmap.samples,
-        )
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        page = rebuilt.new_page(
-            width=source[0].rect.width,
-            height=source[0].rect.height,
-        )
-        page.insert_image(page.rect, stream=buffer.getvalue())
-        flattened = rebuilt.tobytes()
-
-    with pytest.raises(SecretNotFoundError):
-        method.read_secret(flattened, KEY)
-
-
 def test_non_ascii_secret_roundtrip(pdf_bytes):
     method = FrancescoWatermark()
     secret = "copia-gruppo-13-è"
@@ -228,7 +151,6 @@ def test_non_ascii_secret_roundtrip(pdf_bytes):
         pdf_bytes, secret, KEY, position="group=Group_13"
     )
     assert method.read_secret(watermarked, KEY) == secret
-
 
 
 def test_combined_structural_and_visual_watermarks(structural_carrier_pdf):

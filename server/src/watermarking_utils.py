@@ -101,18 +101,9 @@ def apply_watermark(
     secret: str,
     key: str,
     position: str | None = None,
-    intended_for: str | None = None,
 ) -> bytes:
     """Apply a watermark using the specified method and return new PDF bytes."""
     m = get_method(method)
-    if m.name in {"francesco-watermark", "group13-watermark"}:
-        return m.add_watermark(
-            pdf=pdf,
-            secret=secret,
-            key=key,
-            position=position,
-            intended_for=intended_for,
-        )
     return m.add_watermark(pdf=pdf, secret=secret, key=key, position=position)
 
 def is_watermarking_applicable(
@@ -144,7 +135,7 @@ _TYPE_RE: Final[re.Pattern[bytes]] = re.compile(rb"/Type\s*/([A-Za-z]+)")
 
 
 def _sha1(b: bytes) -> str:
-    return hashlib.sha1(b).hexdigest()
+    return hashlib.sha1(b, usedforsecurity=False).hexdigest()
 
 
 def explore_pdf(pdf: PdfSource) -> dict[str, Any]:

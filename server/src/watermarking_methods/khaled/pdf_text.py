@@ -6,6 +6,7 @@ this does not parse and reserialize unrelated page drawing instructions.
 
 from __future__ import annotations
 
+import contextlib
 import math
 import re
 from dataclasses import dataclass
@@ -167,20 +168,16 @@ def _unicode_map(doc: fitz.Document, font_xref: int) -> dict[int, str] | None:
             match = _HEX_PAIR.fullmatch(line)
             if match:
                 code = int(match[1], 16)
-                try:
+                with contextlib.suppress(UnicodeError):
                     mapping[code] = bytes.fromhex(match[2].decode()).decode("utf-16-be")
-                except UnicodeError:
-                    pass
         elif mode == "range":
             match = _HEX_RANGE.fullmatch(line)
             if match:
                 first, last, base = (int(part, 16) for part in match.groups())
                 if last - first <= 255:
                     for code in range(first, last + 1):
-                        try:
+                        with contextlib.suppress(ValueError):
                             mapping[code] = chr(base + code - first)
-                        except ValueError:
-                            pass
     return mapping
 
 
@@ -370,11 +367,8 @@ def collect_runs(doc: fitz.Document) -> list[TextRun]:
                 elif word == b"Tz" and inside:
                     if _num(tokens, i - 1) is None or abs(float(tokens[i - 1].value) - 100) > 1e-9:
                         simple_state = False
-                elif word == b"Tm" and inside:
-                    if i < 6 or any(_num(tokens, i - 6 + j) is None or
-                                     abs(float(tokens[i - 6 + j].value) - expected) > 1e-6
-                                     for j, expected in enumerate((1, 0, 0, 1))):
-                        simple_state = False
+                elif word == b"Tm" and inside and _scaling_cm(tokens, i):
+                    simple_state = False
                 elif word in (b"Tj", b"TJ", b"'", b'"'):
                     if inside:
                         ordinal += 1
