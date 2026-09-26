@@ -11,12 +11,14 @@ from typing import Final
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESSIV
+from reedsolo import ReedSolomonError, RSCodec
 
 from watermarking_method import InvalidKeyError
 
 _VERSION: Final[bytes] = b"\x01"
 _AES_KEY_DOMAIN: Final[bytes] = b"tatou/francesco-watermark/aes-siv-key/v1\0"
 SALT_BYTES: Final[int] = 16
+VISIBLE_RS_PARITY_BYTES: Final[int] = 16
 
 BASE64_URL_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9_-]+")
 
@@ -83,3 +85,27 @@ def decrypt_qr_payload(payload: str, key: str) -> str:
         raise InvalidKeyError("Empty francesco-watermark QR secret")
 
     return secret
+
+
+def encrypt_visible_payload(secret: str, key: str) -> str:
+    """Encrypt a visible label payload and encode it as lowercase Base32."""
+    qr_payload = encrypt_qr_payload(secret, key)
+    ciphertext = base64.urlsafe_b64decode(qr_payload + "=" * (-len(qr_payload) % 4))
+    protected = RSCodec(VISIBLE_RS_PARITY_BYTES).encode(ciphertext)
+    return base64.b32encode(protected).decode("ascii").rstrip("=").lower()
+
+
+def decrypt_visible_payload(payload: str, key: str) -> str:
+    """Decode and authenticate a lowercase Base32 visible-label payload."""
+    encoded = payload.strip()
+    if not encoded or len(encoded) > 200 or not re.fullmatch(r"[A-Za-z2-7]+", encoded):
+        raise InvalidKeyError("Malformed francesco-watermark visible label")
+
+    try:
+        protected = base64.b32decode(encoded.upper() + "=" * (-len(encoded) % 8))
+        ciphertext = bytes(RSCodec(VISIBLE_RS_PARITY_BYTES).decode(protected)[0])
+    except (binascii.Error, ReedSolomonError, ValueError) as exc:
+        raise InvalidKeyError("Malformed francesco-watermark visible label") from exc
+
+    qr_payload = base64.urlsafe_b64encode(ciphertext).rstrip(b"=").decode("ascii")
+    return decrypt_qr_payload(qr_payload, key)

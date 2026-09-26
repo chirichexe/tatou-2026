@@ -1,11 +1,10 @@
-"""francesco-watermark: an authenticated QR code and visible labels on every page
+"""francesco-watermark: an authenticated QR code and encrypted visible labels
 
-- crypto: key derivation and the AES-SIV payload of the QR code
+- crypto: key derivation and the AES-SIV payloads
 - rendering: QR image, placement away from the page content, visible labels
 - pdf: document limits, page rasterization, QR stamping
 
-The QR code carries the secret encrypted with the key: only the QR codes are
-read back. The labels show the secret in clear text, as a deterrent.
+The QR code and labels carry independently salted AES-SIV encryptions of the secret.
 
 The shared ``position`` argument is accepted for API compatibility and ignored.
 """
@@ -31,12 +30,13 @@ from watermarking_method import (
 from . import crypto
 from . import pdf as pdf_ops
 from . import rendering as render_ops
+from . import visible as visible_ops
 
 logger = logging.getLogger(__name__)
 
 
 class FrancescoWatermark(WatermarkingMethod):
-    """An AES-SIV QR payload and repeated visible labels with the secret."""
+    """An AES-SIV QR payload and repeated visible labels with encrypted secrets."""
 
     name: Final[str] = "francesco-watermark"
     MAX_SECRET_BYTES: Final[int] = 64
@@ -45,7 +45,7 @@ class FrancescoWatermark(WatermarkingMethod):
     def get_usage() -> str:
         return (
             "Native PDF overlay with an authenticated opaque QR code and visible "
-            "labels with the secret; preserves original text streams. "
+            "AES-SIV-encrypted secret labels; preserves original text streams. "
             "Supports any passphrase or hex key."
         )
 
@@ -61,6 +61,7 @@ class FrancescoWatermark(WatermarkingMethod):
         secret: str,
         key: str,
         position: str | None = None,
+        intended_for: str | None = None,
     ) -> bytes:
         crypto.derive_aes_key(key)
         validate_secret_string(secret, self.MAX_SECRET_BYTES)
@@ -70,6 +71,11 @@ class FrancescoWatermark(WatermarkingMethod):
             raise ValueError("PDF is not applicable to francesco-watermark")
 
         qr_image = render_ops.build_opaque_qr_bytes(crypto.encrypt_qr_payload(secret, key))
+        visible_payload = crypto.encrypt_visible_payload(secret, key)
+        recipient = " ".join((intended_for or "").split())[:60]
+        if recipient and not recipient.lower().startswith(("group ", "group_")):
+            recipient = f"Group {recipient}"
+        visible_group = f"{recipient or 'Group UNKNOWN'} - "
         seed_material = (secret + ":" + key).encode("utf-8")
 
         with fitz.open(stream=data, filetype="pdf") as doc:
@@ -78,7 +84,7 @@ class FrancescoWatermark(WatermarkingMethod):
                 pdf_ops.stamp_qr_on_page(page, qr_image, qr_rect)
                 render_ops.stamp_random_native_visible_text(
                     page=page,
-                    label=secret,
+                    label=visible_group + visible_payload,
                     placed_boxes=[qr_rect],
                     seed_material=seed_material,
                 )
@@ -115,6 +121,10 @@ class FrancescoWatermark(WatermarkingMethod):
                         found.add(crypto.decrypt_qr_payload(barcode.text, key))
                     except InvalidKeyError:
                         logger.debug("Ignoring a QR code that does not authenticate")
+
+        if not found:
+            with fitz.open(stream=data, filetype="pdf") as document:
+                found.update(visible_ops.read_visible_secrets(document, key))
 
         if len(found) > 1:
             raise WatermarkingError("Conflicting francesco-watermark copy identifiers")
