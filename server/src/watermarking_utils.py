@@ -50,8 +50,9 @@ logger = logging.getLogger(__name__)
 # --------------------
 
 # Every method of the group, alone or all together (group13): they share the
-# same interface, so any of them can be used in create-watermark,
-# read-watermark and RMAP_WATERMARK_METHOD.
+# same interface, so any of them can be used in create-watermark and
+# read-watermark. RMAP defaults to group13, but operators can configure
+# RMAP_WATERMARK_METHOD to use one of the registered components.
 # toy-eof is kept only for tests (see test/conftest.py): anyone can strip it
 METHODS: dict[str, WatermarkingMethod] = {
     DavideWatermark.name: DavideWatermark(),

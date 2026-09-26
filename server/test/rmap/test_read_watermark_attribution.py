@@ -29,7 +29,7 @@ def _pdf(path, secret=None):
     path.write_bytes(data)
 
 
-def _configure_rmap(tmp_path, monkeypatch, method):
+def _configure_rmap(tmp_path, monkeypatch):
     key_dir = tmp_path / "keys"
     client_dir = key_dir / "clients"
     client_dir.mkdir(parents=True)
@@ -47,7 +47,7 @@ def _configure_rmap(tmp_path, monkeypatch, method):
     monkeypatch.delenv("RMAP_SERVER_KEY_PASSPHRASE_FILE", raising=False)
     monkeypatch.delenv("RMAP_SERVER_KEY_PASSPHRASE", raising=False)
     monkeypatch.setenv("RMAP_DOCUMENT_ID", "1")
-    monkeypatch.setenv("RMAP_WATERMARK_METHOD", method)
+    monkeypatch.setenv("RMAP_WATERMARK_METHOD", "group13-watermark")
     monkeypatch.setenv("RMAP_WATERMARK_KEY", KEY)
     from server import create_app
 
@@ -80,7 +80,7 @@ def _auth_headers(app):
 
 @pytest.fixture
 def attribution_app(tmp_path, monkeypatch):
-    app = _configure_rmap(tmp_path, monkeypatch, METHOD)
+    app = _configure_rmap(tmp_path, monkeypatch)
     storage = app.config["STORAGE_DIR"]
     leaked_secret = "Group_07:" + "a" * 32
     _pdf(storage / "source.pdf")
@@ -198,7 +198,7 @@ ISSUED = [
 
 @pytest.fixture
 def fingerprint_app(tmp_path, monkeypatch):
-    app = _configure_rmap(tmp_path, monkeypatch, DAVIDE_METHOD)
+    app = _configure_rmap(tmp_path, monkeypatch)
     storage = app.config["STORAGE_DIR"]
     source = _image_pdf(7)
     copies = {

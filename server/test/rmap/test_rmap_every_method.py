@@ -1,4 +1,4 @@
-"""RMAP works with any registered method of the group, alone or all together."""
+"""RMAP issues combined watermarks with all three component layers."""
 
 from __future__ import annotations
 
@@ -16,12 +16,8 @@ from sqlalchemy import create_engine, text
 from watermarking_methods.group13 import Group13Watermark
 from watermarking_utils import read_watermark
 
-LAYERS = {
-    "davide-watermark": ["davide-watermark"],
-    "khaled-text-spacing-watermark": ["khaled-text-spacing-watermark"],
-    "francesco-watermark": ["francesco-watermark"],
-    "group13-watermark": ["davide-watermark", "khaled-text-spacing-watermark", "francesco-watermark"],
-}
+METHOD = "group13-watermark"
+LAYERS = ["davide-watermark", "khaled-text-spacing-watermark", "francesco-watermark"]
 
 
 def _source_pdf() -> bytes:
@@ -41,8 +37,7 @@ def _source_pdf() -> bytes:
         return doc.tobytes()
 
 
-@pytest.mark.parametrize("method", LAYERS)
-def test_rmap_issues_distinct_versions_with_any_method(method, tmp_path, monkeypatch):
+def test_rmap_issues_distinct_versions_with_all_layers(tmp_path, monkeypatch):
     key_dir = tmp_path / "keys"
     client_dir = key_dir / "clients"
     client_dir.mkdir(parents=True)
@@ -62,7 +57,7 @@ def test_rmap_issues_distinct_versions_with_any_method(method, tmp_path, monkeyp
     monkeypatch.setenv("RMAP_SERVER_PRIVATE_KEY_PATH", str(server_private))
     monkeypatch.setenv("RMAP_CLIENT_KEYS_DIR", str(client_dir))
     monkeypatch.setenv("RMAP_DOCUMENT_ID", "1")
-    monkeypatch.setenv("RMAP_WATERMARK_METHOD", method)
+    monkeypatch.setenv("RMAP_WATERMARK_METHOD", METHOD)
     monkeypatch.setenv("RMAP_WATERMARK_KEY", "test-only-rmap-watermark-key")
     monkeypatch.delenv("RMAP_SERVER_KEY_PASSPHRASE_FILE", raising=False)
     monkeypatch.delenv("RMAP_SERVER_KEY_PASSPHRASE", raising=False)
@@ -97,13 +92,23 @@ def test_rmap_issues_distinct_versions_with_any_method(method, tmp_path, monkeyp
         with engine.connect() as conn:
             row = conn.execute(text("SELECT * FROM Versions WHERE link = :link"),
                                {"link": link}).one()
-        assert row.method == method
+        assert row.method == METHOD
         assert row.secret == f"Group_13:{link}"
-        # the method that issued the copy reads it, and so does group13
-        assert read_watermark(method, row.path, "test-only-rmap-watermark-key") == row.secret
-        assert read_watermark("group13-watermark", row.path, "test-only-rmap-watermark-key") == row.secret
-        assert Group13Watermark.embedded_layers(row.path, "test-only-rmap-watermark-key", row.secret) == LAYERS[method]
+        assert read_watermark(METHOD, row.path, "test-only-rmap-watermark-key") == row.secret
+        for layer in LAYERS:
+            assert read_watermark(layer, row.path, "test-only-rmap-watermark-key") == row.secret
+        assert Group13Watermark.embedded_layers(row.path, "test-only-rmap-watermark-key", row.secret) == LAYERS
 
     assert issued[0] != issued[1]
     with engine.connect() as conn:
         assert conn.execute(text("SELECT COUNT(*) FROM Versions")).scalar_one() == 2
+
+
+@pytest.mark.parametrize("method", LAYERS)
+def test_rmap_accepts_component_method_configuration(method, tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", secrets.token_hex(32))
+    monkeypatch.setenv("STORAGE_DIR", str(tmp_path / "storage"))
+    monkeypatch.setenv("RMAP_WATERMARK_METHOD", method)
+    from server import create_app
+
+    assert create_app().config["RMAP_WATERMARK_METHOD"] == method

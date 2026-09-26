@@ -11,9 +11,6 @@ from sqlalchemy import create_engine, text
 from watermarking_method import WatermarkingError
 from watermarking_utils import read_watermark
 
-pytestmark = pytest.mark.usefixtures("toy_eof_method")
-
-
 def _write_keypair(directory, stem, name, passphrase=None):
     key = generate_keypair(name, f"{stem}@example.test", passphrase=passphrase)
     private = directory / f"{stem}_private.asc"
@@ -25,7 +22,10 @@ def _write_keypair(directory, stem, name, passphrase=None):
 
 def _pdf(path):
     document = fitz.open()
-    document.new_page().insert_text((72, 72), "RMAP test document")
+    page = document.new_page()
+    sentence = "RMAP links identify recipients through text in this document."
+    for row in range(40):
+        page.insert_text((70, 80 + row * 16), sentence, fontsize=10)
     document.save(path)
     document.close()
 
@@ -51,7 +51,7 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
     monkeypatch.setenv("RMAP_CLIENT_KEYS_DIR", str(client_dir))
     monkeypatch.setenv("RMAP_SERVER_KEY_PASSPHRASE_FILE", str(passphrase_file))
     monkeypatch.setenv("RMAP_DOCUMENT_ID", "1")
-    monkeypatch.setenv("RMAP_WATERMARK_METHOD", "toy-eof")
+    monkeypatch.setenv("RMAP_WATERMARK_METHOD", "group13-watermark")
     monkeypatch.setenv("RMAP_WATERMARK_KEY", "test-watermark-key")
     from server import create_app
 
@@ -105,7 +105,9 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
                 ).one()
             assert version.intended_for == "Group_01"
             assert version.secret == f"Group_01:{link}"
-            assert read_watermark("toy-eof", version.path, "test-watermark-key") == version.secret
+            assert version.method == "group13-watermark"
+            assert read_watermark("group13-watermark", version.path, "test-watermark-key") == version.secret
+            assert read_watermark("khaled-text-spacing-watermark", version.path, "test-watermark-key") == version.secret
 
         assert links[0] != links[1]
         with engine.connect() as conn:
@@ -174,7 +176,7 @@ def test_rmap_rejects_an_insecure_passphrase_file(tmp_path, monkeypatch):
     monkeypatch.setenv("RMAP_SERVER_PRIVATE_KEY_PATH", str(tmp_path / "server_private.asc"))
     monkeypatch.setenv("RMAP_CLIENT_KEYS_DIR", str(tmp_path / "clients"))
     monkeypatch.setenv("RMAP_DOCUMENT_ID", "1")
-    monkeypatch.setenv("RMAP_WATERMARK_METHOD", "toy-eof")
+    monkeypatch.setenv("RMAP_WATERMARK_METHOD", "group13-watermark")
     monkeypatch.setenv("RMAP_WATERMARK_KEY", "test-watermark-key")
     monkeypatch.setenv("RMAP_SERVER_KEY_PASSPHRASE_FILE", str(passphrase_file))
     from server import create_app

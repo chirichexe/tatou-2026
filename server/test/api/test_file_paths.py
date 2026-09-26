@@ -568,6 +568,46 @@ def test_watermark_names_are_safe_unique_and_downloadable(file_app):
         assert read.get_json()["secret"] == WATERMARK["secret"]
 
 
+def test_khaled_text_watermark_runs_alone_through_api(file_app):
+    env = file_app
+    with fitz.open() as document:
+        page = document.new_page()
+        sentence = "Khaled hides a recipient link in the spacing of these selectable letters."
+        for row in range(40):
+            page.insert_text((30, 35 + row * 18), sentence, fontsize=10)
+        source = document.tobytes()
+    env.original.write_bytes(source)
+
+    method = "khaled-text-spacing-watermark"
+    secret = "Group_13:" + "a" * 32
+    key = "test-only-standalone-api-key"
+    methods = env.client.get("/api/get-watermarking-methods").get_json()
+    assert [item["name"] for item in methods["methods"]] == ["group13-watermark"]
+
+    created = env.client.post(
+        "/api/create-watermark/42", headers=env.headers(),
+        json={"method": method, "intended_for": "Group_13", "secret": secret, "key": key},
+    )
+    assert created.status_code == 201, created.get_json()
+    assert created.get_json()["method"] == method
+    downloaded = env.client.get(f'/api/get-version/{created.get_json()["link"]}')
+    assert downloaded.status_code == 200
+    marked = downloaded.data
+    with fitz.open(stream=source, filetype="pdf") as original, \
+         fitz.open(stream=marked, filetype="pdf") as watermarked:
+        assert [page.get_text() for page in watermarked] == [page.get_text() for page in original]
+
+    uploaded = upload(env, content=marked)
+    assert uploaded.status_code == 201, uploaded.get_json()
+    for reader in (method, "group13-watermark"):
+        read = env.client.post(
+            f'/api/read-watermark/{uploaded.get_json()["id"]}',
+            headers=env.headers(), json={"method": reader, "key": key},
+        )
+        assert read.status_code == 201, read.get_json()
+        assert read.get_json()["secret"] == secret
+
+
 @pytest.mark.parametrize("relative", [False, True])
 def test_existing_stored_paths_still_download_and_delete(file_app, relative):
     env = file_app

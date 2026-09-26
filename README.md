@@ -168,7 +168,7 @@ RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/server_public.asc
 RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/server_private.asc
 RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
 RMAP_DOCUMENT_ID=42
-RMAP_WATERMARK_METHOD=my-robust-method
+RMAP_WATERMARK_METHOD=group13-watermark
 RMAP_WATERMARK_KEY=<private-watermark-key>
 RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 ```
@@ -189,8 +189,8 @@ identity and session link, records it with the generated 32-character link,
 and returns that link. RMAP defaults to `group13-watermark`, the only method
 exposed for selection. Operators and method-specific tests can override
 `RMAP_WATERMARK_METHOD` with another registered method. The three component
-methods remain registered internally so the combined pipeline can apply and
-read their layers:
+remain registered for direct `create-watermark` and `read-watermark` calls, as
+well as for the combined pipeline to apply and read their layers:
 
 | Method | Carrier |
 |---|---|
