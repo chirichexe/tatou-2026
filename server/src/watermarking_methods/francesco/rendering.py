@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import io
+import math
 import random
+import textwrap
 from typing import Final
 
 import pymupdf as fitz
@@ -18,6 +20,7 @@ Box = tuple[float, float, float, float]
 DEFAULT_QR_FRACTION: Final[float] = 0.10
 DEFAULT_VISIBLE_TEXT_COUNT: Final[int] = 6
 VISIBLE_TEXT_ALPHA: Final[int] = 110
+VISIBLE_WRAPPED_TEXT_ALPHA: Final[int] = 180
 
 
 def _rng(seed_material: bytes, label: bytes) -> random.Random:
@@ -158,20 +161,58 @@ def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         return ImageFont.load_default(size=size)
 
 
-def _label_png(label: str, fontsize: float, rotate: int) -> tuple[bytes, float, float]:
+def _label_png(
+    label: str, fontsize: float, rotate: int, alpha: int = VISIBLE_TEXT_ALPHA,
+) -> tuple[bytes, float, float]:
     """The label as a rotated transparent PNG, and its size in points"""
     scale = 6  # render at 6x the point size, so the label stays sharp when zoomed
     font = load_font(max(1, round(fontsize * scale)))
     padding = max(4, round(fontsize * scale * 0.25))
-    x0, y0, x1, y1 = ImageDraw.Draw(Image.new("RGBA", (1, 1))).textbbox((0, 0), label, font=font)
+    spacing = max(1, round(fontsize * scale * 0.25))
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    if "\n" in label:
+        x0, y0, x1, y1 = measure.multiline_textbbox(
+            (0, 0), label, font=font, spacing=spacing,
+        )
+    else:
+        x0, y0, x1, y1 = measure.textbbox((0, 0), label, font=font)
     canvas = Image.new("RGBA", (x1 - x0 + 2 * padding, y1 - y0 + 2 * padding), (255, 255, 255, 0))
-    ImageDraw.Draw(canvas).text(
-        (padding - x0, padding - y0), label, font=font, fill=(38, 56, 76, VISIBLE_TEXT_ALPHA),
-    )
+    draw = ImageDraw.Draw(canvas)
+    if "\n" in label:
+        draw.multiline_text(
+            (padding - x0, padding - y0), label, font=font, spacing=spacing,
+            fill=(38, 56, 76, alpha),
+        )
+    else:
+        draw.text(
+            (padding - x0, padding - y0), label, font=font, fill=(38, 56, 76, alpha),
+        )
     rotated = canvas.rotate(rotate, expand=True, resample=Image.Resampling.BICUBIC)
     buffer = io.BytesIO()
     rotated.save(buffer, format="PNG")
     return buffer.getvalue(), rotated.width / scale, rotated.height / scale
+
+
+def _wrap_visible_label(label: str, fontsize: float, max_width: float) -> str:
+    """Keep the group heading and evenly sized ciphertext chunks on separate lines."""
+    scale = 6
+    font = load_font(max(1, round(fontsize * scale)))
+    padding = max(4, round(fontsize * scale * 0.25))
+    measure = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
+    character_width = measure.textlength("M", font=font)
+    max_chars = math.floor((max_width * scale - 2 * padding) / character_width)
+    if max_chars < 8:
+        raise ValueError("Page is too narrow for a visible label")
+
+    if " - " not in label:
+        return "\n".join(textwrap.wrap(label, max_chars, break_long_words=True))
+
+    group, payload = label.split(" - ", maxsplit=1)
+    heading = textwrap.wrap(f"{group} -", max_chars, break_long_words=True)
+    chunk_count = max(1, math.ceil(len(payload) / max_chars))
+    chunk_size = math.ceil(len(payload) / chunk_count)
+    chunks = [payload[index:index + chunk_size] for index in range(0, len(payload), chunk_size)]
+    return "\n".join([*heading, *chunks])
 
 
 def stamp_random_native_visible_text(
@@ -187,49 +228,72 @@ def stamp_random_native_visible_text(
     """Stamp semi-transparent labels as images, without adding PDF text operators.
 
     The supplied boxes are hard exclusions, normally the QR area. Labels may
-    cross document content; their centers are spread across the page to limit
-    mutual overlap without making placement fail on small pages.
+    cross document content, but never each other or the page boundary. Long
+    labels wrap horizontally so their encrypted payload stays readable.
     """
     width, height = page.rect.width, page.rect.height
     protected_boxes = tuple(placed_boxes)
+    content_boxes = collect_page_content_boxes(page, padding=0)
     rng = _rng(seed_material, b"/text")
-
-    # shrink long labels to about 72% of the page width, never below 6 pt
-    effective_fontsize = min(fontsize, max(6.0, width * 0.72 / (len(label) * 0.62)))
-    label_png, span_x, span_y = _label_png(label, effective_fontsize, rotate)
 
     margin_x = max(20.0, width * 0.05)
     margin_y = max(20.0, height * 0.05)
-    max_x = max(margin_x + 1.0, width - span_x - margin_x)
-    max_y = max(margin_y + 1.0, height - span_y - margin_y)
+    usable_width = width - 2 * (margin_x + 10.0)
+    usable_height = height - 2 * (margin_y + 10.0)
+    if usable_width <= 0 or usable_height <= 0:
+        raise ValueError("Page is too small for visible labels")
+
+    label_png, span_x, span_y = _label_png(label, fontsize, rotate)
+    wrapped = False
+    if (
+        span_x > usable_width
+        or span_y > usable_height
+        or count * (span_y + 20.0 + min_gap) > usable_height
+    ):
+        wrapped = True
+        wrapped_label = _wrap_visible_label(label, fontsize, usable_width)
+        label_png, span_x, span_y = _label_png(
+            wrapped_label, fontsize, 0, alpha=VISIBLE_WRAPPED_TEXT_ALPHA,
+        )
+    if span_x > usable_width or span_y > usable_height:
+        raise ValueError("Page has insufficient room for a visible label")
+
+    max_x = width - span_x - margin_x
+    max_y = height - span_y - margin_y
 
     chosen_boxes: list[Box] = []
+    placed_in_whitespace = False
     for _ in range(count):
         best_box: Box | None = None
-        best_distance = -1.0
+        best_score = (-float("inf"), -1.0)
 
         for _attempt in range(1000):
             px, py = rng.uniform(margin_x, max_x), rng.uniform(margin_y, max_y)
             cand_box = (px - 10.0, py - 10.0, px + span_x + 10.0, py + span_y + 10.0)
-            if any(boxes_overlap(cand_box, box, min_gap) for box in protected_boxes):
+            if any(boxes_overlap(cand_box, box, min_gap) for box in (*protected_boxes, *chosen_boxes)):
                 continue
-            if not chosen_boxes:
-                best_box = cand_box
-                break
-            # keep the candidate farthest from the labels already placed
+            # Prefer whitespace, then spread the labels that fit without
+            # colliding. On dense pages, content remains a soft exclusion.
+            content_hits = sum(boxes_overlap(cand_box, box, 0) for box in content_boxes)
             center_x, center_y = (cand_box[0] + cand_box[2]) / 2, (cand_box[1] + cand_box[3]) / 2
             distance = min(
                 (center_x - (box[0] + box[2]) / 2) ** 2 + (center_y - (box[1] + box[3]) / 2) ** 2
                 for box in chosen_boxes
-            )
-            if distance > best_distance:
-                best_box, best_distance = cand_box, distance
+            ) if chosen_boxes else 0.0
+            score = (-content_hits, distance)
+            if score > best_score:
+                best_box, best_score = cand_box, score
 
         if best_box is None:
-            raise ValueError("Page has insufficient room for visible labels")
+            if not chosen_boxes:
+                raise ValueError("Page has insufficient room for visible labels")
+            break
+        if wrapped and best_score[0] < 0 and placed_in_whitespace:
+            break
 
         placed_boxes.append(best_box)
         chosen_boxes.append(best_box)
+        placed_in_whitespace |= best_score[0] == 0
         px, py = best_box[0] + 10.0, best_box[1] + 10.0
         page.insert_image(fitz.Rect(px, py, px + span_x, py + span_y), stream=label_png, overlay=True)
 
