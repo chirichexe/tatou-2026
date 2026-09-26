@@ -175,6 +175,48 @@ def test_visible_label_recovers_from_common_ocr_digit_confusions(monkeypatch):
         )
 
 
+def test_wrapped_visible_label_recovers_long_encrypted_secret():
+    from watermarking_methods.francesco import visible
+
+    secret = "long-copy-id-" + "x" * 50
+    payload = crypto.encrypt_visible_payload(secret, KEY)
+    label = rendering._wrap_visible_label(f"Group_13 - {payload}", 8, 400)
+
+    assert "\n" in label
+    assert payload in visible._candidate_payloads(label)
+    assert crypto.decrypt_visible_payload(payload, KEY) == secret
+
+
+def test_long_visible_label_recovers_after_flattening(monkeypatch):
+    from watermarking_methods.francesco import method as method_module
+
+    salts = iter((b"\x01", b"\x02"))
+    monkeypatch.setattr(crypto.os, "urandom", lambda size: next(salts) * size)
+    with fitz.open() as document:
+        page = document.new_page(width=595, height=842)
+        for row in range(20):
+            page.insert_text(
+                (75, 95 + row * 24),
+                "This is a synthetic Group 13 document for layout and OCR testing.",
+                fontsize=10,
+            )
+        source = document.tobytes()
+
+    secret = "x" * 64
+    marked = FrancescoWatermark().add_watermark(
+        source, secret, KEY, intended_for="Group_" + "A" * 54,
+    )
+    with fitz.open(stream=marked, filetype="pdf") as document:
+        pixmap = document[0].get_pixmap(dpi=300, alpha=False)
+        with fitz.open() as flattened_document:
+            page = flattened_document.new_page(width=595, height=842)
+            page.insert_image(page.rect, stream=pixmap.tobytes("png"))
+            flattened = flattened_document.tobytes()
+
+    monkeypatch.setattr(method_module.zxingcpp, "read_barcodes", lambda *args, **kwargs: [])
+    assert FrancescoWatermark().read_secret(flattened, KEY) == secret
+
+
 @pytest.mark.parametrize("position", [None, "group=Group_13", "group=Group_13;no-qr"])
 def test_position_is_ignored(pdf_bytes, position):
     method = FrancescoWatermark()
@@ -234,5 +276,6 @@ def test_visible_label_ocr_is_bounded_on_hostile_pdfs(monkeypatch):
                 )
         assert visible.read_visible_secrets(document, KEY) == set()
 
-    max_calls = visible._MAX_OCR_PAGES * (1 + visible._MAX_LABEL_CROPS)
+    # per page: rotated and upright page, the label crops, two color-isolated passes
+    max_calls = visible._MAX_OCR_PAGES * (2 + visible._MAX_LABEL_CROPS + 2)
     assert len(calls) == max_calls

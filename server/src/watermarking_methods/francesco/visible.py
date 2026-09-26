@@ -11,6 +11,7 @@ import time
 from collections import Counter
 from difflib import SequenceMatcher
 
+import numpy as np
 import pymupdf as fitz
 from PIL import Image
 
@@ -23,6 +24,7 @@ _PAYLOAD_PATTERN = re.compile(r"[A-Za-z0-9]{44,200}", re.IGNORECASE)
 _LABEL_PAYLOAD_PATTERN = re.compile(
     r"GROUP[\s_A-Za-z0-9]*\s*-\s*([A-Za-z0-9]{44,200})", re.IGNORECASE,
 )
+_GROUP_HEADER_PATTERN = re.compile(r"GROUP[\s_A-Za-z0-9]*\s*-\s*", re.IGNORECASE)
 _BASE32_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567"
 # 0, 1, 8 and 9 are not Base32: allowing them lets Tesseract read "o" as "0"
 # or "l" as "1", sometimes both ("o0"), which adds a character Reed-Solomon
@@ -77,7 +79,8 @@ def _ocr(image: Image.Image, deadline: float) -> str:
 
 def _candidate_payloads(text: str) -> list[str]:
     candidates: list[str] = []
-    for line in text.splitlines():
+    lines = text.splitlines()
+    for line in lines:
         label_match = _LABEL_PAYLOAD_PATTERN.search(line)
         if label_match:
             candidates.append(label_match.group(1).translate(_OCR_DIGIT_TRANSLATION))
@@ -86,17 +89,35 @@ def _candidate_payloads(text: str) -> list[str]:
                 candidate.translate(_OCR_DIGIT_TRANSLATION)
                 for candidate in _PAYLOAD_PATTERN.findall(line)
             )
+
+    # A long visible label has a group heading followed by Base32 lines. Keep
+    # the lines in order; Reed-Solomon and AES-SIV reject incorrect OCR joins.
+    for index, line in enumerate(lines):
+        header = _GROUP_HEADER_PATTERN.search(line)
+        if header is None:
+            continue
+        joined = ""
+        for fragment_line in [line[header.end():], *lines[index + 1:index + 9]]:
+            if _GROUP_HEADER_PATTERN.search(fragment_line):
+                break
+            fragment = "".join(fragment_line.split())
+            if not re.fullmatch(r"[A-Za-z0-9]{8,120}", fragment):
+                if joined:
+                    break
+                continue
+            joined += fragment.translate(_OCR_DIGIT_TRANSLATION)
+            if len(joined) > 200:
+                break
+            if len(joined) >= 80:
+                candidates.append(joined)
     return candidates
 
 
 def _consensus_candidates(candidates: list[str]) -> set[str]:
     """Combine repeated OCR reads and enumerate ties for AES authentication."""
-    length_counts = Counter(map(len, candidates))
-    if not length_counts:
-        return set()
-    most_common_count = length_counts.most_common(1)[0][1]
+    length_counts = Counter(len(candidate) for candidate in candidates if len(candidate) >= 80)
     anchor_lengths = {
-        length for length, count in length_counts.items() if count == most_common_count
+        length for length, count in length_counts.items() if count >= 2
     }
     consensuses: set[str] = set()
     for anchor in candidates:
@@ -127,7 +148,7 @@ def _consensus_candidates(candidates: list[str]) -> set[str]:
 
 def _single_character_repairs(candidates: list[str]):
     """Yield payloads with one OCR insertion or deletion repaired."""
-    for candidate, _count in Counter(candidates).most_common(3):
+    for candidate, _count in Counter(c for c in candidates if len(c) >= 80).most_common(3):
         for index in range(len(candidate) + 1):
             for char in _BASE32_ALPHABET:
                 yield candidate[:index] + char + candidate[index:]
@@ -138,12 +159,58 @@ def _single_character_repairs(candidates: list[str]):
 def _ocr_confusable_variants(candidates: list[str]) -> set[str]:
     variants: set[str] = set()
     for candidate in candidates:
+        if len(candidate) < 80:
+            continue
         choices = []
         for char in candidate:
             choices.append((char, "l") if char == "I" else (char,))
         for variant in itertools.islice(itertools.product(*choices), 128):
             variants.add("".join(variant))
     return variants
+
+
+def _authenticated_secrets(candidates: list[str], key: str) -> set[str]:
+    found: set[str] = set()
+    for candidate in candidates:
+        try:
+            found.add(crypto.decrypt_visible_payload(candidate, key))
+        except InvalidKeyError:
+            continue
+
+    for candidate in _consensus_candidates(candidates):
+        try:
+            found.add(crypto.decrypt_visible_payload(candidate, key))
+        except InvalidKeyError:
+            continue
+
+    for candidate in _ocr_confusable_variants(candidates):
+        try:
+            found.add(crypto.decrypt_visible_payload(candidate, key))
+            break
+        except InvalidKeyError:
+            continue
+
+    if not found:
+        for candidate in _single_character_repairs(candidates):
+            try:
+                found.add(crypto.decrypt_visible_payload(candidate, key))
+                break
+            except InvalidKeyError:
+                continue
+    return found
+
+
+def _isolated_watermark_ink(image: Image.Image, min_blue_red: int) -> Image.Image:
+    """Keep blue-gray label pixels while dropping ordinary grayscale page text."""
+    pixels = np.asarray(image)
+    blue_red = np.subtract(pixels[:, :, 2], pixels[:, :, 0], dtype=np.int16)
+    green_red = np.subtract(pixels[:, :, 1], pixels[:, :, 0], dtype=np.int16)
+    mask = (
+        (blue_red >= min_blue_red)
+        & (green_red >= min_blue_red // 2)
+        & (pixels[:, :, 2] < 245)
+    )
+    return Image.fromarray(np.where(mask, 0, 255).astype(np.uint8))
 
 
 def read_visible_secrets(document: fitz.Document, key: str) -> set[str]:
@@ -167,7 +234,7 @@ def read_visible_secrets(document: fitz.Document, key: str) -> set[str]:
             resample=Image.Resampling.BICUBIC,
             fillcolor="white",
         )
-        text_parts = [_ocr(prepared_page, deadline)]
+        text_parts = [_ocr(prepared_page, deadline), _ocr(image, deadline)]
         seen_boxes = set()
         for image_info in page.get_images(full=True):
             xref = image_info[0]
@@ -183,43 +250,27 @@ def read_visible_secrets(document: fitz.Document, key: str) -> set[str]:
                 if box in seen_boxes or len(seen_boxes) >= _MAX_LABEL_CROPS:
                     continue
                 seen_boxes.add(box)
-                label_image = image.crop(box).rotate(
-                    -30,
-                    expand=True,
-                    resample=Image.Resampling.BICUBIC,
-                    fillcolor="white",
-                )
+                label_image = image.crop(box)
+                if rect.width <= rect.height * 3:
+                    label_image = label_image.rotate(
+                        -30,
+                        expand=True,
+                        resample=Image.Resampling.BICUBIC,
+                        fillcolor="white",
+                    )
                 text_parts.append(_ocr(label_image, deadline))
 
         text = "\n".join(text_parts)
         candidates = _candidate_payloads(text)
-        for candidate in candidates:
-            try:
-                found.add(crypto.decrypt_visible_payload(candidate, key))
-            except InvalidKeyError:
-                continue
+        page_found = _authenticated_secrets(candidates, key)
 
-        for candidate in _consensus_candidates(candidates):
-            try:
-                found.add(crypto.decrypt_visible_payload(candidate, key))
-            except InvalidKeyError:
-                continue
-
-        for candidate in _ocr_confusable_variants(candidates):
-            try:
-                found.add(crypto.decrypt_visible_payload(candidate, key))
-                break
-            except InvalidKeyError:
-                continue
-
-        if not found:
-            for candidate in _single_character_repairs(candidates):
-                try:
-                    found.add(crypto.decrypt_visible_payload(candidate, key))
+        if not page_found:
+            for threshold in (5, 15):
+                isolated = _isolated_watermark_ink(image, threshold)
+                page_found.update(_authenticated_secrets(_candidate_payloads(_ocr(isolated, deadline)), key))
+                if page_found:
                     break
-                except InvalidKeyError:
-                    continue
-
+        found.update(page_found)
         if found:
             break
 
