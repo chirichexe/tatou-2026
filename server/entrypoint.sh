@@ -20,6 +20,10 @@ if [[ ! -f "/app/flag" ]]; then
   exit 1
 fi
 
+# Windows checkouts may copy CRLF line endings into the image. Normalize the
+# placeholder file so the exact-line check below sees only the flag value.
+sed -i 's/\r$//' /app/flag
+
 if grep -q "REPLACE_THIS_STRING_WITH_SERVER_FLAG" "/app/flag"; then
   echo "Initializing server-container flag"
   sed -i "s/REPLACE_THIS_STRING_WITH_SERVER_FLAG/${FLAG_1}/g" /app/flag

@@ -56,6 +56,16 @@ def with_photo(pdf: bytes, image: Image.Image, quality: int = 85) -> bytes:
         return doc.tobytes(garbage=4, deflate=True)
 
 
+def image_only_pdf(image: Image.Image) -> bytes:
+    """A photo leak with the text and QR pages removed."""
+    buf = io.BytesIO()
+    image.save(buf, "JPEG", quality=40)
+    with fitz.open() as doc:
+        page = doc.new_page()
+        page.insert_image(fitz.Rect(72, 72, 520, 520), stream=buf.getvalue())
+        return doc.tobytes()
+
+
 def screenshot(pdf: bytes) -> bytes:
     with fitz.open(stream=pdf, filetype="pdf") as doc:
         page = doc[0]
@@ -112,10 +122,14 @@ def test_each_handshake_delivers_a_distinct_watermarked_copy(stack, copies):
     pdfs = [pdf for _, _, pdf in copies.values()]
     assert len({bytes(p) for p in pdfs}) == 3
     assert all(p != stack.source_pdf for p in pdfs)
+    with fitz.open(stream=stack.source_pdf, filetype="pdf") as source:
+        source_photo = source.extract_image(source[0].get_images()[0][0])["image"]
     for pdf in pdfs:
         with fitz.open(stream=pdf, filetype="pdf") as doc:
             assert "Group E2E" in doc[0].get_text()
-            assert len(doc[0].get_images()) == 1  # no unmarked copy left inside
+            assert doc[0].get_images()
+            assert all(doc.extract_image(xref)["image"] != source_photo
+                       for xref, *_ in doc[0].get_images())
 
 
 def test_each_delivery_is_recorded_as_a_version(stack, copies):
@@ -203,6 +217,15 @@ def test_averaged_copies_are_attributed_to_a_colluder(stack, copies):
     )
 
 
+def test_image_only_leak_uses_fingerprint_attribution(stack, copies):
+    group, link, pdf = copies["A1"]
+    leak = image_only_pdf(photo(pdf).crop((20, 20, 780, 800)))
+    result = attribution(stack, leak, "photo-only.pdf")
+    assert result.status_code == 201, result.text
+    assert result.json()["secret"] is None
+    assert result.json()["attribution"] == {"intended_for": group, "link": link}
+
+
 @pytest.mark.parametrize("name", ["unmarked-original", "unrelated"])
 def test_nobody_is_accused_without_a_fingerprint(stack, copies, name):
     pdf = stack.source_pdf if name == "unmarked-original" else confidential_pdf(seed=99)
@@ -225,7 +248,8 @@ def test_wrong_key_gives_no_secret_and_no_attribution(stack, copies):
 def test_normal_user_gets_no_attribution_oracle(stack, copies):
     _, _, pdf = copies["A1"]
     token = stack.create_user("e2e_normal_user")
-    leak_id = stack.upload(token, with_photo(pdf, photo(pdf).crop((20, 20, 780, 800))), "leak.pdf")
+    leak = image_only_pdf(photo(pdf).crop((20, 20, 780, 800)))
+    leak_id = stack.upload(token, leak, "leak.pdf")
 
     # Even with the real watermark key, a normal user gets no fingerprint result.
     r = stack.read_watermark(token, leak_id)
