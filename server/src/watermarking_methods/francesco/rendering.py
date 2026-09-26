@@ -19,8 +19,9 @@ Box = tuple[float, float, float, float]
 # fewer than 2 pixels per module at the 300 DPI read resolution and did not decode reliably
 DEFAULT_QR_FRACTION: Final[float] = 0.10
 DEFAULT_VISIBLE_TEXT_COUNT: Final[int] = 6
-VISIBLE_TEXT_ALPHA: Final[int] = 110
-VISIBLE_WRAPPED_TEXT_ALPHA: Final[int] = 180
+DEFAULT_VISIBLE_TEXT_ROTATION: Final[int] = 45
+VISIBLE_TEXT_ALPHA: Final[int] = 105
+VISIBLE_WRAPPED_TEXT_ALPHA: Final[int] = VISIBLE_TEXT_ALPHA
 
 
 def _rng(seed_material: bytes, label: bytes) -> random.Random:
@@ -188,6 +189,7 @@ def _label_png(
             (padding - x0, padding - y0), label, font=font, fill=(38, 56, 76, alpha),
         )
     rotated = canvas.rotate(rotate, expand=True, resample=Image.Resampling.BICUBIC)
+    rotated.putalpha(rotated.getchannel("A").point(lambda alpha: min(alpha, VISIBLE_TEXT_ALPHA)))
     buffer = io.BytesIO()
     rotated.save(buffer, format="PNG")
     return buffer.getvalue(), rotated.width / scale, rotated.height / scale
@@ -221,80 +223,101 @@ def stamp_random_native_visible_text(
     placed_boxes: list[Box],
     count: int = DEFAULT_VISIBLE_TEXT_COUNT,
     fontsize: float = 8.0,
-    rotate: int = 30,
+    rotate: int = DEFAULT_VISIBLE_TEXT_ROTATION,
     seed_material: bytes = b"",
     min_gap: float = 8.0,
 ) -> list[Box]:
-    """Stamp semi-transparent labels as images, without adding PDF text operators.
-
-    The supplied boxes are hard exclusions, normally the QR area. Labels may
-    cross document content, but never each other or the page boundary. Long
-    labels wrap horizontally so their encrypted payload stays readable.
-    """
+    """Stamp semi-transparent labels as images without adding PDF text operators."""
     width, height = page.rect.width, page.rect.height
     protected_boxes = tuple(placed_boxes)
     content_boxes = collect_page_content_boxes(page, padding=0)
     rng = _rng(seed_material, b"/text")
 
-    margin_x = max(20.0, width * 0.05)
-    margin_y = max(20.0, height * 0.05)
-    usable_width = width - 2 * (margin_x + 10.0)
-    usable_height = height - 2 * (margin_y + 10.0)
+    margin_x = 10.0
+    margin_y = 10.0
+    usable_width = width - 2 * margin_x
+    usable_height = height - 2 * margin_y
     if usable_width <= 0 or usable_height <= 0:
         raise ValueError("Page is too small for visible labels")
 
-    label_png, span_x, span_y = _label_png(label, fontsize, rotate)
-    wrapped = False
-    if (
-        span_x > usable_width
-        or span_y > usable_height
-        or count * (span_y + 20.0 + min_gap) > usable_height
-    ):
-        wrapped = True
-        wrapped_label = _wrap_visible_label(label, fontsize, usable_width)
-        label_png, span_x, span_y = _label_png(
-            wrapped_label, fontsize, 0, alpha=VISIBLE_WRAPPED_TEXT_ALPHA,
+    wrap_width = min(
+        usable_width,
+        math.sqrt(usable_width * usable_height / max(1, count + 1)) * 1.15,
+    )
+
+    def label_images(size: float) -> list[tuple[bytes, float, float]]:
+        direct_png, direct_width, direct_height = _label_png(label, size, rotate)
+        needs_wrapping = (
+            direct_width > usable_width
+            or direct_height > usable_height
+            or direct_width * direct_height * count > usable_width * usable_height
         )
-    if span_x > usable_width or span_y > usable_height:
-        raise ValueError("Page has insufficient room for a visible label")
+        if not needs_wrapping:
+            return [(direct_png, direct_width, direct_height)] * count
 
-    max_x = width - span_x - margin_x
-    max_y = height - span_y - margin_y
+        wrapped_label = _wrap_visible_label(label, size, wrap_width)
+        wrapped_png, wrapped_width, wrapped_height = _label_png(
+            wrapped_label, size, 0, alpha=VISIBLE_WRAPPED_TEXT_ALPHA,
+        )
+        angled_size = size
+        while direct_width > usable_width or direct_height > usable_height:
+            if angled_size <= 0.5:
+                raise ValueError("Page is too small for a visible label")
+            angled_size = max(0.5, angled_size - 0.5)
+            direct_png, direct_width, direct_height = _label_png(label, angled_size, rotate)
+        return [(direct_png, direct_width, direct_height)] + [
+            (wrapped_png, wrapped_width, wrapped_height) for _ in range(count - 1)
+        ]
 
-    chosen_boxes: list[Box] = []
-    placed_in_whitespace = False
-    for _ in range(count):
+    def find_best_box(
+        span_x: float, span_y: float, chosen: list[Box],
+    ) -> Box | None:
+        max_x = width - span_x - margin_x
+        max_y = height - span_y - margin_y
         best_box: Box | None = None
         best_score = (-float("inf"), -1.0)
-
         for _attempt in range(1000):
             px, py = rng.uniform(margin_x, max_x), rng.uniform(margin_y, max_y)
-            cand_box = (px - 10.0, py - 10.0, px + span_x + 10.0, py + span_y + 10.0)
-            if any(boxes_overlap(cand_box, box, min_gap) for box in (*protected_boxes, *chosen_boxes)):
+            candidate = (px - 10.0, py - 10.0, px + span_x + 10.0, py + span_y + 10.0)
+            if any(boxes_overlap(candidate, box, min_gap) for box in (*protected_boxes, *chosen)):
                 continue
-            # Prefer whitespace, then spread the labels that fit without
-            # colliding. On dense pages, content remains a soft exclusion.
-            content_hits = sum(boxes_overlap(cand_box, box, 0) for box in content_boxes)
-            center_x, center_y = (cand_box[0] + cand_box[2]) / 2, (cand_box[1] + cand_box[3]) / 2
+            content_hits = sum(boxes_overlap(candidate, box, 0) for box in content_boxes)
+            center_x = (candidate[0] + candidate[2]) / 2
+            center_y = (candidate[1] + candidate[3]) / 2
             distance = min(
-                (center_x - (box[0] + box[2]) / 2) ** 2 + (center_y - (box[1] + box[3]) / 2) ** 2
-                for box in chosen_boxes
-            ) if chosen_boxes else 0.0
+                (center_x - (box[0] + box[2]) / 2) ** 2
+                + (center_y - (box[1] + box[3]) / 2) ** 2
+                for box in chosen
+            ) if chosen else 0.0
             score = (-content_hits, distance)
             if score > best_score:
-                best_box, best_score = cand_box, score
+                best_box, best_score = candidate, score
+        return best_box
 
-        if best_box is None:
-            if not chosen_boxes:
-                raise ValueError("Page has insufficient room for visible labels")
+    effective_fontsize = fontsize
+    while effective_fontsize >= 0.5:
+        try:
+            images = label_images(effective_fontsize)
+        except ValueError:
+            effective_fontsize -= 0.5
+            continue
+        chosen_boxes: list[Box] = []
+        for _png, span_x, span_y in images:
+            if span_x > usable_width or span_y > usable_height:
+                break
+            box = find_best_box(span_x, span_y, chosen_boxes)
+            if box is None:
+                break
+            chosen_boxes.append(box)
+        if len(chosen_boxes) == count:
             break
-        if wrapped and best_score[0] < 0 and placed_in_whitespace:
-            break
+        effective_fontsize -= 0.5
+    else:
+        raise ValueError("Page has insufficient room for visible labels")
 
-        placed_boxes.append(best_box)
-        chosen_boxes.append(best_box)
-        placed_in_whitespace |= best_score[0] == 0
-        px, py = best_box[0] + 10.0, best_box[1] + 10.0
-        page.insert_image(fitz.Rect(px, py, px + span_x, py + span_y), stream=label_png, overlay=True)
+    for (png, span_x, span_y), box in zip(images, chosen_boxes, strict=True):
+        placed_boxes.append(box)
+        px, py = box[0] + 10.0, box[1] + 10.0
+        page.insert_image(fitz.Rect(px, py, px + span_x, py + span_y), stream=png, overlay=True)
 
     return chosen_boxes

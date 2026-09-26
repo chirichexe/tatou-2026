@@ -106,10 +106,12 @@ def test_qr_and_label_encode_the_secret(pdf_bytes, monkeypatch):
     method = FrancescoWatermark()
     secret = "Group_07:da0bb583c432fbfd078959ecc9b62902"
     labels: list[str] = []
+    rotations: list[int] = []
     original_stamp = rendering.stamp_random_native_visible_text
 
     def capture_label(**kwargs):
         labels.append(kwargs["label"])
+        rotations.append(kwargs["rotate"])
         return original_stamp(**kwargs)
 
     monkeypatch.setattr(rendering, "stamp_random_native_visible_text", capture_label)
@@ -126,6 +128,7 @@ def test_qr_and_label_encode_the_secret(pdf_bytes, monkeypatch):
         ]
 
     assert len(labels) == 1
+    assert rotations == [45]
     assert labels[0].startswith("Group_07 - ")
     label_payload = labels[0].split(" - ", maxsplit=1)[1]
     assert secret not in label_payload
@@ -133,6 +136,23 @@ def test_qr_and_label_encode_the_secret(pdf_bytes, monkeypatch):
     assert len(qr_payloads) == 1
     assert secret not in qr_payloads[0]
     assert crypto.decrypt_qr_payload(qr_payloads[0], KEY) == secret
+
+
+def test_one_qr_per_page_on_multipage_pdf():
+    with fitz.open() as source:
+        source.new_page(width=595, height=842)
+        source.new_page(width=595, height=842)
+        pdf_bytes = source.tobytes()
+
+    watermarked = FrancescoWatermark().add_watermark(pdf_bytes, "copy-per-page", KEY)
+    with fitz.open(stream=watermarked, filetype="pdf") as document:
+        qr_counts = []
+        for page in document:
+            pixmap = page.get_pixmap(dpi=300, colorspace=fitz.csRGB, alpha=False)
+            image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
+            qr_counts.append(len(zxingcpp.read_barcodes(image, formats=zxingcpp.BarcodeFormat.QRCode)))
+
+    assert qr_counts == [1, 1]
 
 
 def test_encrypted_visible_label_recovers_secret_when_qr_is_unavailable(pdf_bytes, monkeypatch):

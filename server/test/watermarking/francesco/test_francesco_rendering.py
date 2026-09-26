@@ -56,6 +56,17 @@ def test_corner_qr_is_flush_to_a_corner():
     assert (x1 - x0, y1 - y0) == (side, side)
 
 
+def test_visible_label_is_more_transparent_and_uses_45_degrees():
+    png_bytes, _width, _height = rendering._label_png(
+        "Group_13 - encrypted-payload", 8.0, rendering.DEFAULT_VISIBLE_TEXT_ROTATION,
+    )
+    with Image.open(io.BytesIO(png_bytes)) as png:
+        alpha = png.getchannel("A")
+        assert alpha.getextrema()[1] == rendering.VISIBLE_TEXT_ALPHA
+    assert rendering.DEFAULT_VISIBLE_TEXT_ROTATION == 45
+    assert rendering.VISIBLE_TEXT_ALPHA < 110
+
+
 @pytest.mark.parametrize("label", [
     "Group_05:da0bb583c432fbfd078959ecc9b62902",
     "Group_13 - " + "a" * 180,
@@ -80,6 +91,11 @@ def test_visible_labels_fit_without_overlapping(pdf_bytes, label):
             assert not rendering.boxes_overlap(text_box, qr_box, min_gap=8.0)
             assert 0 <= text_box[0] < text_box[2] <= page.rect.width
             assert 0 <= text_box[1] < text_box[3] <= page.rect.height
+        assert any(
+            box[0] >= 0 and box[1] >= 0
+            and box[2] <= page.rect.width and box[3] <= page.rect.height
+            for box in text_boxes
+        )
         for index, text_box in enumerate(text_boxes):
             for other_box in text_boxes[index + 1:]:
                 assert not rendering.boxes_overlap(text_box, other_box, min_gap=8.0)

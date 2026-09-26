@@ -18,7 +18,7 @@ from PIL import Image
 from watermarking_method import InvalidKeyError, WatermarkingError
 
 from . import crypto
-from .rendering import DEFAULT_VISIBLE_TEXT_COUNT
+from .rendering import DEFAULT_VISIBLE_TEXT_COUNT, DEFAULT_VISIBLE_TEXT_ROTATION
 
 _PAYLOAD_PATTERN = re.compile(r"[A-Za-z0-9]{44,200}", re.IGNORECASE)
 _LABEL_PAYLOAD_PATTERN = re.compile(
@@ -110,6 +110,7 @@ def _candidate_payloads(text: str) -> list[str]:
                 break
             if len(joined) >= 80:
                 candidates.append(joined)
+
     return candidates
 
 
@@ -229,7 +230,7 @@ def read_visible_secrets(document: fitz.Document, key: str) -> set[str]:
         image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
         scale = dpi / 72
         prepared_page = image.rotate(
-            -30,
+            -DEFAULT_VISIBLE_TEXT_ROTATION,
             expand=True,
             resample=Image.Resampling.BICUBIC,
             fillcolor="white",
@@ -239,7 +240,10 @@ def read_visible_secrets(document: fitz.Document, key: str) -> set[str]:
         for image_info in page.get_images(full=True):
             xref = image_info[0]
             for rect in page.get_image_rects(xref):
-                if rect.width < rect.height * 1.3:
+                if (
+                    rect.width < page.rect.width * 0.15
+                    and rect.height < page.rect.height * 0.15
+                ):
                     continue
                 box = (
                     max(0, round(rect.x0 * scale) - 8),
@@ -253,7 +257,7 @@ def read_visible_secrets(document: fitz.Document, key: str) -> set[str]:
                 label_image = image.crop(box)
                 if rect.width <= rect.height * 3:
                     label_image = label_image.rotate(
-                        -30,
+                        -DEFAULT_VISIBLE_TEXT_ROTATION,
                         expand=True,
                         resample=Image.Resampling.BICUBIC,
                         fillcolor="white",
@@ -265,11 +269,11 @@ def read_visible_secrets(document: fitz.Document, key: str) -> set[str]:
         page_found = _authenticated_secrets(candidates, key)
 
         if not page_found:
+            fallback_candidates: list[str] = []
             for threshold in (5, 15):
                 isolated = _isolated_watermark_ink(image, threshold)
-                page_found.update(_authenticated_secrets(_candidate_payloads(_ocr(isolated, deadline)), key))
-                if page_found:
-                    break
+                fallback_candidates.extend(_candidate_payloads(_ocr(isolated, deadline)))
+            page_found.update(_authenticated_secrets(fallback_candidates, key))
         found.update(page_found)
         if found:
             break

@@ -86,6 +86,7 @@ class FrancescoWatermark(WatermarkingMethod):
                     page=page,
                     label=visible_group + visible_payload,
                     placed_boxes=[qr_rect],
+                    rotate=render_ops.DEFAULT_VISIBLE_TEXT_ROTATION,
                     seed_material=seed_material,
                 )
 
@@ -97,10 +98,19 @@ class FrancescoWatermark(WatermarkingMethod):
         width, height = page.rect.width, page.rect.height
         try:
             return render_ops.random_qr_rect(
-                width, height, render_ops.collect_page_content_boxes(page), seed_material,
+                width,
+                height,
+                render_ops.collect_page_content_boxes(page),
+                seed_material,
+                qr_fraction=render_ops.DEFAULT_QR_FRACTION,
             )
         except ValueError:
-            return render_ops.corner_qr_rect(width, height, seed_material)
+            return render_ops.corner_qr_rect(
+                width,
+                height,
+                seed_material,
+                qr_fraction=render_ops.DEFAULT_QR_FRACTION,
+            )
 
     def read_secret(self, pdf: PdfSource, key: str) -> str:
         crypto.derive_aes_key(key)
