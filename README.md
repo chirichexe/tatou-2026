@@ -187,10 +187,15 @@ RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 Every completed handshake produces a new version, watermarked with the peer's
 identity and session link, records it with the generated 32-character link,
 and returns that link. `RMAP_WATERMARK_METHOD` must name a registered
-watermarking method. The only registered method is `davide-watermark`
-(`toy-eof` is easily stripped and kept only for the test suite). It
-watermarks the PDF's images and can attribute cropped, rescaled or recompressed
-leaks through `read-watermark`.
+watermarking method. Use `group13-watermark`: it stacks the group's three
+methods with the same encrypted secret, each surviving different attacks:
+the image layer of `davide-watermark` (with the recipient fingerprint that
+attributes cropped, rescaled or screenshotted leaks through `read-watermark`),
+a text-spacing layer and a QR/visible-label overlay. Layers that do not fit
+the PDF are skipped. `davide-watermark` alone stays registered to read the
+versions issued before (`toy-eof` is easily stripped and kept only for the
+test suite). `server/test_robustness/` measures every layer against a set
+of removal attacks.
 
 When the server private key has a passphrase, create
 `rmap-keys/server_passphrase` locally with mode `600`, place the passphrase in

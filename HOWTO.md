@@ -29,7 +29,7 @@ RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/public_key.asc
 RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/private_key.asc
 RMAP_SERVER_KEY_PASSPHRASE_FILE=         # only if the private key is protected (file must be mode 600)
 RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
-RMAP_WATERMARK_METHOD=davide-watermark   # image watermark + fingerprint (toy-eof for quick tests)
+RMAP_WATERMARK_METHOD=group13-watermark  # image + text + QR layers, fingerprint (toy-eof for quick tests)
 RMAP_WATERMARK_KEY=<random value>
 RMAP_DOCUMENT_ID=<id of the source PDF>
 ```
@@ -80,7 +80,7 @@ Expected results:
 curl -X POST http://127.0.0.1:5000/api/read-watermark/<DOC_ID> \
   -H "Authorization: Bearer <TOKEN>" -H "X-CSRF-Protection: 1" \
   -H "Content-Type: application/json" \
-  -d '{"method": "davide-watermark", "key": "<RMAP_WATERMARK_KEY>"}'
+  -d '{"method": "group13-watermark", "key": "<RMAP_WATERMARK_KEY>"}'
 # → {"secret": "Group_13:<link>", "attribution": {"intended_for": "Group_13", "link": "<link>"}, ...}
 ```
 

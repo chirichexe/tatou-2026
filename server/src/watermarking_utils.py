@@ -34,6 +34,7 @@ import re
 from typing import Any, Final
 
 from davide_watermark.method import DavideWatermark
+from group13_watermark import Group13Watermark
 from watermarking_method import (
     PdfSource,
     WatermarkingMethod,
@@ -49,6 +50,7 @@ logger = logging.getLogger(__name__)
 # toy-eof is kept only for tests (see test/conftest.py): anyone can strip it
 METHODS: dict[str, WatermarkingMethod] = {
     DavideWatermark.name: DavideWatermark(),
+    Group13Watermark.name: Group13Watermark(),
 }
 """Registry of available watermarking methods.
 

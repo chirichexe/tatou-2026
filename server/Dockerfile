@@ -10,6 +10,7 @@ WORKDIR /app
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends git ca-certificates openssh-client \
+    fonts-dejavu-core tesseract-ocr \
  && rm -rf /var/lib/apt/lists/*
 
 # Copy project description, to instal dependencies

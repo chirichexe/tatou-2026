@@ -122,6 +122,15 @@ def is_pdf_bytes(data: bytes) -> bool:
     return data.startswith(b"%PDF-")
 
 
+def validate_secret_string(secret: str, max_bytes: int = 64) -> str:
+    """Validate that secret is a non-empty string and does not exceed max_bytes UTF-8."""
+    if not isinstance(secret, str) or not secret:
+        raise ValueError("Secret must be a non-empty string")
+    if len(secret.encode("utf-8")) > max_bytes:
+        raise ValueError(f"Secret must be 1-{max_bytes} UTF-8 bytes")
+    return secret
+
+
 # ---------------------------------
 # Abstract base class (the contract)
 # ---------------------------------
@@ -266,5 +275,6 @@ __all__ = [
     "WatermarkingMethod",
     "is_pdf_bytes",
     "load_pdf_bytes",
+    "validate_secret_string",
 ]
 

@@ -406,7 +406,8 @@ field. The recovered secret is looked up in `Versions` for that document:
 `attribution` is `null` when no RMAP version has that secret. For every other
 user the response is unchanged and has no `attribution` field.
 
-If the method supports informed detection (`davide-watermark`) and the
+If the method supports informed detection (`davide-watermark`,
+`group13-watermark`) and the
 secret cannot be read or matches no version, the leak's fingerprint is compared
 with the RMAP source document and every version issued with that method. The
 best match is returned when its score clears the method's threshold; `secret`
@@ -433,8 +434,9 @@ A wrong key, an unmarked document and a stripped watermark all return the same
 `400 {"error": "could not read watermark"}`, so the endpoint does not reveal
 whether a document carries a watermark.
 
-`position` is echoed back; `davide-watermark` ignores it (it marks every
-suitable image).
+`position` is echoed back; `davide-watermark` and `group13-watermark` ignore
+it (they mark every suitable image and text run). `group13-watermark` accepts
+secrets of at most 48 UTF-8 bytes.
 
 **Specification**
  * The endpoint MUST return the secret read in the document, except for the
