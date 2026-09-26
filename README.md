@@ -186,23 +186,18 @@ RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 `RMAP_DOCUMENT_ID` is the confidential source document already stored in Tatou.
 Every completed handshake produces a new version, watermarked with the peer's
 identity and session link, records it with the generated 32-character link,
-and returns that link. `RMAP_WATERMARK_METHOD` must name a registered
-watermarking method. The group's methods live in
-`server/src/watermarking_methods/<name>/`, each with one public class and its
-private helpers, and are all registered with the same interface, so any of
-them can be used here:
+and returns that link. RMAP always uses `group13-watermark`; this is the
+default and only method exposed for selection. The three component methods
+remain registered internally so the combined pipeline can apply and read
+their layers:
 
 | Method | Carrier |
 |---|---|
-| `davide-watermark` | images: encrypted secret + recipient fingerprint |
-| `khaled-text-spacing-watermark` | spacing of the selectable text |
-| `francesco-watermark` | QR codes and visible labels drawn on the pages |
-| `group13-watermark` | the three above in one pipeline (recommended) |
+| `group13-watermark` | image, selectable-text spacing, QR and visible-label layers |
 
-`group13-watermark` only calls the other three with the same secret; layers
-that do not fit the PDF are skipped, and it can read a copy made by any of
-them. The fingerprint attributes cropped, rescaled or screenshotted leaks
-through `read-watermark` (`davide-watermark` and `group13-watermark`).
+Layers that do not fit the PDF are skipped, and the combined reader can still
+read copies carrying a compatible component layer. The fingerprint attributes
+cropped, rescaled or screenshotted leaks through `read-watermark`.
 `toy-eof` is easily stripped and kept only for the test suite.
 `server/test_robustness/` measures every method against a set of removal
 attacks.

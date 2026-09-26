@@ -70,8 +70,10 @@ def create_app():
     ).strip()
     app.config["RMAP_DOCUMENT_ID"] = os.environ.get("RMAP_DOCUMENT_ID", "").strip()
     app.config["RMAP_WATERMARK_METHOD"] = os.environ.get(
-        "RMAP_WATERMARK_METHOD", ""
-    ).strip()
+        "RMAP_WATERMARK_METHOD", "group13-watermark"
+    ).strip() or "group13-watermark"
+    if app.config["RMAP_WATERMARK_METHOD"] != "group13-watermark":
+        raise RuntimeError("RMAP_WATERMARK_METHOD must be group13-watermark")
     app.config["RMAP_WATERMARK_KEY"] = os.environ.get(
         "RMAP_WATERMARK_KEY", ""
     )
@@ -1112,11 +1114,13 @@ def create_app():
     # GET /api/get-watermarking-methods -> {"methods":[{"name":..., "description":...}, ...], "count":N}
     @app.get("/api/get-watermarking-methods")
     def get_watermarking_methods():
-        methods = []
-
-        for m in WMUtils.METHODS:
-            methods.append({"name": m, "description": WMUtils.get_method(m).get_usage()})
-            
+        # RMAP issues PDFs with all three layers; component methods remain
+        # registered internally for decoding existing documents and tests.
+        method = "group13-watermark"
+        methods = [{
+            "name": method,
+            "description": WMUtils.get_method(method).get_usage(),
+        }]
         return jsonify({"methods": methods, "count": len(methods)}), 200
         
     def _fingerprint_attribution(method, key: str, leaked_path: Path):

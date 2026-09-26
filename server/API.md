@@ -346,7 +346,7 @@ _None_
 ```
 
 **Specification**
- * The endpoint MUST return all methods in `watermarking_utils.METHODS`.
+ * The endpoint MUST expose only `group13-watermark` as an available choice.
  
    ## read-watermark
  
@@ -636,7 +636,7 @@ RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/server_public.asc
 RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/server_private.asc
 RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
 RMAP_DOCUMENT_ID=42
-RMAP_WATERMARK_METHOD=my-robust-method
+RMAP_WATERMARK_METHOD=group13-watermark
 RMAP_WATERMARK_KEY=<private-watermark-key>
 # Optional when the server private key is protected:
 RMAP_SERVER_KEY_PASSPHRASE=
