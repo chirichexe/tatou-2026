@@ -30,13 +30,13 @@ HERE = Path(__file__).parent
 PORT = int(os.environ.get("E2E_PORT", "5055"))
 BASE = f"http://127.0.0.1:{PORT}/api"
 CSRF = {"X-CSRF-Protection": "1"}
-METHOD = "davide-watermark"
+METHOD = "group13-watermark"
 GROUPS = ("Group_A", "Group_B")  # registered with the server
 STRANGER = "Group_X"             # has a keypair, but is not registered
 
 
 def confidential_pdf(seed: int = 13) -> bytes:
-    """A page like the course PDF: a title, a photo, and a caption table."""
+    """Synthetic course-like PDF with an image and enough selectable text for all layers."""
     rng = np.random.default_rng(seed)
     y, x = np.mgrid[0:823, 0:800]
     sky = np.stack([90 + 0.1 * y, 140 + 0.05 * y, 200 - 0.05 * y], axis=-1)
@@ -52,6 +52,10 @@ def confidential_pdf(seed: int = 13) -> bytes:
     page.insert_image(fitz.Rect(93, 100, 502, 521), stream=buf.getvalue())
     for i, (k, v) in enumerate([("Title", "Synthetic landscape"), ("Author", "Test suite")]):
         page.insert_text((62, 560 + 18 * i), f"{k}: {v}", fontsize=10)
+    text_page = doc.new_page()
+    sentence = "This selectable text carries the recipient link in its letter spacing."
+    for row in range(40):
+        text_page.insert_text((50, 45 + row * 16), sentence, fontsize=10)
     return doc.tobytes()
 
 

@@ -7,13 +7,14 @@ The fixture sets the stack up the same way production is set up:
 1. It generates test OpenPGP keys: a server keypair, two registered groups and one unregistered group.
 2. It starts the stack with RMAP disabled.
 3. It creates the `rmap_service` account and uploads a synthetic confidential PDF.
-4. It restarts the server with RMAP enabled on that document, using `davide-watermark`.
+4. It restarts the server with RMAP enabled on that document, using `group13-watermark`.
 
 The tests then run:
 
 - **Delivery:** real RMAP handshakes, then `get-version`.
 - **Recorded versions:** a check of the `Versions` rows in MariaDB.
 - **Leak attribution:** blind reads and attacked copies, attributed through `read-watermark`. The attacks are crop plus JPEG, resize, blur, JPEG at quality 20, a page screenshot and Ghostscript `/screen`, plus two copies averaged together.
+- **Component recovery:** each of the three readers recovers the same secret from the delivered combined copy; Khaled's method also creates and reads a copy on its own.
 - **Negative cases:** a normal user, a wrong key, an unknown method, a missing token or CSRF header, malformed RMAP messages, a replay, a wrong nonce and an unregistered identity.
 
 ## Running

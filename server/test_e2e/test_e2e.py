@@ -139,6 +139,35 @@ def test_blind_read_returns_the_secret_and_attribution(stack, copies):
     assert r.json()["attribution"] == {"intended_for": group, "link": link}
 
 
+def test_each_component_reads_the_combined_delivery(stack, copies):
+    group, link, pdf = copies["A1"]
+    doc_id = stack.upload(stack.service_token, pdf, "combined.pdf")
+    for method in ("davide-watermark", "khaled-text-spacing-watermark", "francesco-watermark"):
+        result = stack.read_watermark(stack.service_token, doc_id, method=method)
+        assert result.status_code == 201, result.text
+        assert result.json()["secret"] == f"{group}:{link}"
+
+
+def test_khaled_text_watermark_works_alone_in_docker(stack):
+    secret = "Group_A:" + "a" * 32
+    created = requests.post(
+        f"{BASE}/create-watermark/{stack.source_id}", headers=stack.auth(stack.service_token),
+        json={"method": "khaled-text-spacing-watermark", "intended_for": "Group_A",
+              "secret": secret, "key": stack.watermark_key},
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["method"] == "khaled-text-spacing-watermark"
+    marked = download(created.json()["link"])
+    with fitz.open(stream=stack.source_pdf, filetype="pdf") as original, \
+         fitz.open(stream=marked, filetype="pdf") as watermarked:
+        assert [page.get_text() for page in watermarked] == [page.get_text() for page in original]
+    doc_id = stack.upload(stack.service_token, marked, "khaled-only.pdf")
+    for method in ("khaled-text-spacing-watermark", METHOD):
+        result = stack.read_watermark(stack.service_token, doc_id, method=method)
+        assert result.status_code == 201, result.text
+        assert result.json()["secret"] == secret
+
+
 # ---------------------------------------------------------------- attribution
 
 ATTACKS = {
