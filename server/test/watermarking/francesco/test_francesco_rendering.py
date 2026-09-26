@@ -56,7 +56,12 @@ def test_corner_qr_is_flush_to_a_corner():
     assert (x1 - x0, y1 - y0) == (side, side)
 
 
-def test_visible_labels_never_overlap_the_qr(pdf_bytes):
+@pytest.mark.parametrize("label", [
+    "Group_05:da0bb583c432fbfd078959ecc9b62902",
+    "Group_13 - " + "a" * 180,
+    "Group_" + "x" * 54 + " - " + "a" * 180,
+])
+def test_visible_labels_fit_without_overlapping(pdf_bytes, label):
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
         page = doc[0]
         qr_box = rendering.random_qr_rect(page.rect.width, page.rect.height, [], b"seed-qr-test")
@@ -65,7 +70,7 @@ def test_visible_labels_never_overlap_the_qr(pdf_bytes):
         # Place visible labels everywhere else, including across page content.
         text_boxes = rendering.stamp_random_native_visible_text(
             page=page,
-            label="Group_05:da0bb583c432fbfd078959ecc9b62902",
+            label=label,
             placed_boxes=placed_boxes,
             seed_material=b"seed-text-test",
         )
@@ -73,3 +78,8 @@ def test_visible_labels_never_overlap_the_qr(pdf_bytes):
         assert len(placed_boxes) == rendering.DEFAULT_VISIBLE_TEXT_COUNT + 1
         for text_box in text_boxes:
             assert not rendering.boxes_overlap(text_box, qr_box, min_gap=8.0)
+            assert 0 <= text_box[0] < text_box[2] <= page.rect.width
+            assert 0 <= text_box[1] < text_box[3] <= page.rect.height
+        for index, text_box in enumerate(text_boxes):
+            for other_box in text_boxes[index + 1:]:
+                assert not rendering.boxes_overlap(text_box, other_box, min_gap=8.0)
