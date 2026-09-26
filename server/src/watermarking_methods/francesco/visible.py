@@ -19,10 +19,12 @@ from . import crypto
 
 _PAYLOAD_PATTERN = re.compile(r"[A-Za-z2-7]{44,200}", re.IGNORECASE)
 _LABEL_PAYLOAD_PATTERN = re.compile(
-    r"GROUP[_A-Za-z0-9]*-([A-Za-z2-7]{44,200})", re.IGNORECASE,
+    r"GROUP[_A-Za-z0-9]*-_*([A-Za-z2-7]{44,200})", re.IGNORECASE,
 )
 _BASE32_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567"
-_OCR_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
+# 0, 1, 8 and 9 are not Base32: allowing them lets Tesseract read "o" as "0"
+# or "l" as "1" (sometimes both, "o0"), which splits or lengthens the payload
+_OCR_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz234567_-"
 
 
 def _ocr(image: Image.Image) -> str:
