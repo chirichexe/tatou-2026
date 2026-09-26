@@ -205,23 +205,64 @@ def flip_image(b):
 
 # ---------------------------------------------------------------- text
 
-_TJ = re.compile(rb"\[((?:\((?:\\.|[^\\)])*\)|<[^>]*>|[^\]])*)\]\s*TJ", re.DOTALL)
 _TOK = re.compile(rb"\((?:\\.|[^\\)])*\)|<[^>]*>|[+-]?(?:\d+\.?\d*|\.\d+)")
+
+
+def _tj_arrays(stream: bytes):
+    """Find TJ arrays in one pass, skipping brackets inside PDF strings."""
+    offset = 0
+    while (start := stream.find(b"[", offset)) >= 0:
+        index = start + 1
+        string_depth = 0
+        in_hex_string = False
+        while index < len(stream):
+            char = stream[index]
+            if string_depth:
+                if char == ord("\\"):
+                    index += 2  # escaped delimiter is part of the string
+                    continue
+                if char == ord("("):
+                    string_depth += 1
+                elif char == ord(")"):
+                    string_depth -= 1
+            elif in_hex_string:
+                if char == ord(">"):
+                    in_hex_string = False
+            elif char == ord("("):
+                string_depth = 1
+            elif char == ord("<"):
+                in_hex_string = True
+            elif char == ord("]"):
+                end = index + 1
+                while end < len(stream) and stream[end] in b" \t\r\n\f\0":
+                    end += 1
+                if stream[end:end + 2] == b"TJ":
+                    yield start, index, end + 2
+                break
+            index += 1
+        offset = index + 1
 
 
 def _map_tj_numbers(b, fn):
     doc = _open(b)
     for p in doc:
         for xref in p.get_contents():
-            def array(m):
-                def token(t):
-                    s = t.group(0)
-                    if s[:1] in (b"(", b"<"):
-                        return s
-                    v = fn(float(s))
-                    return b"" if v is None else b"%.3f" % v
-                return b"[" + _TOK.sub(token, m.group(1)) + b"] TJ"
-            doc.update_stream(xref, _TJ.sub(array, doc.xref_stream(xref)))
+            stream = doc.xref_stream(xref)
+            pieces = []
+            previous = 0
+            for start, close, end in _tj_arrays(stream):
+                def token(match):
+                    value = match.group(0)
+                    if value[:1] in (b"(", b"<"):
+                        return value
+                    mapped = fn(float(value))
+                    return b"" if mapped is None else b"%.3f" % mapped
+
+                pieces.extend((stream[previous:start], b"[",
+                               _TOK.sub(token, stream[start + 1:close]), b"] TJ"))
+                previous = end
+            pieces.append(stream[previous:])
+            doc.update_stream(xref, b"".join(pieces))
     return _save(doc)
 
 
