@@ -4,6 +4,7 @@ from io import BytesIO
 
 import fitz
 import pytest
+
 from watermarking_method import InvalidKeyError, SecretNotFoundError
 from watermarking_methods.add_after_eof import AddAfterEOF
 from watermarking_utils import METHODS

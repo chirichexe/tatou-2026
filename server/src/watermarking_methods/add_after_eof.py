@@ -16,7 +16,7 @@ or unauthorized *verification*. Anyone who has access to the bytes can
 recover the secret content, but only callers with the correct key will be
 able to validate it via :meth:`read_secret`.
 
-No third‑party libraries are required here; only the standard library is
+No third-party libraries are required here; only the standard library is
 used. (Other watermarking methods may use PyMuPDF / ``fitz``.)
 """
 from __future__ import annotations
@@ -40,7 +40,7 @@ from watermarking_method import (
 class AddAfterEOF(WatermarkingMethod):
     """Toy method that appends a watermark record after the PDF EOF.
 
-    Format (all ASCII/UTF‑8):
+    Format (all ASCII/UTF-8):
 
     .. code-block:: text
 
@@ -52,7 +52,7 @@ class AddAfterEOF(WatermarkingMethod):
     ``{"v":1,"alg":"HMAC-SHA256","mac":"<hex>","secret":"<b64>"}``
 
     The MAC is computed over ``b"wm:add-after-eof:v1:" + secret_bytes``
-    using the caller-provided ``key`` (UTF‑8) and HMAC‑SHA256.
+    using the caller-provided ``key`` (UTF-8) and HMAC-SHA256.
     """
 
     name: Final[str] = "toy-eof"

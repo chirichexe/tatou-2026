@@ -59,7 +59,7 @@ class SafeArgumentParser(argparse.ArgumentParser):
 # --------------------
 
 def _read_text_from_file(path: str) -> str:
-    with open(path, "r", encoding="utf-8") as fh:
+    with open(path, encoding="utf-8") as fh:
         return fh.read()
 
 
@@ -241,7 +241,7 @@ def main(argv: Iterable[str] | None = None) -> int:
     except WatermarkingError:
         print("watermarking failed", file=sys.stderr)
         return 5
-    except Exception:  # noqa: BLE001 - CLI boundary must not emit tracebacks.
+    except Exception:  # CLI boundary must not emit tracebacks.
         print("watermarking failed", file=sys.stderr)
         return 5
 

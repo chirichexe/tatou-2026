@@ -11,9 +11,9 @@ Design highlights
 -----------------
 - Modern Python (3.10+), with type hints and docstrings.
 - Standard library only in this file. Concrete methods may optionally
-  depend on third‑party libraries such as *PyMuPDF* (a.k.a. ``fitz``).
+  depend on third-party libraries such as *PyMuPDF* (a.k.a. ``fitz``).
 - Stateless API: methods receive a PDF input and return a new PDF as
-  ``bytes``; no in‑place mutation or file I/O is required by the
+  ``bytes``; no in-place mutation or file I/O is required by the
   interface (callers may choose to write the returned bytes to disk).
 
 Required interface
@@ -24,7 +24,7 @@ implement the two abstract methods:
 ``add_watermark(pdf, secret, key, position) -> bytes``
     Produce a new watermarked PDF (as ``bytes``) by embedding the
     provided secret using the given key. The optional ``position``
-    string can include method‑specific placement or strategy hints.
+    string can include method-specific placement or strategy hints.
 
 ``read_secret(pdf, key) -> str``
     Recover and return the embedded secret from the given PDF using the
@@ -122,6 +122,15 @@ def is_pdf_bytes(data: bytes) -> bool:
     return data.startswith(b"%PDF-")
 
 
+def validate_secret_string(secret: str, max_bytes: int = 64) -> str:
+    """Validate that secret is a non-empty string and does not exceed max_bytes UTF-8."""
+    if not isinstance(secret, str) or not secret:
+        raise ValueError("Secret must be a non-empty string")
+    if len(secret.encode("utf-8")) > max_bytes:
+        raise ValueError(f"Secret must be 1-{max_bytes} UTF-8 bytes")
+    return secret
+
+
 # ---------------------------------
 # Abstract base class (the contract)
 # ---------------------------------
@@ -138,14 +147,14 @@ class WatermarkingMethod(ABC):
     #: Concrete implementations should override this with a short name
     #: (e.g., "toy-eof", "xmp-metadata", "object-stream").
     name: ClassVar[str] = "abstract"
-    
-    
+
+
     @staticmethod
     @abstractmethod
     def get_usage() -> str:
         """Return a a string containing a description of the expected usage.
 
-        It's highly recommended to provide a description if custom position 
+        It's highly recommended to provide a description if custom position
         is expected.
 
         Returns
@@ -195,14 +204,14 @@ class WatermarkingMethod(ABC):
             If inputs are invalid (e.g., not a PDF or empty secret).
         """
         raise NotImplementedError
-        
+
     @abstractmethod
     def is_watermark_applicable(
         self,
         pdf: PdfSource,
         position: str | None = None,
     ) -> bool:
-        """Return whether the method is applicable on this specific method 
+        """Return whether the method is applicable on this specific method
 
         Parameters
         ----------
@@ -266,5 +275,6 @@ __all__ = [
     "WatermarkingMethod",
     "is_pdf_bytes",
     "load_pdf_bytes",
+    "validate_secret_string",
 ]
 

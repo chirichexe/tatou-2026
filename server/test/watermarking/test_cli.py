@@ -5,6 +5,7 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+
 import watermarking_cli as cli
 from watermarking_method import (
     InvalidKeyError,
@@ -194,7 +195,8 @@ def test_methods_command_still_lists_registered_methods(capsys):
     assert cli.main(["methods"]) == 0
     output = capsys.readouterr()
     assert output.err == ""
-    assert output.out.splitlines() == ["davide-watermark"]
+    assert output.out.splitlines() == ["davide-watermark", "francesco-watermark", "group13-watermark",
+                                        "khaled-text-spacing-watermark"]
 
 
 def test_explore_command_still_outputs_json(monkeypatch, capsys):

@@ -13,14 +13,19 @@ from statistics import NormalDist
 import numpy as np
 import pymupdf as fitz
 import pytest
+from attacks import ATTACKS, KNOWN_FAILURES, edit_image
+from photos import make_photo, photo_pdf
 from PIL import Image
 
-import davide_watermark.method as method_module
-from attacks import ATTACKS, KNOWN_FAILURES, edit_image
-from davide_watermark.image import embed_payload, read_votes, vote
-from davide_watermark.method import DavideWatermark, _images, _replace_image, encrypt
-from photos import make_photo, photo_pdf
+import watermarking_methods.davide.method as method_module
 from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
+from watermarking_methods.davide.image import embed_payload, read_votes, vote
+from watermarking_methods.davide.method import (
+    DavideWatermark,
+    _images,
+    _replace_image,
+    encrypt,
+)
 from watermarking_utils import METHODS, apply_watermark, read_watermark
 
 KEY = "rmap-server-key"
@@ -202,6 +207,20 @@ def test_images_above_the_pixel_limit_are_left_untouched():
     assert after[0] == before[0]
     assert after[1][1] != before[1][1]
     assert DavideWatermark.read_secret(out, KEY) == LEAKER
+
+
+def test_real_image_size_is_checked_before_decoding():
+    # the PDF says 640x640, the JPEG inside is bigger than the pixel limit
+    side = int(method_module._MAX_PIXELS ** 0.5) + 8
+    buf = io.BytesIO()
+    Image.new("RGB", (side, side)).save(buf, "JPEG")
+    pdf = photo_pdf([make_photo(640, 640)])
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        xref = doc[0].get_images()[0][0]
+        doc.update_stream(xref, buf.getvalue(), compress=False)
+        doc.xref_set_key(xref, "Filter", "/DCTDecode")
+        assert doc[0].get_images()[0][2:4] == (640, 640)
+        assert list(_images(doc)) == []
 
 
 def test_total_pixel_budget_bounds_the_work(monkeypatch):

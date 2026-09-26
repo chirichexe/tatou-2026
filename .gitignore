@@ -213,3 +213,5 @@ __marimo__/
 
 # Local handoff notes for Claude Code (not for the shared repo)
 CLAUDE.md
+rmap-keys/
+server/uv.lock

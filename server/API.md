@@ -346,7 +346,12 @@ _None_
 ```
 
 **Specification**
- * The endpoint MUST return all methods in `watermarking_utils.METHODS`.
+ * The endpoint exposes exactly four choices: `davide-watermark`,
+   `francesco-watermark`, `khaled-text-spacing-watermark`, and
+   `group13-watermark` (the combined method).
+ * `group13-watermark` applies the three component methods with the same
+   secret and key. RMAP continues to default to this combined method; its
+   configured method is independent of the manual watermarking interface.
  
    ## read-watermark
  
@@ -406,7 +411,8 @@ field. The recovered secret is looked up in `Versions` for that document:
 `attribution` is `null` when no RMAP version has that secret. For every other
 user the response is unchanged and has no `attribution` field.
 
-If the method supports informed detection (`davide-watermark`) and the
+If the method supports informed detection (`davide-watermark`,
+`group13-watermark`) and the
 secret cannot be read or matches no version, the leak's fingerprint is compared
 with the RMAP source document and every version issued with that method. The
 best match is returned when its score clears the method's threshold; `secret`
@@ -433,8 +439,11 @@ A wrong key, an unmarked document and a stripped watermark all return the same
 `400 {"error": "could not read watermark"}`, so the endpoint does not reveal
 whether a document carries a watermark.
 
-`position` is echoed back; `davide-watermark` ignores it (it marks every
-suitable image).
+`position` is echoed back; the methods of the group ignore it (they mark every
+suitable image, text run or page), except `khaled-text-spacing-watermark`,
+which accepts only an empty position or `auto`. Maximum secret length:
+128 UTF-8 bytes for `davide-watermark`, 64 for `francesco-watermark`, 48 for
+`khaled-text-spacing-watermark` and `group13-watermark`.
 
 **Specification**
  * The endpoint MUST return the secret read in the document, except for the
@@ -632,7 +641,7 @@ RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/server_public.asc
 RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/server_private.asc
 RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
 RMAP_DOCUMENT_ID=42
-RMAP_WATERMARK_METHOD=my-robust-method
+RMAP_WATERMARK_METHOD=group13-watermark
 RMAP_WATERMARK_KEY=<private-watermark-key>
 # Optional when the server private key is protected:
 RMAP_SERVER_KEY_PASSPHRASE=

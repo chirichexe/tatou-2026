@@ -40,7 +40,8 @@ def register(leak: Image.Image, original: Image.Image) -> Image.Image:
         if angle_step < 0.03:
             break
         flip, angle, scale = guess
-        neighbours = [(flip, angle + i * angle_step, scale * (1 + j * scale_step)) for i in (-1, 0, 1) for j in (-1, 0, 1)]
+        neighbours = [(flip, angle + i * angle_step, scale * (1 + j * scale_step))
+                      for i in (-1, 0, 1) for j in (-1, 0, 1)]
         # a tiny scale would blow the leak up to a huge image
         neighbours = [(f, a, s) for f, a, s in neighbours if abs(a) <= 6 and 0.2 <= s <= 1.5] or [guess]
         best = _best(leak, original, min(1.0, (256 if angle_step > 0.3 else 512) / side), neighbours)
@@ -83,7 +84,14 @@ def _similarity(original: np.ndarray, original_fft: np.ndarray, piece: np.ndarra
     y1, x1 = min(dy + piece.shape[0], original.shape[0]), min(dx + piece.shape[1], original.shape[1])
     if y1 <= y0 or x1 <= x0 or (y1 - y0) * (x1 - x0) < 0.05 * original.size:
         return -1.0
-    return float(np.corrcoef(original[y0:y1, x0:x1].ravel(), piece[y0 - dy:y1 - dy, x0 - dx:x1 - dx].ravel())[0, 1])
+    left = original[y0:y1, x0:x1].ravel()
+    right = piece[y0 - dy:y1 - dy, x0 - dx:x1 - dx].ravel()
+    left = left - left.mean()
+    right = right - right.mean()
+    denominator = np.linalg.norm(left) * np.linalg.norm(right)
+    if denominator == 0:
+        return -1.0
+    return float(np.dot(left, right) / denominator)
 
 
 def _offset(original_fft: np.ndarray, piece: np.ndarray, whiten: float) -> tuple[int, int]:

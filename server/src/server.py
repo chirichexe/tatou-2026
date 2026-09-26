@@ -1,5 +1,6 @@
 import hashlib
 import os
+import secrets
 import sqlite3
 import stat
 from functools import wraps
@@ -7,20 +8,18 @@ from pathlib import Path
 from uuid import uuid4
 
 import fitz
-import watermarking_utils as WMUtils
 from flask import Flask, g, jsonify, request, send_file
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
-from login_rate_limit import LoginRateLimited, LoginRateLimiter
 from rmap import RMAPError, RMAPServer
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+
+import watermarking_utils as WMUtils
+from login_rate_limit import LoginRateLimited, LoginRateLimiter
 from watermarking_method import WatermarkingError
-
-#from watermarking_utils import METHODS, apply_watermark, read_watermark, explore_pdf, is_watermarking_applicable, get_method
-
 
 DEFAULT_MAX_UPLOAD_SIZE_BYTES = 64 * 1024 * 1024
 MULTIPART_OVERHEAD_BYTES = 1024 * 1024
@@ -36,7 +35,7 @@ def create_app():
     # --- Config ---
     secret_key = os.environ.get("SECRET_KEY", "").strip()
 
-    if not secret_key or secret_key == "dev-secret-change-me":
+    if not secret_key or secret_key == "dev-secret-change-me":  # noqa: S105 - rejects the old sample value
         raise RuntimeError("Set SECRET_KEY to a private, randomly generated value")
 
     app.config["SECRET_KEY"] = secret_key
@@ -70,8 +69,8 @@ def create_app():
     ).strip()
     app.config["RMAP_DOCUMENT_ID"] = os.environ.get("RMAP_DOCUMENT_ID", "").strip()
     app.config["RMAP_WATERMARK_METHOD"] = os.environ.get(
-        "RMAP_WATERMARK_METHOD", ""
-    ).strip()
+        "RMAP_WATERMARK_METHOD", "group13-watermark"
+    ).strip() or "group13-watermark"
     app.config["RMAP_WATERMARK_KEY"] = os.environ.get(
         "RMAP_WATERMARK_KEY", ""
     )
@@ -281,7 +280,7 @@ def create_app():
             }), 403
 
     # --- Routes ---
-    
+
     @app.route("/<path:filename>")
     def static_files(filename):
         return app.send_static_file(filename)
@@ -289,7 +288,7 @@ def create_app():
     @app.route("/")
     def home():
         return app.send_static_file("index.html")
-    
+
     @app.get("/healthz")
     def healthz():
         try:
@@ -367,7 +366,7 @@ def create_app():
             )
             if not source_path.is_file():
                 return jsonify({"error": "RMAP document missing on disk"}), 410
-            watermark_secret = f"{identity}:{expected_link}"
+            watermark_secret = expected_link
             wm_bytes = WMUtils.apply_watermark(
                 pdf=str(source_path),
                 secret=watermark_secret,
@@ -649,7 +648,7 @@ def create_app():
                 document_id = int(document_id)
             except (TypeError, ValueError):
                 return jsonify({"error": "document id required"}), 400
-        
+
         try:
             with get_engine().connect() as conn:
                 rows = conn.execute(
@@ -677,8 +676,8 @@ def create_app():
             "method": r.method,
         } for r in rows]
         return jsonify({"versions": versions}), 200
-    
-    
+
+
     # GET /api/list-all-versions
     @app.get("/api/list-all-versions")
     @require_auth
@@ -709,13 +708,13 @@ def create_app():
             "method": r.method,
         } for r in rows]
         return jsonify({"versions": versions}), 200
-    
+
     # GET /api/get-document or /api/get-document/<id>  → returns the PDF (inline)
     @app.get("/api/get-document")
     @app.get("/api/get-document/<int:document_id>")
     @require_auth
     def get_document(document_id: int | None = None):
-    
+
         # Support both path param and ?id=/ ?documentid=
         if document_id is None:
             document_id = request.args.get("id") or request.args.get("documentid")
@@ -723,7 +722,7 @@ def create_app():
                 document_id = int(document_id)
             except (TypeError, ValueError):
                 return jsonify({"error": "document id required"}), 400
-        
+
         try:
             with get_engine().connect() as conn:
                 row = conn.execute(
@@ -741,7 +740,7 @@ def create_app():
                 "service temporarily unavailable", 503,
             )
 
-        # Don’t leak whether a doc exists for another user
+        # Don't leak whether a doc exists for another user
         if not row:
             return jsonify({"error": "document not found"}), 404
 
@@ -771,11 +770,11 @@ def create_app():
 
         resp.headers["Cache-Control"] = "private, max-age=0, must-revalidate"
         return resp
-    
+
     # GET /api/get-version/<link>  → returns the watermarked PDF (inline)
     @app.get("/api/get-version/<link>")
     def get_version(link: str):
-        
+
         try:
             with get_engine().connect() as conn:
                 row = conn.execute(
@@ -793,7 +792,7 @@ def create_app():
                 "service temporarily unavailable", 503,
             )
 
-        # Don’t leak whether a doc exists for another user
+        # Don't leak whether a doc exists for another user
         if not row:
             return jsonify({"error": "document not found"}), 404
 
@@ -820,7 +819,7 @@ def create_app():
 
         resp.headers["Cache-Control"] = "private, max-age=0"
         return resp
-    
+
     # Helper: resolve path safely under STORAGE_DIR (handles absolute/relative)
     def _safe_resolve_under_storage(p: str | Path, storage_root: Path) -> Path:
         if not isinstance(p, (str, Path)) or not str(p) or "\x00" in str(p):
@@ -885,7 +884,7 @@ def create_app():
             )
 
         if not row:
-            # Don’t reveal others’ docs—just say not found
+            # Don't reveal others' docs—just say not found
             return jsonify({"error": "document not found"}), 404
 
         # Resolve and delete file (best effort)
@@ -939,8 +938,8 @@ def create_app():
             "file_missing": file_missing,
             "note": delete_note,
         }), 200
-        
-        
+
+
     # POST /api/create-watermark or /api/create-watermark/<id>  → create watermarked pdf and returns metadata
     @app.post("/api/create-watermark")
     @app.post("/api/create-watermark/<int:document_id>")
@@ -957,7 +956,7 @@ def create_app():
             doc_id = document_id
         except (TypeError, ValueError):
             return jsonify({"error": "document id required"}), 400
-            
+
         payload = request.get_json(silent=True) or {}
         # allow a couple of aliases for convenience
         method = payload.get("method")
@@ -971,7 +970,8 @@ def create_app():
             doc_id = int(doc_id)
         except (TypeError, ValueError):
             return jsonify({"error": "document_id (int) is required"}), 400
-        if not method or not isinstance(intended_for, str) or not intended_for or not isinstance(secret, str) or not isinstance(key, str):
+        if (not method or not isinstance(intended_for, str) or not intended_for
+                or not isinstance(secret, str) or not isinstance(key, str)):
             return jsonify({"error": "method, intended_for, secret, and key are required"}), 400
         intended_slug = secure_filename(intended_for)[:60]
         if not intended_slug:
@@ -1029,7 +1029,7 @@ def create_app():
                 secret=secret,
                 key=key,
                 method=method,
-                position=position
+                position=position,
             )
             if not isinstance(wm_bytes, (bytes, bytearray)) or len(wm_bytes) == 0:
                 return jsonify({"error": "watermarking failed"}), 500
@@ -1055,8 +1055,8 @@ def create_app():
         except (RuntimeError, ValueError, OSError):
             return jsonify({"error": "could not store watermarked file"}), 500
 
-        # link token = sha1(watermarked_file_name)
-        link_token = hashlib.sha1(candidate.encode("utf-8")).hexdigest()
+        # unguessable download link, same 40 hex format as before
+        link_token = secrets.token_hex(20)
 
         try:
             with get_engine().begin() as conn:
@@ -1099,26 +1099,36 @@ def create_app():
             "filename": candidate,
             "size": len(wm_bytes),
         }), 201
-        
-        
+
+
     @app.post("/api/load-plugin")
     @require_auth
     def load_plugin():
         return jsonify({
             "error": "Loading plugin files is no longer supported"
         }), 410
-    
-    
+
+
     # GET /api/get-watermarking-methods -> {"methods":[{"name":..., "description":...}, ...], "count":N}
     @app.get("/api/get-watermarking-methods")
     def get_watermarking_methods():
-        methods = []
-
-        for m in WMUtils.METHODS:
-            methods.append({"name": m, "description": WMUtils.get_method(m).get_usage()})
-            
+        # The manual watermarking interface offers each component and the
+        # combined method. RMAP's own default remains group13-watermark.
+        method_names = (
+            "davide-watermark",
+            "francesco-watermark",
+            "khaled-text-spacing-watermark",
+            "group13-watermark",
+        )
+        methods = [
+            {
+                "name": name,
+                "description": WMUtils.get_method(name).get_usage(),
+            }
+            for name in method_names
+        ]
         return jsonify({"methods": methods, "count": len(methods)}), 200
-        
+
     def _fingerprint_attribution(method, key: str, leaked_path: Path):
         """Best-matching RMAP version by fingerprint, or None.
 
@@ -1184,7 +1194,7 @@ def create_app():
             doc_id = document_id
         except (TypeError, ValueError):
             return jsonify({"error": "document id required"}), 400
-            
+
         payload = request.get_json(silent=True) or {}
         # allow a couple of aliases for convenience
         method = payload.get("method")
@@ -1240,7 +1250,7 @@ def create_app():
             return jsonify({"error": "document path invalid"}), 500
         if not file_path.is_file():
             return jsonify({"error": "file missing on disk"}), 410
-        
+
         secret = None
         read_error = None
         try:
@@ -1297,11 +1307,11 @@ def create_app():
         return jsonify(result), 201
 
     return app
-    
+
 
 # WSGI entrypoint
 app = create_app()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "5000"))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port)  # noqa: S104 - dev server inside the container

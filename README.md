@@ -168,7 +168,7 @@ RMAP_SERVER_PUBLIC_KEY_PATH=/app/rmap-keys/server_public.asc
 RMAP_SERVER_PRIVATE_KEY_PATH=/app/rmap-keys/server_private.asc
 RMAP_CLIENT_KEYS_DIR=/app/rmap-keys/clients
 RMAP_DOCUMENT_ID=42
-RMAP_WATERMARK_METHOD=my-robust-method
+RMAP_WATERMARK_METHOD=group13-watermark
 RMAP_WATERMARK_KEY=<private-watermark-key>
 RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 ```
@@ -185,12 +185,26 @@ RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 
 `RMAP_DOCUMENT_ID` is the confidential source document already stored in Tatou.
 Every completed handshake produces a new version, watermarked with the peer's
-identity and session link, records it with the generated 32-character link,
-and returns that link. `RMAP_WATERMARK_METHOD` must name a registered
-watermarking method. The only registered method is `davide-watermark`
-(`toy-eof` is easily stripped and kept only for the test suite). It
-watermarks the PDF's images and can attribute cropped, rescaled or recompressed
-leaks through `read-watermark`.
+session link as its sole watermark secret, records the peer identity separately
+as version metadata, and returns the generated link. RMAP defaults to
+`group13-watermark` for newly issued copies. The manual watermark interface offers four choices: each of the three
+component methods individually, or the combined method. Operators can still
+override `RMAP_WATERMARK_METHOD` for RMAP. The three component methods are
+also used by the combined pipeline:
+
+| Method | Carrier |
+|---|---|
+| `davide-watermark` | PDF images |
+| `francesco-watermark` | encrypted QR code and visible labels with the secret |
+| `khaled-text-spacing-watermark` | spacing between selectable text glyphs |
+| `group13-watermark` | all three component methods |
+
+Layers that do not fit the PDF are skipped, and the combined reader can still
+read copies carrying a compatible component layer. The fingerprint attributes
+cropped, rescaled or screenshotted leaks through `read-watermark`.
+`toy-eof` is easily stripped and kept only for the test suite.
+`server/test_robustness/` measures every method against a set of removal
+attacks.
 
 When the server private key has a passphrase, create
 `rmap-keys/server_passphrase` locally with mode `600`, place the passphrase in

@@ -16,7 +16,8 @@ def make_photo(width: int, height: int, seed: int = 1234, smooth: bool = False) 
     light = np.zeros((height, width))
     for cell in ((64,) if smooth else (64, 16, 4)):
         blobs = rng.normal(0, 1, (height // cell + 2, width // cell + 2)).astype(np.float32)
-        light += np.sqrt(cell) * np.asarray(Image.fromarray(blobs).resize((width + 2 * cell, height + 2 * cell), Image.BICUBIC))[:height, :width]
+        noise = Image.fromarray(blobs).resize((width + 2 * cell, height + 2 * cell), Image.BICUBIC)
+        light += np.sqrt(cell) * np.asarray(noise)[:height, :width]
     light = 110 + 45 * light / light.std()
     pixels = light[..., None] + np.array([10, 40, -20])  # greenish like the course photo
     if not smooth:
