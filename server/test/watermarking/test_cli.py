@@ -5,6 +5,7 @@ import sys
 from types import SimpleNamespace
 
 import pytest
+
 import watermarking_cli as cli
 from watermarking_method import (
     InvalidKeyError,

@@ -1,4 +1,4 @@
-"""OCR recovery for the repeated semi-transparent watermark token."""
+"""OCR recovery for the repeated semi-transparent watermark token on every page."""
 
 from __future__ import annotations
 
@@ -9,7 +9,8 @@ import subprocess
 from collections.abc import Iterable
 
 import pymupdf as fitz
-from PIL import Image, ImageOps
+from PIL import Image
+
 from watermarking_method import WatermarkingError
 
 from . import crypto
@@ -22,30 +23,6 @@ _OCR_HEADER_PATTERN = re.compile(
     rf"FWM1-([{crypto.VISIBLE_ALPHABET}]{{2}})-"
 )
 _OCR_WHITELIST = f"FWM1-{crypto.VISIBLE_ALPHABET}"
-# Any user can ask to read any uploaded PDF, and each OCR call can take up to
-# its 15 s timeout on the single server worker: bound the calls per read.
-MAX_OCR_IMAGES = 4
-MAX_OCR_PAGES = 2
-
-
-def _prepare_label_image(image: Image.Image) -> Image.Image:
-    rgba = image.convert("RGBA")
-    background = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
-    background.alpha_composite(rgba)
-    horizontal = background.convert("RGB").rotate(
-        -30,
-        expand=True,
-        resample=Image.Resampling.BICUBIC,
-        fillcolor="white",
-    )
-    grayscale = ImageOps.autocontrast(horizontal.convert("L"))
-    content = ImageOps.invert(grayscale).getbbox()
-    if content is not None:
-        grayscale = ImageOps.expand(grayscale.crop(content), border=24, fill=255)
-    return grayscale.resize(
-        (grayscale.width * 2, grayscale.height * 2),
-        Image.Resampling.LANCZOS,
-    )
 
 
 def _ocr(image: Image.Image, page_segmentation_mode: int) -> str:
@@ -116,44 +93,10 @@ def _tokens_from_ocr(text: str) -> set[str]:
     return tokens
 
 
-def _image_from_xref(
-    document: fitz.Document,
-    xref: int,
-    smask: int,
-) -> Image.Image:
-    base = fitz.Pixmap(document, xref)
-    if smask > 0:
-        mask = fitz.Pixmap(document, smask)
-        pixmap = fitz.Pixmap(base, mask)
-    else:
-        pixmap = base
-    return Image.open(io.BytesIO(pixmap.tobytes("png"))).copy()
-
-
 def extract_visible_tokens(document: fitz.Document) -> set[str]:
-    """OCR candidate tokens from label XObjects, then from rendered pages."""
+    """Rasterize every page and collect OCR candidates for visible labels."""
     tokens: set[str] = set()
-    seen_xrefs: set[int] = set()
-
     for page in document:
-        for image_info in page.get_images(full=True):
-            xref, smask, width, height = image_info[:4]
-            if xref in seen_xrefs or width == height:
-                continue
-            if len(seen_xrefs) >= MAX_OCR_IMAGES:
-                break
-            seen_xrefs.add(xref)
-            try:
-                image = _image_from_xref(document, xref, smask)
-                text = _ocr(_prepare_label_image(image), page_segmentation_mode=6)
-            except (OSError, RuntimeError, ValueError):
-                continue
-            tokens.update(_tokens_from_ocr(text))
-
-    if tokens:
-        return tokens
-
-    for page in document.pages(0, min(document.page_count, MAX_OCR_PAGES)):
         pixmap = page.get_pixmap(dpi=300, colorspace=fitz.csRGB, alpha=False)
         image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
         prepared = image.rotate(
@@ -163,7 +106,6 @@ def extract_visible_tokens(document: fitz.Document) -> set[str]:
             fillcolor="white",
         )
         tokens.update(_tokens_from_ocr(_ocr(prepared, page_segmentation_mode=11)))
-
     return tokens
 
 

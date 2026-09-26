@@ -14,10 +14,10 @@ from threading import Lock
 
 import pymupdf as fitz
 from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESSIV
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives import hashes
-from reedsolo import RSCodec, ReedSolomonError
+from reedsolo import ReedSolomonError, RSCodec
 
 from watermarking_method import (
     InvalidKeyError,
@@ -29,7 +29,6 @@ from watermarking_method import (
 )
 
 from .pdf_text import Carrier, UnsupportedText, carriers, collect_runs, replace_runs
-
 
 MAX_SECRET_BYTES = 48
 PARITY_BYTES = 16
@@ -133,7 +132,7 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
         if position not in (None, "", "auto"):
             raise ValueError("khaled-text-spacing-watermark supports only automatic placement")
         if not isinstance(secret, str):
-            raise ValueError("Secret must be text")
+            raise TypeError("Secret must be text")
         plain = secret.encode("utf-8")
         if not 1 <= len(plain) <= MAX_SECRET_BYTES:
             raise ValueError(f"Secret must be 1-{MAX_SECRET_BYTES} UTF-8 bytes")

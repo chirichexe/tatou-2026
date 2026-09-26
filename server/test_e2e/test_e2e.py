@@ -14,11 +14,9 @@ import numpy as np
 import pymupdf as fitz
 import pytest
 import requests
+from conftest import BASE, CSRF, GROUPS, METHOD, PORT, STRANGER, confidential_pdf
 from PIL import Image, ImageFilter
 from rmap import RMAPClient
-
-from conftest import BASE, CSRF, GROUPS, METHOD, PORT, STRANGER, confidential_pdf
-
 
 # ---------------------------------------------------------------- helpers
 

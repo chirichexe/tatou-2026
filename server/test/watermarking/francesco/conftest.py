@@ -32,6 +32,7 @@ def pdf_bytes() -> bytes:
 def structural_carrier_pdf() -> bytes:
     """PDF with a photo and text for the dual watermark test with DavideWatermark."""
     import io
+
     import numpy as np
     from PIL import Image
 

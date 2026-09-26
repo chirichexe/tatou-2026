@@ -10,6 +10,7 @@ from itsdangerous import URLSafeTimedSerializer
 from PIL import Image
 from rmap.keygen import generate_keypair
 from sqlalchemy import create_engine, text
+
 from watermarking_utils import apply_watermark
 
 pytestmark = pytest.mark.usefixtures("toy_eof_method")

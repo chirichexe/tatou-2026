@@ -346,7 +346,7 @@ _None_
 ```
 
 **Specification**
- * The endpoint MUST expose only `group13-watermark` as an available choice.
+ * The endpoint MUST expose only `group13-watermark` as an available choice. The server may use another registered method when explicitly configured with `RMAP_WATERMARK_METHOD`.
  
    ## read-watermark
  

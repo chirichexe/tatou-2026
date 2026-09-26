@@ -98,7 +98,7 @@ class Stack:
 
 def _compose(env: dict, *args: str) -> str:
     result = subprocess.run(["docker", "compose", "-f", str(HERE / "compose.yml"), *args],
-                            env=env, capture_output=True, text=True)
+                            env=env, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         raise RuntimeError(f"docker compose {' '.join(args)} failed:\n{result.stderr[-2000:]}")
     return result.stdout

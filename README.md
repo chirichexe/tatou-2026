@@ -186,10 +186,11 @@ RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 `RMAP_DOCUMENT_ID` is the confidential source document already stored in Tatou.
 Every completed handshake produces a new version, watermarked with the peer's
 identity and session link, records it with the generated 32-character link,
-and returns that link. RMAP always uses `group13-watermark`; this is the
-default and only method exposed for selection. The three component methods
-remain registered internally so the combined pipeline can apply and read
-their layers:
+and returns that link. RMAP defaults to `group13-watermark`, the only method
+exposed for selection. Operators and method-specific tests can override
+`RMAP_WATERMARK_METHOD` with another registered method. The three component
+methods remain registered internally so the combined pipeline can apply and
+read their layers:
 
 | Method | Carrier |
 |---|---|

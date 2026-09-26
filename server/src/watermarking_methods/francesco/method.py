@@ -15,6 +15,7 @@ from typing import ClassVar, Final
 
 import pymupdf as fitz
 import zxingcpp
+
 from watermarking_method import (
     InvalidKeyError,
     PdfSource,
@@ -31,23 +32,12 @@ from . import rendering as render_ops
 from . import visible as visible_ops
 
 
-NAME: Final[str] = "francesco-watermark"
-
-
 class FrancescoWatermark(WatermarkingMethod):
     """Independent AES-SIV QR payloads plus a repeated visible ciphertext."""
 
-    name: Final[str] = NAME
-    DPI: Final[int] = pdf_ops.DEFAULT_DPI
-    MAX_INPUT_BYTES: Final[int] = pdf_ops.MAX_INPUT_BYTES
-    MAX_PAGES: Final[int] = pdf_ops.MAX_PAGES
-    MAX_PIXELS_PER_PAGE: Final[int] = pdf_ops.MAX_PIXELS_PER_PAGE
+    name: Final[str] = "francesco-watermark"
     MAX_SECRET_BYTES: Final[int] = 64
-    MAX_OUTPUT_IMAGE_BYTES: Final[int] = pdf_ops.MAX_OUTPUT_IMAGE_BYTES
-    PREFIX: Final[str] = "FWM1:"
-    # QR side as a fraction of the shortest page side, largest first; below
-    # 6% a code no longer decodes reliably at READ_DPI
-    QR_FRACTIONS: Final[tuple[float, ...]] = (render_ops.DEFAULT_QR_FRACTION, 0.08, 0.06)
+    # Keep the QR size fixed; placement may fall back to the page corners.
     # Both output layers are enabled by default.
     ENABLE_BASE_LAYER: ClassVar[bool] = True
     ENABLE_QR_WATERMARK: ClassVar[bool] = True
@@ -73,15 +63,15 @@ class FrancescoWatermark(WatermarkingMethod):
     def _unpack(cls, payload: str, key: str) -> str:
         return crypto.decrypt_qr_payload(payload, key)
 
-    @classmethod
-    def _check_document(cls, data: bytes, position: str | None) -> bool:
-        return pdf_ops.is_document_applicable(data, position)
+    @staticmethod
+    def _check_document(data: bytes) -> bool:
+        return pdf_ops.is_document_applicable(data)
 
     def is_watermark_applicable(
         self, pdf: PdfSource, position: str | None = None
     ) -> bool:
         try:
-            return self._check_document(load_pdf_bytes(pdf), None)
+            return self._check_document(load_pdf_bytes(pdf))
         except (OSError, TypeError, ValueError):
             return False
 
@@ -101,7 +91,7 @@ class FrancescoWatermark(WatermarkingMethod):
         validate_secret_string(secret, self.MAX_SECRET_BYTES)
 
         data = load_pdf_bytes(pdf)
-        if not self._check_document(data, None):
+        if not self._check_document(data):
             raise ValueError("PDF is not applicable to francesco-watermark")
 
         enable_qr = self.ENABLE_QR_WATERMARK
@@ -123,7 +113,6 @@ class FrancescoWatermark(WatermarkingMethod):
         seed_material = (secret + ":" + key).encode("utf-8")
 
         with fitz.open(stream=data, filetype="pdf") as doc:
-            qr_pages = 0
             for page in doc:
                 content_boxes = render_ops.collect_page_content_boxes(page)
                 qr_rects = (
@@ -134,7 +123,6 @@ class FrancescoWatermark(WatermarkingMethod):
                 if qr_rects:
                     for qr_image, rect in zip(qr_images, qr_rects, strict=True):
                         pdf_ops.stamp_qr_on_page(page, qr_image, rect)
-                    qr_pages += 1
 
                 if visible_label:
                     render_ops.stamp_random_native_visible_text(
@@ -145,8 +133,6 @@ class FrancescoWatermark(WatermarkingMethod):
                         seed_material=seed_material,
                     )
 
-            if qr_images and not qr_pages:
-                raise ValueError("No text-free border position available for QR code")
             return doc.tobytes(
                 garbage=0, deflate=True, encryption=fitz.PDF_ENCRYPT_NONE
             )
@@ -158,24 +144,28 @@ class FrancescoWatermark(WatermarkingMethod):
         content_boxes: list[tuple[float, float, float, float]],
         seed_material: bytes,
     ) -> list[tuple[float, float, float, float]]:
-        """Two free border boxes, as large as the page allows, or none.
+        """Place two fixed-size codes, falling back to extreme page corners.
 
-        A dense page may have no room for the largest codes: smaller ones are
-        tried, and a page without any room gets only the visible labels.
+        Free border positions are preferred. If the page is dense, the codes
+        retain the 10% size and may cover existing content at the corners.
         """
-        for fraction in cls.QR_FRACTIONS:
-            try:
-                return render_ops.generate_random_qr_rects(
-                    page_width=page.rect.width,
-                    page_height=page.rect.height,
-                    count=2,
-                    placed_boxes=list(content_boxes),
-                    seed_material=seed_material,
-                    qr_fraction=fraction,
-                )
-            except ValueError:
-                continue
-        return []
+        try:
+            return render_ops.generate_random_qr_rects(
+                page_width=page.rect.width,
+                page_height=page.rect.height,
+                count=2,
+                placed_boxes=list(content_boxes),
+                seed_material=seed_material,
+                qr_fraction=render_ops.DEFAULT_QR_FRACTION,
+            )
+        except ValueError:
+            return render_ops.generate_edge_qr_rects(
+                page_width=page.rect.width,
+                page_height=page.rect.height,
+                count=2,
+                seed_material=seed_material,
+                qr_fraction=render_ops.DEFAULT_QR_FRACTION,
+            )
 
     def read_secret(self, pdf: PdfSource, key: str) -> str:
         if not self.ENABLE_QR_WATERMARK:
@@ -185,7 +175,7 @@ class FrancescoWatermark(WatermarkingMethod):
 
         self._key_material(key)
         data = load_pdf_bytes(pdf)
-        if not self._check_document(data, None):
+        if not self._check_document(data):
             raise ValueError("PDF is not applicable to francesco-watermark")
 
         found: set[str] = set()
@@ -193,7 +183,7 @@ class FrancescoWatermark(WatermarkingMethod):
 
         with fitz.open(stream=data, filetype="pdf") as document:
             for page in document:
-                image = pdf_ops.rasterize_page(page, dpi=pdf_ops.READ_DPI)
+                image = pdf_ops.rasterize_page(page, dpi=pdf_ops.DEFAULT_DPI)
                 for barcode in zxingcpp.read_barcodes(
                     image,
                     formats=zxingcpp.BarcodeFormat.QRCode,
@@ -218,7 +208,7 @@ class FrancescoWatermark(WatermarkingMethod):
         """Recover and authenticate the secret from semi-transparent text."""
         self._key_material(key)
         data = load_pdf_bytes(pdf)
-        if not self._check_document(data, None):
+        if not self._check_document(data):
             raise ValueError("PDF is not applicable to francesco-watermark")
 
         with fitz.open(stream=data, filetype="pdf") as document:
@@ -232,8 +222,3 @@ class FrancescoWatermark(WatermarkingMethod):
         if not secrets:
             raise InvalidKeyError("Visible francesco-watermark authentication failed")
         return secrets.pop()
-
-    def read_secret_components(self, pdf: PdfSource, key: str) -> dict[str, str | bool]:
-        """Recover secret and return structured components (prefix, group, string, is_our_watermark)."""
-        secret = self.read_secret(pdf, key)
-        return crypto.parse_secret_components(secret)

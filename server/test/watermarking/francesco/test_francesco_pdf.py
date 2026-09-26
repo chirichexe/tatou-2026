@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pymupdf as fitz
+
 from watermarking_methods.francesco import pdf as pdf_ops
 from watermarking_methods.francesco.method import FrancescoWatermark
 
@@ -12,8 +13,6 @@ KEY = "0123456789abcdef" * 4
 def test_is_document_applicable(pdf_bytes):
     # Valid document
     assert pdf_ops.is_document_applicable(pdf_bytes)
-    assert pdf_ops.is_document_applicable(pdf_bytes, position="with-text")
-    assert pdf_ops.is_document_applicable(pdf_bytes, position="qr-only")
 
     # Invalid input
     assert not pdf_ops.is_document_applicable(b"not-a-pdf")

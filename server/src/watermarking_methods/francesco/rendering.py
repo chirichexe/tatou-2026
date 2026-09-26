@@ -8,7 +8,6 @@ from __future__ import annotations
 import hashlib
 import io
 import random
-from collections.abc import Sequence
 from typing import Final
 
 import pymupdf as fitz
@@ -22,18 +21,12 @@ from PIL import Image, ImageDraw, ImageFont
 DEFAULT_ALPHA_BG: Final[int] = 255
 DEFAULT_ALPHA_DARK: Final[int] = 255
 # ~10% of the shortest page dimension (about 2 cm on A4): at 6% a code has
-# fewer than 2 pixels per module at READ_DPI and did not decode reliably
+# fewer than 2 pixels per module at the 300 DPI read resolution and did not decode reliably
 DEFAULT_QR_FRACTION: Final[float] = 0.10
 DEFAULT_VISIBLE_TEXT_COUNT: Final[int] = 6
 VISIBLE_TEXT_ALPHA: Final[int] = 145
 VISIBLE_TEXT_STROKE_ALPHA: Final[int] = 165
 VISIBLE_TEXT_CHUNK_SIZE: Final[int] = 32
-
-# Default fallback placement fractions for QR codes (x, y)
-QR_COORDINATES: Final[Sequence[tuple[float, float]]] = (
-    (0.04, 0.23),
-    (0.74, 0.40),
-)
 
 # -----------------------------------------------------------------------------
 # Geometry & Collision Avoidance
@@ -90,39 +83,6 @@ def boxes_overlap(
 # -----------------------------------------------------------------------------
 # QR Code Generation & Styling
 # -----------------------------------------------------------------------------
-def build_opaque_qr_image(
-    payload: str,
-    width: int,
-    height: int,
-    alpha_bg: int = DEFAULT_ALPHA_BG,
-    alpha_dark: int = DEFAULT_ALPHA_DARK,
-    qr_fraction: float = DEFAULT_QR_FRACTION,
-) -> Image.Image:
-    """Generate a compact, high-contrast QR code with an opaque background."""
-    barcode = zxingcpp.create_barcode(
-        payload,
-        zxingcpp.BarcodeFormat.QRCode,
-        ec_level="H",
-    )
-    raw_img = barcode.to_image(scale=6)
-    qr_mask = Image.fromarray(raw_img).convert("L")
-
-    qr_side = max(100, min(int(width * qr_fraction), int(height * qr_fraction)))
-    qr_mask = qr_mask.resize((qr_side, qr_side), Image.Resampling.NEAREST)
-
-    dark_layer = Image.new("RGBA", qr_mask.size, (15, 25, 35, alpha_dark))
-    light_layer = Image.new("RGBA", qr_mask.size, (255, 255, 255, alpha_bg))
-
-    qr_layer = Image.composite(light_layer, dark_layer, qr_mask)
-
-    border = max(6, qr_side // 16)
-    total_side = qr_side + 2 * border
-    backed = Image.new("RGBA", (total_side, total_side), (255, 255, 255, alpha_bg))
-    backed.paste(qr_layer, (border, border), qr_layer)
-
-    return backed
-
-
 def build_opaque_qr_bytes(
     payload: str,
     target_pixel_size: int = 240,
@@ -136,7 +96,7 @@ def build_opaque_qr_bytes(
         ec_level="H",
     )
     # Integer pixels per module: resizing to an arbitrary size makes modules
-    # uneven, and about half of the codes then failed to decode at READ_DPI.
+    # uneven, and about half of the codes then failed to decode at 300 DPI.
     modules = barcode.to_image(scale=1).shape[0]
     raw_img = barcode.to_image(scale=max(1, target_pixel_size // modules))
     qr_mask = Image.fromarray(raw_img).convert("L")
@@ -153,11 +113,6 @@ def build_opaque_qr_bytes(
     buffer = io.BytesIO()
     backed.save(buffer, format="PNG")
     return buffer.getvalue()
-
-
-def build_qr_image(payload: str, width: int, height: int) -> Image.Image:
-    """Compatibility wrapper generating the opaque QR image."""
-    return build_opaque_qr_image(payload, width, height)
 
 
 def generate_random_qr_rects(
@@ -233,61 +188,41 @@ def generate_random_qr_rects(
     return chosen
 
 
-def compute_dynamic_qr_coordinates(
-    seed_material: bytes,
-    width: int,
-    height: int,
+def generate_edge_qr_rects(
+    page_width: float,
+    page_height: float,
+    count: int = 2,
+    seed_material: bytes | None = None,
     qr_fraction: float = DEFAULT_QR_FRACTION,
-) -> tuple[tuple[float, float], tuple[float, float]]:
-    """Compute pseudo-random, non-overlapping normalized coordinates for 2 QR codes."""
-    rects = generate_random_qr_rects(
-        float(width),
-        float(height),
-        count=2,
-        placed_boxes=[],
-        seed_material=seed_material,
-        qr_fraction=qr_fraction,
-    )
-    return (
-        (rects[0][0] / width, rects[0][1] / height),
-        (rects[1][0] / width, rects[1][1] / height),
-    )
+) -> list[tuple[float, float, float, float]]:
+    """Place fixed-size QR boxes flush to page corners, allowing content overlap."""
+    if count < 1 or page_width <= 0 or page_height <= 0 or not 0 < qr_fraction <= 0.5:
+        raise ValueError("Invalid page dimensions or QR placement parameters")
 
+    side = min(page_width, page_height) * qr_fraction
+    if seed_material is None:
+        rng = random.Random()
+    else:
+        seed = int.from_bytes(
+            hashlib.sha256(seed_material + b"/qr-edge").digest()[:8], "big"
+        )
+        rng = random.Random(seed)
 
-def embed_qr_codes(
-    image: Image.Image,
-    payload: str,
-    coordinates: Sequence[tuple[float, float]] | None = None,
-    alpha_bg: int = DEFAULT_ALPHA_BG,
-    alpha_dark: int = DEFAULT_ALPHA_DARK,
-) -> Image.Image:
-    """Paste two redundant opaque QR codes."""
-    width, height = image.size
-    backed_qr = build_opaque_qr_image(
-        payload, width, height, alpha_bg=alpha_bg, alpha_dark=alpha_dark
-    )
-
-    result = image.convert("RGBA")
-    overlay = Image.new("RGBA", result.size, (0, 0, 0, 0))
-
-    coords = coordinates if coordinates is not None else QR_COORDINATES
-
-    for x_fraction, y_fraction in coords:
-        x = min(int(width * x_fraction), width - backed_qr.width)
-        y = min(int(height * y_fraction), height - backed_qr.height)
-        overlay.paste(backed_qr, (x, y), backed_qr)
-
-    return Image.alpha_composite(result, overlay).convert("RGB")
-
-
-def detect_qr_payloads(image: Image.Image) -> list[str]:
-    """Scan image with zxingcpp and return all decoded text strings."""
-    rgb_img = image.convert("RGB")
-    results = zxingcpp.read_barcodes(rgb_img)
-    return [r.text for r in results if r.text]
-
-
-apply_qr_codes = embed_qr_codes
+    x_positions = (0.0, page_width - side)
+    y_positions = (0.0, page_height - side)
+    corners = [
+        (x, y, x + side, y + side)
+        for y in y_positions
+        for x in x_positions
+    ]
+    rng.shuffle(corners)
+    chosen: list[tuple[float, float, float, float]] = []
+    for candidate in corners:
+        if all(not boxes_overlap(candidate, placed) for placed in chosen):
+            chosen.append(candidate)
+            if len(chosen) == count:
+                return chosen
+    raise ValueError("Not enough distinct page corners for QR codes")
 
 
 def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -455,45 +390,19 @@ def stamp_random_native_visible_text(
     return chosen_boxes
 
 
-def stamp_native_visible_text(
-    page: fitz.Page,
-    label: str,
-    placed_boxes: list[tuple[float, float, float, float]],
-    fontsize: float = 22.0,
-    rotate: int = 30,
-) -> None:
-    """Compatibility wrapper calling stamp_random_native_visible_text."""
-    stamp_random_native_visible_text(
-        page=page,
-        label=label,
-        placed_boxes=placed_boxes,
-        count=DEFAULT_VISIBLE_TEXT_COUNT,
-        fontsize=fontsize,
-        rotate=rotate,
-    )
-
-
 __all__ = [
     # Constants
     "DEFAULT_ALPHA_BG",
     "DEFAULT_ALPHA_DARK",
     "DEFAULT_QR_FRACTION",
     "DEFAULT_VISIBLE_TEXT_COUNT",
-    "QR_COORDINATES",
-    "apply_qr_codes",
     # Geometry & collision
     "boxes_overlap",
     "build_opaque_qr_bytes",
     "collect_page_content_boxes",
     # QR code operations
-    "build_opaque_qr_image",
-    "build_qr_image",
-    "compute_dynamic_qr_coordinates",
-    "detect_qr_payloads",
-    "embed_qr_codes",
     # Text operations
     "generate_random_qr_rects",
     "load_font",
-    "stamp_native_visible_text",
     "stamp_random_native_visible_text",
 ]

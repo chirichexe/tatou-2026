@@ -6,20 +6,15 @@ import io
 
 import pymupdf as fitz
 import pytest
-from watermarking_methods.francesco import rendering
 from PIL import Image
+
+from watermarking_methods.francesco import rendering
 
 KEY = "0123456789abcdef" * 4
 
 
-def test_qr_image_and_png_bytes_are_opaque():
+def test_qr_png_bytes_are_opaque():
     payload = "FWM1:v1.testpayload"
-    img = rendering.build_opaque_qr_image(payload, width=1000, height=1000)
-    assert isinstance(img, Image.Image)
-    assert img.mode == "RGBA"
-    assert img.getchannel("A").getextrema() == (255, 255)
-
-    # Verify PNG bytes generation for native PyMuPDF stamping
     png_bytes = rendering.build_opaque_qr_bytes(payload, target_pixel_size=240)
     assert isinstance(png_bytes, bytes)
     assert png_bytes.startswith(b"\x89PNG")

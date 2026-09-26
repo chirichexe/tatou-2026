@@ -19,7 +19,7 @@ def test_every_qr_decodes_whatever_the_random_salt(pdf_bytes):
     for _ in range(6):
         marked = method.add_watermark(pdf_bytes, SECRET, KEY)
         with fitz.open(stream=marked, filetype="pdf") as doc:
-            image = pdf_ops.rasterize_page(doc[0], dpi=pdf_ops.READ_DPI)
+            image = pdf_ops.rasterize_page(doc[0], dpi=pdf_ops.DEFAULT_DPI)
         codes = zxingcpp.read_barcodes(image, formats=zxingcpp.BarcodeFormat.QRCode)
         assert [crypto.decrypt_qr_payload(code.text, KEY) for code in codes] == [SECRET, SECRET]
 
@@ -30,24 +30,29 @@ def _dense_page(doc: fitz.Document) -> None:
         page.insert_text((2, 10 + row * 10), "busy " * 40, fontsize=9)
 
 
-def test_dense_page_gets_labels_only_and_other_pages_keep_their_codes(pdf_bytes):
+def test_dense_page_falls_back_to_fixed_size_edge_codes(pdf_bytes):
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
         _dense_page(doc)
         mixed = doc.tobytes()
     method = FrancescoWatermark()
     marked = method.add_watermark(mixed, SECRET, KEY)
     with fitz.open(stream=marked, filetype="pdf") as doc:
-        found = [len(zxingcpp.read_barcodes(pdf_ops.rasterize_page(page, dpi=pdf_ops.READ_DPI),
+        found = [len(zxingcpp.read_barcodes(pdf_ops.rasterize_page(page, dpi=pdf_ops.DEFAULT_DPI),
                                             formats=zxingcpp.BarcodeFormat.QRCode)) for page in doc]
-    assert found == [2, 0]
+    assert found == [2, 2]
     assert method.read_secret(marked, KEY) == SECRET
 
 
-def test_no_room_on_any_page_is_rejected():
-    import pytest
-
+def test_no_room_on_any_page_uses_edge_codes():
     with fitz.open() as doc:
         _dense_page(doc)
         dense = doc.tobytes()
-    with pytest.raises(ValueError, match="No text-free border"):
-        FrancescoWatermark().add_watermark(dense, SECRET, KEY)
+    method = FrancescoWatermark()
+    marked = method.add_watermark(dense, SECRET, KEY)
+    with fitz.open(stream=marked, filetype="pdf") as doc:
+        codes = zxingcpp.read_barcodes(
+            pdf_ops.rasterize_page(doc[0], dpi=pdf_ops.DEFAULT_DPI),
+            formats=zxingcpp.BarcodeFormat.QRCode,
+        )
+    assert len(codes) == 2
+    assert method.read_secret(marked, KEY) == SECRET

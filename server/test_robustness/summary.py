@@ -17,7 +17,8 @@ def mark(value: str | None) -> str:
 
 
 def main():
-    results = json.load(open(sys.argv[1]))["results"]
+    with open(sys.argv[1], encoding="utf-8") as result_file:
+        results = json.load(result_file)["results"]
     cols = [c for c in COLUMNS if any(c[1] in r.get(c[0], {}) for r in results.values())]
     print(f"{'attack':32s} " + " ".join(f"{c[2]:>5s}" for c in cols))
     survived = {c[2]: 0 for c in cols}

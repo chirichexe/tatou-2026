@@ -13,14 +13,19 @@ from statistics import NormalDist
 import numpy as np
 import pymupdf as fitz
 import pytest
+from attacks import ATTACKS, KNOWN_FAILURES, edit_image
+from photos import make_photo, photo_pdf
 from PIL import Image
 
 import watermarking_methods.davide.method as method_module
-from attacks import ATTACKS, KNOWN_FAILURES, edit_image
-from watermarking_methods.davide.image import embed_payload, read_votes, vote
-from watermarking_methods.davide.method import DavideWatermark, _images, _replace_image, encrypt
-from photos import make_photo, photo_pdf
 from watermarking_method import InvalidKeyError, SecretNotFoundError, WatermarkingError
+from watermarking_methods.davide.image import embed_payload, read_votes, vote
+from watermarking_methods.davide.method import (
+    DavideWatermark,
+    _images,
+    _replace_image,
+    encrypt,
+)
 from watermarking_utils import METHODS, apply_watermark, read_watermark
 
 KEY = "rmap-server-key"

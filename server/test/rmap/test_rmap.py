@@ -7,6 +7,7 @@ import pytest
 from rmap import RMAPClient
 from rmap.keygen import generate_keypair
 from sqlalchemy import create_engine, text
+
 from watermarking_method import WatermarkingError
 from watermarking_utils import read_watermark
 

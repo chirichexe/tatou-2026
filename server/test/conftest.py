@@ -1,4 +1,5 @@
 import pytest
+
 from watermarking_methods.add_after_eof import AddAfterEOF
 
 

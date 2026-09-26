@@ -9,11 +9,11 @@ import pymupdf as fitz
 import pytest
 from PIL import Image
 
+from watermarking_method import SecretNotFoundError, WatermarkingError
 from watermarking_methods.davide.method import DavideWatermark
 from watermarking_methods.group13 import Group13Watermark
 from watermarking_methods.group13.method import MAX_SECRET_BYTES
 from watermarking_methods.khaled import KhaledTextSpacingWatermark
-from watermarking_method import SecretNotFoundError, WatermarkingError
 from watermarking_utils import METHODS, apply_watermark, read_watermark
 
 SECRET = "Group_07:da0bb583c432fbfd078959ecc9b62902"

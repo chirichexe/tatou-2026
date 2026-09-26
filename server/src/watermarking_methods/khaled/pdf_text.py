@@ -12,7 +12,6 @@ from dataclasses import dataclass
 
 import pymupdf as fitz
 
-
 _WHITE = b"\x00\x09\x0a\x0c\x0d\x20"
 _DELIMITERS = _WHITE + b"()<>[]{}/%"
 _NUMBER = re.compile(rb"[+-]?(?:\d+(?:\.\d*)?|\.\d+)\Z")

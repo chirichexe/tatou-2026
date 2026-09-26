@@ -7,16 +7,17 @@ from pathlib import Path
 from uuid import uuid4
 
 import fitz
-import watermarking_utils as WMUtils
 from flask import Flask, g, jsonify, request, send_file
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
-from login_rate_limit import LoginRateLimited, LoginRateLimiter
 from rmap import RMAPError, RMAPServer
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
+
+import watermarking_utils as WMUtils
+from login_rate_limit import LoginRateLimited, LoginRateLimiter
 from watermarking_method import WatermarkingError
 
 #from watermarking_utils import METHODS, apply_watermark, read_watermark, explore_pdf, is_watermarking_applicable, get_method
@@ -72,8 +73,6 @@ def create_app():
     app.config["RMAP_WATERMARK_METHOD"] = os.environ.get(
         "RMAP_WATERMARK_METHOD", "group13-watermark"
     ).strip() or "group13-watermark"
-    if app.config["RMAP_WATERMARK_METHOD"] != "group13-watermark":
-        raise RuntimeError("RMAP_WATERMARK_METHOD must be group13-watermark")
     app.config["RMAP_WATERMARK_KEY"] = os.environ.get(
         "RMAP_WATERMARK_KEY", ""
     )

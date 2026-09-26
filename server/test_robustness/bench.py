@@ -70,7 +70,8 @@ def run_one(job):
 def main():
     source, out = sys.argv[1], sys.argv[2]
     kinds = sys.argv[3].split(",") if len(sys.argv) > 3 else list(METHODS)
-    original = open(source, "rb").read()
+    with open(source, "rb") as source_file:
+        original = source_file.read()
     marked = {}
     for kind in kinds:
         try:

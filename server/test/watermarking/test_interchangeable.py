@@ -10,7 +10,12 @@ import pytest
 from PIL import Image
 
 from watermarking_method import WatermarkingError
-from watermarking_utils import METHODS, apply_watermark, is_watermarking_applicable, read_watermark
+from watermarking_utils import (
+    METHODS,
+    apply_watermark,
+    is_watermarking_applicable,
+    read_watermark,
+)
 
 SECRET = "Group_07:da0bb583c432fbfd078959ecc9b62902"
 KEY = "test-only-interchangeable-key"

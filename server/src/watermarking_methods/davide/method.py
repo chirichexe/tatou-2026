@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import logging
 from collections.abc import Iterator
 
 import numpy as np
@@ -38,6 +39,8 @@ from .image import (
     read_votes,
     vote,
 )
+
+logger = logging.getLogger(__name__)
 
 # the server runs a single worker: bigger images are skipped and every
 # document has a total budget of pixels
@@ -91,7 +94,8 @@ def _images(doc) -> Iterator[tuple[int, Image.Image]]:
                 continue
             try:
                 img = Image.open(io.BytesIO(doc.extract_image(xref)["image"])).convert("RGB")
-            except Exception:
+            except (KeyError, OSError, RuntimeError, ValueError) as error:
+                logger.debug("Skipping unreadable PDF image %s: %s", xref, error)
                 continue
 
             budget -= width * height
@@ -149,7 +153,7 @@ class DavideWatermark(WatermarkingMethod):
         try:
             with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
                 return not doc.is_encrypted and any(capacity(img) >= needed for _, img in _images(doc))
-        except Exception:
+        except (OSError, RuntimeError, TypeError, ValueError):
             return False
 
     @classmethod
