@@ -7,6 +7,7 @@ import itertools
 import re
 import shutil
 import subprocess
+import time
 from collections import Counter
 from difflib import SequenceMatcher
 
@@ -16,6 +17,7 @@ from PIL import Image
 from watermarking_method import InvalidKeyError, WatermarkingError
 
 from . import crypto
+from .rendering import DEFAULT_VISIBLE_TEXT_COUNT
 
 _PAYLOAD_PATTERN = re.compile(r"[A-Za-z2-7]{44,200}", re.IGNORECASE)
 _LABEL_PAYLOAD_PATTERN = re.compile(
@@ -25,9 +27,17 @@ _BASE32_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567"
 # 0, 1, 8 and 9 are not Base32: allowing them lets Tesseract read "o" as "0"
 # or "l" as "1" (sometimes both, "o0"), which splits or lengthens the payload
 _OCR_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz234567_-"
+# OCR runs whenever no QR code authenticates, i.e. on any uploaded PDF, so its
+# cost is capped: the labels repeat on every page, the first pages are enough
+_MAX_OCR_PAGES = 2
+_MAX_LABEL_CROPS = DEFAULT_VISIBLE_TEXT_COUNT
+_OCR_BUDGET_SECONDS = 60.0
 
 
-def _ocr(image: Image.Image) -> str:
+def _ocr(image: Image.Image, deadline: float) -> str:
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        return ""
     executable = shutil.which("tesseract")
     if executable is None:
         raise WatermarkingError("Visible watermark OCR requires Tesseract")
@@ -51,9 +61,11 @@ def _ocr(image: Image.Image) -> str:
             input=buffer.getvalue(),
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            timeout=30,
+            timeout=min(30.0, remaining),
             check=False,
         )
+    except subprocess.TimeoutExpired:
+        return ""
     except (OSError, subprocess.SubprocessError) as error:
         raise WatermarkingError("Visible watermark OCR failed") from error
     if completed.returncode != 0:
@@ -136,7 +148,10 @@ def read_visible_secrets(document: fitz.Document, key: str) -> set[str]:
         raise WatermarkingError("Visible watermark OCR requires Tesseract")
 
     found: set[str] = set()
-    for page in document:
+    deadline = time.monotonic() + _OCR_BUDGET_SECONDS
+    for page in itertools.islice(document, _MAX_OCR_PAGES):
+        if time.monotonic() >= deadline:
+            break
         dpi = 300
         pixmap = page.get_pixmap(dpi=dpi, colorspace=fitz.csRGB, alpha=False)
         image = Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
@@ -147,7 +162,7 @@ def read_visible_secrets(document: fitz.Document, key: str) -> set[str]:
             resample=Image.Resampling.BICUBIC,
             fillcolor="white",
         )
-        text_parts = [_ocr(prepared_page)]
+        text_parts = [_ocr(prepared_page, deadline)]
         seen_boxes = set()
         for image_info in page.get_images(full=True):
             xref = image_info[0]
@@ -160,7 +175,7 @@ def read_visible_secrets(document: fitz.Document, key: str) -> set[str]:
                     min(image.width, round(rect.x1 * scale) + 8),
                     min(image.height, round(rect.y1 * scale) + 8),
                 )
-                if box in seen_boxes:
+                if box in seen_boxes or len(seen_boxes) >= _MAX_LABEL_CROPS:
                     continue
                 seen_boxes.add(box)
                 label_image = image.crop(box).rotate(
@@ -169,7 +184,7 @@ def read_visible_secrets(document: fitz.Document, key: str) -> set[str]:
                     resample=Image.Resampling.BICUBIC,
                     fillcolor="white",
                 )
-                text_parts.append(_ocr(label_image))
+                text_parts.append(_ocr(label_image, deadline))
 
         text = "\n".join(text_parts)
         candidates = _candidate_payloads(text)
@@ -199,5 +214,8 @@ def read_visible_secrets(document: fitz.Document, key: str) -> set[str]:
                     break
                 except InvalidKeyError:
                     continue
+
+        if found:
+            break
 
     return found

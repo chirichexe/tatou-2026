@@ -194,3 +194,25 @@ def test_combined_structural_and_visual_watermarks(structural_carrier_pdf):
 
     assert recovered_structural == structural_secret
     assert recovered_visual == visual_secret
+
+
+def test_visible_label_ocr_is_bounded_on_hostile_pdfs(monkeypatch):
+    from watermarking_methods.francesco import visible
+
+    calls: list[None] = []
+    monkeypatch.setattr(visible.shutil, "which", lambda _name: "/usr/bin/tesseract")
+    monkeypatch.setattr(visible, "_ocr", lambda _image, _deadline: calls.append(None) or "")
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (400, 100), "white").save(buffer, format="PNG")
+    with fitz.open() as document:
+        for _ in range(10):
+            page = document.new_page(width=595, height=842)
+            for index in range(40):
+                page.insert_image(
+                    fitz.Rect(20, 20 + index * 20, 220, 60 + index * 20), stream=buffer.getvalue(),
+                )
+        assert visible.read_visible_secrets(document, KEY) == set()
+
+    max_calls = visible._MAX_OCR_PAGES * (1 + visible._MAX_LABEL_CROPS)
+    assert len(calls) == max_calls
