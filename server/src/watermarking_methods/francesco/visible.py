@@ -16,11 +16,11 @@ from watermarking_method import WatermarkingError
 from . import crypto
 
 _OCR_PATTERN = re.compile(
-    rf"FWM1-([{crypto.VISIBLE_ALPHABET}]{{2}})-"
+    rf"(?:FWM1-)?([{crypto.VISIBLE_ALPHABET}]{{2}})-"
     rf"([{crypto.VISIBLE_ALPHABET}W1]{{40,220}})"
 )
 _OCR_HEADER_PATTERN = re.compile(
-    rf"FWM1-([{crypto.VISIBLE_ALPHABET}]{{2}})-"
+    rf"(?:FWM1-)?([{crypto.VISIBLE_ALPHABET}]{{2}})-"
 )
 _OCR_WHITELIST = f"FWM1-{crypto.VISIBLE_ALPHABET}"
 
@@ -87,9 +87,7 @@ def _tokens_from_ocr(text: str) -> set[str]:
             )
             for observed_length in (encoded_length - 1, encoded_length, encoded_length + 1):
                 if observed_length >= 40 and len(encoded) >= observed_length:
-                    tokens.add(
-                        f"FWM1-{length_pair}-{encoded[:observed_length]}"
-                    )
+                    tokens.add(f"{length_pair}-{encoded[:observed_length]}")
     return tokens
 
 
@@ -159,7 +157,7 @@ def decrypt_visible_tokens(tokens: Iterable[str], key: str) -> set[str]:
             continue
 
         for candidate in candidates:
-            corrected = f"FWM1-{length_pair}-{candidate}"
+            corrected = f"{length_pair}-{candidate}"
             try:
                 payload = crypto.visible_token_to_qr_payload(corrected)
                 secrets.add(crypto.decrypt_qr_payload(payload, key))

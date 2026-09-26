@@ -582,7 +582,12 @@ def test_khaled_text_watermark_runs_alone_through_api(file_app):
     secret = "Group_13:" + "a" * 32
     key = "test-only-standalone-api-key"
     methods = env.client.get("/api/get-watermarking-methods").get_json()
-    assert [item["name"] for item in methods["methods"]] == ["group13-watermark"]
+    assert [item["name"] for item in methods["methods"]] == [
+        "davide-watermark",
+        "francesco-watermark",
+        "khaled-text-spacing-watermark",
+        "group13-watermark",
+    ]
 
     created = env.client.post(
         "/api/create-watermark/42", headers=env.headers(),

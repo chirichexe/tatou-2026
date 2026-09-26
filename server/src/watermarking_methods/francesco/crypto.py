@@ -16,18 +16,18 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from watermarking_method import InvalidKeyError
 
-_VERSION: Final[bytes] = b"FWM1"
+_VERSION: Final[bytes] = b"\x01"
+_LEGACY_VERSION: Final[bytes] = b"FWM1"
 _AES_KEY_DOMAIN: Final[bytes] = b"tatou/francesco-watermark/aes-siv-key/v1\0"
 SALT_BYTES: Final[int] = 16
 
 HEX_KEY_PATTERN: Final[re.Pattern[str]] = re.compile(r"[0-9a-fA-F]{64}\Z")
 BASE64_URL_PATTERN: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9_-]+")
-VISIBLE_PREFIX: Final[str] = "FWM1-"
 # Sixteen glyphs selected to avoid common OCR pairs such as 0/O, 1/I/L,
 # 5/S, 6/G, 7/T, 8/B, J/U, and Q/O.
 VISIBLE_ALPHABET: Final[str] = "ABCDEFGHJKMNPRST"
 VISIBLE_TOKEN_PATTERN: Final[re.Pattern[str]] = re.compile(
-    rf"FWM1-([{VISIBLE_ALPHABET}]{{2}})-([{VISIBLE_ALPHABET}]+)\Z"
+    rf"(?:FWM1-)?([{VISIBLE_ALPHABET}]{{2}})-([{VISIBLE_ALPHABET}]+)\Z"
 )
 
 
@@ -107,7 +107,12 @@ def decrypt_qr_payload(payload: str, key: str) -> str:
         if base64.urlsafe_b64encode(ciphertext).rstrip(b"=").decode("ascii") != encoded:
             raise ValueError("Noncanonical QR encoding")
         aes_key = derive_aes_key(key)
-        plaintext = AESSIV(aes_key).decrypt(ciphertext, [_VERSION])
+        try:
+            plaintext = AESSIV(aes_key).decrypt(ciphertext, [_VERSION])
+        except InvalidTag:
+            # Read payloads written before the visible format stopped carrying
+            # the old version marker. New payloads use only the numeric version.
+            plaintext = AESSIV(aes_key).decrypt(ciphertext, [_LEGACY_VERSION])
     except (InvalidTag, ValueError, UnicodeError, binascii.Error) as exc:
         raise InvalidKeyError("Francesco-watermark QR authentication failed") from exc
 
@@ -138,7 +143,7 @@ def qr_payload_to_visible_token(payload: str) -> str:
         return VISIBLE_ALPHABET[value >> 4] + VISIBLE_ALPHABET[value & 0x0F]
 
     encoded = "".join(encode_byte(value) for value in ciphertext)
-    return f"{VISIBLE_PREFIX}{encode_byte(len(ciphertext))}-{encoded}"
+    return f"{encode_byte(len(ciphertext))}-{encoded}"
 
 
 def visible_token_to_qr_payload(token: str) -> str:

@@ -185,16 +185,19 @@ RMAP_SERVER_KEY_PASSPHRASE_FILE=/app/rmap-keys/server_passphrase
 
 `RMAP_DOCUMENT_ID` is the confidential source document already stored in Tatou.
 Every completed handshake produces a new version, watermarked with the peer's
-identity and session link, records it with the generated 32-character link,
-and returns that link. RMAP defaults to `group13-watermark`, the only method
-exposed for selection. Operators and method-specific tests can override
-`RMAP_WATERMARK_METHOD` with another registered method. The three component
-remain registered for direct `create-watermark` and `read-watermark` calls, as
-well as for the combined pipeline to apply and read their layers:
+session link as its sole watermark secret, records the peer identity separately
+as version metadata, and returns the generated link. RMAP defaults to
+`group13-watermark` for newly issued copies. The manual watermark interface offers four choices: each of the three
+component methods individually, or the combined method. Operators can still
+override `RMAP_WATERMARK_METHOD` for RMAP. The three component methods are
+also used by the combined pipeline:
 
 | Method | Carrier |
 |---|---|
-| `group13-watermark` | image, selectable-text spacing, QR and visible-label layers |
+| `davide-watermark` | PDF images |
+| `francesco-watermark` | QR codes and visible ciphertext labels |
+| `khaled-text-spacing-watermark` | spacing between selectable text glyphs |
+| `group13-watermark` | all three component methods |
 
 Layers that do not fit the PDF are skipped, and the combined reader can still
 read copies carrying a compatible component layer. The fingerprint attributes

@@ -93,7 +93,7 @@ def test_rmap_issues_distinct_versions_with_all_layers(tmp_path, monkeypatch):
             row = conn.execute(text("SELECT * FROM Versions WHERE link = :link"),
                                {"link": link}).one()
         assert row.method == METHOD
-        assert row.secret == f"Group_13:{link}"
+        assert row.secret == link
         assert read_watermark(METHOD, row.path, "test-only-rmap-watermark-key") == row.secret
         for layer in LAYERS:
             assert read_watermark(layer, row.path, "test-only-rmap-watermark-key") == row.secret

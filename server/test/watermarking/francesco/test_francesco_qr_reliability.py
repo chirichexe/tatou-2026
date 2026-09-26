@@ -21,7 +21,7 @@ def test_every_qr_decodes_whatever_the_random_salt(pdf_bytes):
         with fitz.open(stream=marked, filetype="pdf") as doc:
             image = pdf_ops.rasterize_page(doc[0], dpi=pdf_ops.DEFAULT_DPI)
         codes = zxingcpp.read_barcodes(image, formats=zxingcpp.BarcodeFormat.QRCode)
-        assert [crypto.decrypt_qr_payload(code.text, KEY) for code in codes] == [SECRET, SECRET]
+        assert [crypto.decrypt_qr_payload(code.text, KEY) for code in codes] == [SECRET]
 
 
 def _dense_page(doc: fitz.Document) -> None:
@@ -39,7 +39,7 @@ def test_dense_page_falls_back_to_fixed_size_edge_codes(pdf_bytes):
     with fitz.open(stream=marked, filetype="pdf") as doc:
         found = [len(zxingcpp.read_barcodes(pdf_ops.rasterize_page(page, dpi=pdf_ops.DEFAULT_DPI),
                                             formats=zxingcpp.BarcodeFormat.QRCode)) for page in doc]
-    assert found == [2, 2]
+    assert found == [1, 1]
     assert method.read_secret(marked, KEY) == SECRET
 
 
@@ -54,5 +54,5 @@ def test_no_room_on_any_page_uses_edge_codes():
             pdf_ops.rasterize_page(doc[0], dpi=pdf_ops.DEFAULT_DPI),
             formats=zxingcpp.BarcodeFormat.QRCode,
         )
-    assert len(codes) == 2
+    assert len(codes) == 1
     assert method.read_secret(marked, KEY) == SECRET

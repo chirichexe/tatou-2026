@@ -11,6 +11,7 @@ from sqlalchemy import create_engine, text
 from watermarking_method import WatermarkingError
 from watermarking_utils import read_watermark
 
+
 def _write_keypair(directory, stem, name, passphrase=None):
     key = generate_keypair(name, f"{stem}@example.test", passphrase=passphrase)
     private = directory / f"{stem}_private.asc"
@@ -104,7 +105,7 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
                     text("SELECT * FROM Versions WHERE link = :link"), {"link": link},
                 ).one()
             assert version.intended_for == "Group_01"
-            assert version.secret == f"Group_01:{link}"
+            assert version.secret == link
             assert version.method == "group13-watermark"
             assert read_watermark("group13-watermark", version.path, "test-watermark-key") == version.secret
             assert read_watermark("khaled-text-spacing-watermark", version.path, "test-watermark-key") == version.secret

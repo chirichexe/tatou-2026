@@ -54,7 +54,7 @@ def test_visible_token_reencodes_the_same_ciphertext():
     )
     token = crypto.qr_payload_to_visible_token(payload)
 
-    assert token.startswith("FWM1-")
+    assert not token.startswith("FWM1-")
     assert crypto.visible_token_to_qr_payload(token) == payload
     assert crypto.decrypt_qr_payload(
         crypto.visible_token_to_qr_payload(token), DUMMY_KEY
@@ -66,7 +66,7 @@ def test_visible_token_repairs_one_ocr_edit_only_after_authentication(edit):
     secret = "copy-token"
     payload = crypto.encrypt_qr_payload(secret, DUMMY_KEY, salt=b"visible-salt-001")
     token = crypto.qr_payload_to_visible_token(payload)
-    prefix, length_pair, encoded = token.split("-", maxsplit=2)
+    length_pair, encoded = token.split("-", maxsplit=1)
     offset = len(encoded) // 2
 
     if edit == "substitute":
@@ -81,7 +81,7 @@ def test_visible_token_repairs_one_ocr_edit_only_after_authentication(edit):
     else:
         observed = encoded[:offset] + encoded[offset + 1 :]
 
-    damaged = f"{prefix}-{length_pair}-{observed}"
+    damaged = f"{length_pair}-{observed}"
     assert visible.decrypt_visible_tokens([damaged], DUMMY_KEY) == {secret}
     assert visible.decrypt_visible_tokens([damaged], OTHER_DUMMY_KEY) == set()
 

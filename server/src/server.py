@@ -368,7 +368,7 @@ def create_app():
             )
             if not source_path.is_file():
                 return jsonify({"error": "RMAP document missing on disk"}), 410
-            watermark_secret = f"{identity}:{expected_link}"
+            watermark_secret = expected_link
             wm_bytes = WMUtils.apply_watermark(
                 pdf=str(source_path),
                 secret=watermark_secret,
@@ -1113,13 +1113,21 @@ def create_app():
     # GET /api/get-watermarking-methods -> {"methods":[{"name":..., "description":...}, ...], "count":N}
     @app.get("/api/get-watermarking-methods")
     def get_watermarking_methods():
-        # RMAP issues PDFs with all three layers; component methods remain
-        # registered internally for decoding existing documents and tests.
-        method = "group13-watermark"
-        methods = [{
-            "name": method,
-            "description": WMUtils.get_method(method).get_usage(),
-        }]
+        # The manual watermarking interface offers each component and the
+        # combined method. RMAP's own default remains group13-watermark.
+        method_names = (
+            "davide-watermark",
+            "francesco-watermark",
+            "khaled-text-spacing-watermark",
+            "group13-watermark",
+        )
+        methods = [
+            {
+                "name": name,
+                "description": WMUtils.get_method(name).get_usage(),
+            }
+            for name in method_names
+        ]
         return jsonify({"methods": methods, "count": len(methods)}), 200
         
     def _fingerprint_attribution(method, key: str, leaked_path: Path):

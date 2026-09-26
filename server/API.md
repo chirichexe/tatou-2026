@@ -346,11 +346,12 @@ _None_
 ```
 
 **Specification**
- * The endpoint MUST expose only `group13-watermark` as an available choice.
- * The server may use another registered method when explicitly configured with
-   `RMAP_WATERMARK_METHOD`.
- * The three component methods can still be supplied explicitly to
-   `create-watermark` and `read-watermark` for standalone use.
+ * The endpoint exposes exactly four choices: `davide-watermark`,
+   `francesco-watermark`, `khaled-text-spacing-watermark`, and
+   `group13-watermark` (the combined method).
+ * `group13-watermark` applies the three component methods with the same
+   secret and key. RMAP continues to default to this combined method; its
+   configured method is independent of the manual watermarking interface.
  
    ## read-watermark
  

@@ -117,12 +117,11 @@ def test_layer_toggles_and_prerequisites(pdf_bytes, monkeypatch):
     assert method.read_secret(watermarked_default, KEY) == "copy-id"
     with fitz.open(stream=watermarked_default, filetype="pdf") as doc:
         images = doc[0].get_images(full=True)
-        assert len(images) >= 8
-        assert any(image[2] != image[3] for image in images)
+        assert any(image[2] == image[3] for image in images)
 
 
 @needs_ocr
-def test_qr_and_visible_layers_use_three_distinct_ciphertexts(pdf_bytes, monkeypatch):
+def test_qr_and_visible_layers_use_distinct_ciphertexts(pdf_bytes, monkeypatch):
     method = FrancescoWatermark()
     secret = "copy-with-three-ciphertexts"
     encrypted_payloads: list[str] = []
@@ -148,16 +147,16 @@ def test_qr_and_visible_layers_use_three_distinct_ciphertexts(pdf_bytes, monkeyp
         }
         visible_tokens = visible.extract_visible_tokens(document)
 
-    assert len(encrypted_payloads) == 3
-    assert len(set(encrypted_payloads)) == 3
-    assert qr_payloads == set(encrypted_payloads[:2])
+    assert len(encrypted_payloads) == 2
+    assert len(set(encrypted_payloads)) == 2
+    assert qr_payloads == {encrypted_payloads[0]}
     assert visible_tokens
     assert visible.decrypt_visible_tokens(visible_tokens, KEY) == {secret}
     assert {
         crypto.decrypt_qr_payload(payload, KEY) for payload in qr_payloads
     } == {secret}
 
-    assert encrypted_payloads[2] not in qr_payloads
+    assert encrypted_payloads[1] not in qr_payloads
 
 
 @pytest.mark.parametrize(
@@ -177,8 +176,7 @@ def test_position_is_ignored_and_both_layers_stay_enabled(pdf_bytes, position):
 
     with fitz.open(stream=watermarked, filetype="pdf") as doc:
         images = doc[0].get_images(full=True)
-        assert len(images) >= 8
-        assert any(image[2] != image[3] for image in images)
+        assert any(image[2] == image[3] for image in images)
 
     assert method.read_secret(watermarked, KEY) == "copy-options"
 

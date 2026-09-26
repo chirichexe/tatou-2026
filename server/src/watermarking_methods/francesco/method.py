@@ -98,7 +98,7 @@ class FrancescoWatermark(WatermarkingMethod):
         enable_text = self.ENABLE_VISIBLE_TEXT
 
         qr_payloads = (
-            [self._payload(secret, key) for _ in range(2)] if enable_qr else []
+            [self._payload(secret, key)] if enable_qr else []
         )
         qr_images = [
             render_ops.build_opaque_qr_bytes(payload) for payload in qr_payloads
@@ -144,16 +144,16 @@ class FrancescoWatermark(WatermarkingMethod):
         content_boxes: list[tuple[float, float, float, float]],
         seed_material: bytes,
     ) -> list[tuple[float, float, float, float]]:
-        """Place two fixed-size codes, falling back to extreme page corners.
+        """Place one fixed-size code, falling back to an extreme page corner.
 
-        Free border positions are preferred. If the page is dense, the codes
-        retain the 10% size and may cover existing content at the corners.
+        Free border positions are preferred. If the page is dense, the code
+        retains the 10% size and may cover existing content at a corner.
         """
         try:
             return render_ops.generate_random_qr_rects(
                 page_width=page.rect.width,
                 page_height=page.rect.height,
-                count=2,
+                count=1,
                 placed_boxes=list(content_boxes),
                 seed_material=seed_material,
                 qr_fraction=render_ops.DEFAULT_QR_FRACTION,
@@ -162,7 +162,7 @@ class FrancescoWatermark(WatermarkingMethod):
             return render_ops.generate_edge_qr_rects(
                 page_width=page.rect.width,
                 page_height=page.rect.height,
-                count=2,
+                count=1,
                 seed_material=seed_material,
                 qr_fraction=render_ops.DEFAULT_QR_FRACTION,
             )

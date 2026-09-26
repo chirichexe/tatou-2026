@@ -24,8 +24,8 @@ DEFAULT_ALPHA_DARK: Final[int] = 255
 # fewer than 2 pixels per module at the 300 DPI read resolution and did not decode reliably
 DEFAULT_QR_FRACTION: Final[float] = 0.10
 DEFAULT_VISIBLE_TEXT_COUNT: Final[int] = 6
-VISIBLE_TEXT_ALPHA: Final[int] = 145
-VISIBLE_TEXT_STROKE_ALPHA: Final[int] = 165
+VISIBLE_TEXT_ALPHA: Final[int] = 110
+VISIBLE_TEXT_STROKE_ALPHA: Final[int] = 125
 VISIBLE_TEXT_CHUNK_SIZE: Final[int] = 32
 
 # -----------------------------------------------------------------------------
@@ -238,7 +238,7 @@ def stamp_random_native_visible_text(
     label: str,
     placed_boxes: list[tuple[float, float, float, float]],
     count: int = DEFAULT_VISIBLE_TEXT_COUNT,
-    fontsize: float = 10.0,
+    fontsize: float = 8.0,
     rotate: int = 30,
     seed_material: bytes | None = None,
     min_gap: float = 8.0,
