@@ -52,3 +52,17 @@ def test_rmap_secret_roundtrip():
     secret = "Group_07:da0bb583c432fbfd078959ecc9b62902"
     payload = crypto.encrypt_qr_payload(secret, DUMMY_KEY)
     assert crypto.decrypt_qr_payload(payload, DUMMY_KEY) == secret
+
+
+def test_visible_payload_uses_salted_aes_and_lowercase_base32():
+    secret = "Group_07:da0bb583c432fbfd078959ecc9b62902"
+    first = crypto.encrypt_visible_payload(secret, DUMMY_KEY)
+    second = crypto.encrypt_visible_payload(secret, DUMMY_KEY)
+
+    assert first != second
+    assert first == first.lower()
+    assert set(first) <= set("abcdefghijklmnopqrstuvwxyz234567")
+    assert crypto.decrypt_visible_payload(first, DUMMY_KEY) == secret
+    assert crypto.decrypt_visible_payload(second, DUMMY_KEY) == secret
+    with pytest.raises(InvalidKeyError):
+        crypto.decrypt_visible_payload(first, OTHER_DUMMY_KEY)
