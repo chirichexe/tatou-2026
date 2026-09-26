@@ -102,7 +102,7 @@ def test_survives_jpeg_raster_roundtrip(pdf_bytes):
     assert method.read_secret(candidate, KEY) == "copy-through-jpeg"
 
 
-def test_qr_encodes_the_secret_and_the_label_shows_it(pdf_bytes, monkeypatch):
+def test_qr_and_label_encode_the_secret(pdf_bytes, monkeypatch):
     method = FrancescoWatermark()
     secret = "Group_07:da0bb583c432fbfd078959ecc9b62902"
     labels: list[str] = []
@@ -113,7 +113,7 @@ def test_qr_encodes_the_secret_and_the_label_shows_it(pdf_bytes, monkeypatch):
         return original_stamp(**kwargs)
 
     monkeypatch.setattr(rendering, "stamp_random_native_visible_text", capture_label)
-    watermarked = method.add_watermark(pdf_bytes, secret, KEY)
+    watermarked = method.add_watermark(pdf_bytes, secret, KEY, intended_for="Group_07")
 
     with fitz.open(stream=watermarked, filetype="pdf") as document:
         pixmap = document[0].get_pixmap(dpi=300, colorspace=fitz.csRGB, alpha=False)
@@ -125,11 +125,34 @@ def test_qr_encodes_the_secret_and_the_label_shows_it(pdf_bytes, monkeypatch):
             )
         ]
 
-    assert labels == [secret]
-    # the QR carries the ciphertext, never the secret itself
+    assert len(labels) == 1
+    assert labels[0].startswith("Group_07 - ")
+    label_payload = labels[0].split(" - ", maxsplit=1)[1]
+    assert secret not in label_payload
+    assert crypto.decrypt_visible_payload(label_payload, KEY) == secret
     assert len(qr_payloads) == 1
     assert secret not in qr_payloads[0]
     assert crypto.decrypt_qr_payload(qr_payloads[0], KEY) == secret
+
+
+def test_encrypted_visible_label_recovers_secret_when_qr_is_unavailable(pdf_bytes, monkeypatch):
+    from watermarking_methods.francesco import method as method_module
+
+    method = FrancescoWatermark()
+    secret = "visible-label-copy-id"
+    watermarked = method.add_watermark(pdf_bytes, secret, KEY, intended_for="Group 13")
+    with fitz.open(stream=watermarked, filetype="pdf") as document:
+        pixmap = document[0].get_pixmap(dpi=300, alpha=False)
+        with fitz.open() as flattened_document:
+            page = flattened_document.new_page(
+                width=document[0].rect.width,
+                height=document[0].rect.height,
+            )
+            page.insert_image(page.rect, stream=pixmap.tobytes("png"))
+            flattened = flattened_document.tobytes()
+    monkeypatch.setattr(method_module.zxingcpp, "read_barcodes", lambda *args, **kwargs: [])
+
+    assert method.read_secret(flattened, KEY) == secret
 
 
 @pytest.mark.parametrize("position", [None, "group=Group_13", "group=Group_13;no-qr"])
