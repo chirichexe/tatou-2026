@@ -67,3 +67,17 @@ jobs:
         run: |
           export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
           pytest
+
+  docker-smoke:
+    name: Docker build and smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build server image
+        run: docker build --tag tatou-server:ci ./server
+
+      - name: Check application dependencies inside the image
+        run: docker run --rm --entrypoint python tatou-server:ci -c "import rmap; print('rmap import OK')"
