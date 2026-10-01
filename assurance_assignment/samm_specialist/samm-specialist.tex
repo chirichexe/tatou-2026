@@ -5,12 +5,13 @@
 \usepackage{microtype}
 \usepackage[table]{xcolor}
 \usepackage{tabularx}
+\usepackage{booktabs}
 \usepackage[hidelinks]{hyperref}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.35em}
 \setlength{\emergencystretch}{2em}
 \renewcommand{\arraystretch}{1.15}
-\newcommand{\sectionheading}[1]{\par\vspace{0.6em}\colorbox{black!6}{\makebox[\dimexpr\linewidth-2\fboxsep\relax][l]{\large\bfseries #1}}\par\nobreak}
+\newcommand{\sectionheading}[1]{\par\vspace{1em}{\large\bfseries #1}\par\nobreak}
 \newcommand{\subheading}[1]{\par\smallskip\textbf{#1}\par\nobreak}
 \newcolumntype{H}{>{\columncolor{blue!9}\raggedright\arraybackslash}X}
 \newcolumntype{L}{>{\raggedright\arraybackslash}X}
@@ -23,7 +24,7 @@
 \vspace{-0.2em}\hrule
 
 \sectionheading{1. Core}
-\subheading{1.1 Security Testing (Verification)}
+\subheading{Security Testing (Verification)}
 Dedicated security test cases for known-risk areas, run regularly.
 Audit: authorization, path traversal, login throttling and link access.
 Existing link tests checked HTTP 200/PDF without authentication for an issued
@@ -31,7 +32,7 @@ link; HTTP 404/no PDF for random, last-character-flipped, plus-one and all-zero
 unissued links; and separation of two users' documents and watermark secrets.
 Pytest runs in CI on PRs to \texttt{main} and pushes to \texttt{main}/\texttt{feat/**}.
 
-\subheading{1.2 Improvement}
+\subheading{Improvement}
 The manual SHA-1(\texttt{s1}) check became an automated regression:
 \par\texttt{GET /api/get-version/640d87e741e6aa4c669a82a4cd304787960513ab}\par
 Result: HTTP 404, no PDF. Four negative-link cases gained assertions excluding
@@ -39,27 +40,27 @@ both users' secrets, recipients and filenames from responses. On 30 September,
 the focused module passed all seven cases and Ruff. Commit:
 \href{https://github.com/chirichexe/tatou-2026/commit/fbae18a9970c721a8809d2ff2d43ef10be03d7fc}{\texttt{fbae18a}}.
 
-\subheading{1.3 Scorecard (assignment rubric)}
-\par\begin{tabularx}{\linewidth}{|L|H|L|}
-\hline
+\subheading{Scorecard}
+\par\begin{tabularx}{\linewidth}{@{}LHL@{}}
+\toprule
 \textbf{Level 1} & \textbf{Level 2 -- assigned} & \textbf{Level 3} \\
-\hline
+\midrule
 Security tested only incidentally. & Dedicated security test cases for known-risk areas, run regularly. & Systematic testing, negative cases and tracked coverage. \\
-\hline
+\bottomrule
 \end{tabularx}\par
-\textbf{Evidence:} Dedicated risk-based tests run regularly in CI; the new checks
+Evidence: Dedicated risk-based tests run regularly in CI; the new checks
 strengthen that coverage. Systematic coverage tracking is missing. SQLite and
 \texttt{toy-eof} fixtures limit the results to the tested cases.
 
 \sectionheading{2. Further Work}
-\subheading{2.1 Secure Build (Implementation)}
-Second practice audit: builds automated and reproducible; dependencies pinned.
+\subheading{Secure Build (Implementation)}
+Builds automated and reproducible; dependencies pinned.
 Before improvement: no Docker build in CI; Docker ignored the local lockfile.
 Observed mismatch: image \texttt{cryptography 50.0.2}, lockfile \texttt{50.0.1}.
 Manual build/import and Compose configuration validation passed.
 
-\subheading{2.2 Improvement}
-Second real improvement: CI image build and \texttt{import rmap}; tracked requirements pinning
+\subheading{Improvement}
+CI image build and \texttt{import rmap}; tracked requirements pinning
 26 Python distributions; shared runtime versions for Docker and pytest; base-image
 digest pinning; CI dependency-drift check. Clean build passed; all 26 installed
 versions matched; \texttt{pip check} and \texttt{import rmap} passed.
@@ -70,28 +71,28 @@ Commits:
 \href{https://github.com/chirichexe/tatou-2026/commit/f0cd7aef43f7857a6e610fd0189cc04da6c0e4e1}{\texttt{f0cd7ae}},
 \href{https://github.com/chirichexe/tatou-2026/commit/f7e50c307136f364113cbdd55ce0822dc94618c5}{\texttt{f7e50c3}}.
 
-\subheading{2.3 Scorecard (assignment rubric)}
-\par\begin{tabularx}{\linewidth}{|L|H|L|}
-\hline
+\subheading{Scorecard}
+\par\begin{tabularx}{\linewidth}{@{}LHL@{}}
+\toprule
 \textbf{Level 1} & \textbf{Level 2 -- assigned} & \textbf{Level 3} \\
-\hline
+\midrule
 Manual, inconsistent builds. & Automated, reproducible builds; pinned dependencies. & Automated security checks as a build-pipeline gate. \\
-\hline
+\bottomrule
 \end{tabularx}\par
-\textbf{Evidence:} Repeatable CI build/import, exact tracked Python versions and
+Evidence: Repeatable CI build/import, exact tracked Python versions and
 passing drift/version checks support Level 2 for the server/Python build.
-System packages remain unpinned; full-stack startup was not tested. No dedicated
+System packages remain unpinned. Full-stack startup was not tested. No dedicated
 vulnerability scan or confirmed required merge check establishes Level 3.
 
 \sectionheading{3. Hours}
-\begin{tabularx}{\linewidth}{|l|X|X|X|}
-\hline
+\begin{tabularx}{\linewidth}{@{}lXXX@{}}
+\toprule
  & \textbf{Reading} & \textbf{Audit} & \textbf{Improvement} \\
-\hline
+\midrule
 Core & 1 h & 3 h & 1 h \\
-Further Work & --- & 3 h & 1 h \\
-\hline
+Further Work & 30 min & 3 h & 1 h \\
+\bottomrule
 \end{tabularx}\par
 {\small Audit includes scorecards, evidence review and write-up; --- means no separate reading entry in Notion.}\par
-\textbf{Total: 9 hours (self-reported).}
+Total: approximately 10 hours.
 \end{document}
