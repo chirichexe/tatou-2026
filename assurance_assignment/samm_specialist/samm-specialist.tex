@@ -2,71 +2,71 @@
 
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage[a4paper,margin=2cm]{geometry}
 \usepackage{microtype}
 \usepackage[hidelinks]{hyperref}
 \setlength{\parindent}{0pt}
-\setlength{\parskip}{0.45em}
+\setlength{\parskip}{0.35em}
+\setlength{\emergencystretch}{2em}
 \newcommand{\reportedhours}{9 hours (5 Core + 4 Further Work)}
 
 \begin{document}
 
 \begin{center}
-    {\large\bfseries Assurance Assignment -- Track 2: OWASP SAMM}\par
-    Francesco Maria Fuligni \quad | \quad \textbf{Role: SAMM specialist}
+    {\Large\bfseries Assurance Assignment: Hand-in}\par
+    \vspace{0.15em}
+    {\normalsize SAMM specialist}\par
+    Francesco Maria Fuligni \quad | \quad Group 13
 \end{center}
+\vspace{-0.2em}
+\hrule
 
-\textbf{Core practice -- Security Testing (Verification):}
-Dedicated security test cases for known-risk areas are run regularly.
-\textbf{Baseline: Level 2; after the improvement: Level 2.}
-All scores below use the assignment's simplified rubric.
+\section*{Core}
 
-\textbf{Actual baseline evidence.}
-Before my core improvement, the team's repository already contained dedicated
-authorization, path-traversal and login-throttling tests. GitHub Actions ran pytest
-on pull requests to \texttt{main} and pushes to \texttt{main} or feature branches.
-The link-access tests already checked a valid issued link (HTTP 200/PDF), four
-unissued-link patterns (HTTP 404/no PDF), and separation of two users' documents.
-These were repeatable tests for known risks. The remaining Level 3 gap is
-systematic security coverage tracking.
+\textbf{Practice -- Security Testing (Verification).}
+Dedicated security test cases for known-risk areas, run regularly.
+\textbf{Simplified score: Level 2 before and after the improvement.}
 
-\textbf{Core improvement and observed evidence.}
-Previously, the SHA-1 candidate tried in the CC work was only a manual check,
-and the negative-link tests did not assert absence of sensitive fixture values.
-I added a deterministic regression:
-\texttt{GET /api/get-version/640d87e741e6aa4c669a82a4cd304787960513ab}
-must return HTTP 404 without PDF data. I also made the four existing unissued-link
-cases assert that responses contain no fixture watermark secrets, intended
-recipients or filenames. Focused verification on 30 September 2026 passed all
-seven link-access cases and Ruff. The improvement is recorded in commit
-\texttt{fbae18a}; the evidence is the assertions and their observed outcomes.
+Before my improvement, the repository already had authorization,
+path-traversal and login-throttling tests. GitHub Actions ran pytest on pull
+requests to \texttt{main} and pushes to \texttt{main} and feature branches.
+Link-access tests returned HTTP 200 with a PDF for an issued link, HTTP 404
+without a PDF for four unissued-link patterns, and kept two users' documents
+separate. These repeatable tests cover known risks; systematic security
+coverage tracking, needed for Level 3, was missing.
 
-\textbf{Further Work option 1 -- Second practice audited: Secure Build (Implementation).}
-Builds are automated and reproducible; dependencies are pinned.
-\textbf{Baseline: Level 1; after improvements: scoped Level 2.}
-At the audited baseline, CI did not build the Docker image and Docker installed
-flexible Python dependency ranges instead of a tracked pinned set. A locally
-built image contained \texttt{cryptography 50.0.2}, while the unused local lockfile
-specified \texttt{50.0.1}. This showed that the image did not follow that lockfile.
+I added a regression for the SHA-1 candidate previously checked manually:
+\texttt{GET /api/get-version/\allowbreak 640d87e741e6aa4c669a82a4cd304787960513ab}
+returns HTTP 404 with no PDF. I also made four unissued-link tests check that
+responses contain no fixture secrets, recipients or filenames. On 30 September
+2026, all seven link-access cases and Ruff passed. The test assertions and
+results are the evidence; the change is in commit \texttt{fbae18a}.
 
-\textbf{Further Work option 2 -- Second real improvement.}
-I addressed those build gaps with a CI Docker build/\texttt{import rmap} check
-and a tracked \texttt{requirements.txt} with 26 exactly versioned registry
-distributions. Docker and pytest install those requirements; CI regenerates
-the file and fails on drift. The Python base image is digest-pinned.
-Recorded build verification found all 26 versions matching the image;
-\texttt{pip check} and \texttt{import rmap} passed. Commits \texttt{8a1073f},
-\texttt{f0cd7ae} and \texttt{f7e50c3} record these changes.
+\section*{Further Work}
 
-\textbf{Limits and remaining build gap.}
-The link tests use in-memory SQLite and the test-only \texttt{toy-eof} watermark;
-they establish selected regression outcomes, not general link unpredictability.
-The build score covers the server/Python runtime: system packages and the full
-Compose stack remain outside the reproducibility claim, and RMAP uses a release
-tag. The Docker check verifies an import, not full-stack startup. No dedicated
-dependency/image vulnerability gate is established; Secure Build Level 3 is not
-claimed.
+\textbf{Option 1 -- Second practice audited: Secure Build (Implementation).}
+The simplified score is Level 1 at baseline and a scoped Level 2 after the
+improvements. Initially, CI did not build the Docker image and Docker used
+flexible Python dependency ranges. The image had \texttt{cryptography 50.0.2},
+while the unused local lockfile specified \texttt{50.0.1}.
 
-\textbf{Track 2 hours spent (self-reported):} \reportedhours.
+\textbf{Option 2 -- Second real improvement.}
+I added a CI Docker build and \texttt{import rmap} check, plus a tracked
+\texttt{requirements.txt} pinning 26 registry distributions. Docker and pytest
+install these requirements; CI regenerates the file and checks for drift. The
+Python base image is pinned by digest. Verification found all 26 versions
+matched the image, and \texttt{pip check} and \texttt{import rmap} passed.
+Commits \texttt{8a1073f}, \texttt{f0cd7ae} and \texttt{f7e50c3} record the work.
+
+The scoped build score covers the server's Python runtime. System packages and
+the full Compose stack are not covered, RMAP uses a release tag, and the Docker
+check does not start the full application. No dependency or image vulnerability
+gate is established, so I do not claim Secure Build Level 3. The link tests use
+in-memory SQLite and a test-only watermark; they show these specific outcomes,
+not general link unpredictability.
+
+\section*{Hours}
+
+Track 2 time spent (self-reported): \reportedhours.
 
 \end{document}
