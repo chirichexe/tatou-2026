@@ -1,91 +1,96 @@
 \documentclass[10pt,a4paper]{article}
-
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
 \usepackage[a4paper,margin=2cm]{geometry}
 \usepackage{microtype}
+\usepackage[table]{xcolor}
+\usepackage{tabularx}
 \usepackage[hidelinks]{hyperref}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{0.35em}
 \setlength{\emergencystretch}{2em}
-\newcommand{\reportedhours}{9 hours (5 Core + 4 Further Work)}
-\newcommand{\subheading}[1]{\par\smallskip\textbf{#1}\par\nobreak}
-\newcommand{\sectionheading}[1]{\par\vspace{0.55em}{\large\bfseries #1}\par\nobreak}
-
+\renewcommand{\arraystretch}{1.15}
+\newcommand{\sectionheading}[1]{\par\vspace{0.5em}{\normalsize\bfseries #1}\par\nobreak}
+\newcolumntype{H}{>{\columncolor{blue!9}\raggedright\arraybackslash}X}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
 \begin{document}
-
 \begin{center}
     {\Large\bfseries Assurance Assignment: Hand-in}\par
-    \vspace{0.15em}
-    {\normalsize Role: SAMM specialist}\par
+    Role: SAMM specialist\par
     Francesco Maria Fuligni \quad | \quad Group 13
 \end{center}
-\vspace{-0.2em}
-\hrule
+\vspace{-0.2em}\hrule
 
 \sectionheading{Core}
-\subheading{Security Testing (Verification)}
-\emph{Dedicated security test cases for known-risk areas, run regularly.}
-I audited authorization, path-traversal and login-throttling tests, plus
-\path{server/test/api/test_FCS_COP_1.py}. Its existing checks covered an issued
-link returning HTTP 200/PDF without authentication; random, last-character-flipped,
-plus-one and all-zero unissued links returning HTTP 404/no PDF; and two users'
-links retrieving only their own documents and watermark secrets.
-\path{.github/workflows/tests.yml} runs pytest on PRs to \texttt{main}, pushes to
-\texttt{main} or \texttt{feat/**}, and manual dispatch.
+\textbf{Security Testing (Verification).}
+Dedicated security test cases for known-risk areas, run regularly.
+Audit: authorization, path traversal, login throttling and link access.
+Existing link tests checked HTTP 200/PDF without authentication for an issued
+link; HTTP 404/no PDF for random, last-character-flipped, plus-one and all-zero
+unissued links; and separation of two users' documents and watermark secrets.
+Pytest runs in CI on PRs to \texttt{main} and pushes to \texttt{main}/\texttt{feat/**}.
 
-\subheading{Improvement}
-Before, the SHA-1(\texttt{s1}) candidate was checked only manually, and the four
-negative-link cases did not check for sensitive values in responses. I automated
-the exact candidate request below, which returns HTTP 404 without PDF content:
+\textbf{Improvement.}
+The manual SHA-1(\texttt{s1}) check became an automated regression:
 \par\texttt{GET /api/get-version/640d87e741e6aa4c669a82a4cd304787960513ab}\par
-I also added assertions that all four negative responses omit both users'
-watermark secrets, intended recipients and filenames.
-The focused module passed all seven cases and Ruff on 30 September 2026.
-Commit: \href{https://github.com/chirichexe/tatou-2026/commit/fbae18a9970c721a8809d2ff2d43ef10be03d7fc}{\texttt{fbae18a}}.
+Result: HTTP 404, no PDF. Four negative-link cases gained assertions excluding
+both users' secrets, recipients and filenames from responses. On 30 September,
+the focused module passed all seven cases and Ruff. Commit:
+\href{https://github.com/chirichexe/tatou-2026/commit/fbae18a9970c721a8809d2ff2d43ef10be03d7fc}{\texttt{fbae18a}}.
 
-\subheading{Scorecard}
-\textbf{Level 2, using the assignment rubric.} Dedicated tests for known risks
-run regularly in CI; the improvement adds repeatable checks within that level.
-Level 3 requires systematic coverage tracking, which is missing. The link
-fixture uses in-memory SQLite and \texttt{toy-eof}; these selected cases do not
-establish general link unpredictability.
+\textbf{Scorecard.} Assignment rubric; Security Testing.
+\par\begin{tabularx}{\linewidth}{|L|H|L|}
+\hline
+\textbf{Level 1} & \textbf{Level 2 -- assigned} & \textbf{Level 3} \\
+\hline
+Security tested only incidentally. & Dedicated security test cases for known-risk areas, run regularly. & Systematic testing, negative cases and tracked coverage. \\
+\hline
+\end{tabularx}\par
+\textbf{Evidence:} Dedicated risk-based tests run regularly in CI; the new checks
+strengthen that coverage. Systematic coverage tracking is missing. SQLite and
+\texttt{toy-eof} fixtures limit the results to the tested cases.
 
 \sectionheading{Further Work}
-\subheading{Secure Build (Implementation) -- second practice audited}
-\emph{Builds automated and reproducible; dependencies pinned.}
-I audited the Dockerfile, dependency files, Compose configuration and CI.
-Before the improvement, CI did not build the image and Docker ignored the local
-\texttt{uv.lock}: the built image had \texttt{cryptography 50.0.2}, while the
-lockfile specified \texttt{50.0.1}. A manual image build/import and
-\texttt{docker compose config -{}-quiet} passed, but did not establish a pinned
-build or startup of a fresh Compose stack.
+\textbf{Secure Build (Implementation) -- second practice audit.}
+Builds automated and reproducible; dependencies pinned.
+Before improvement: no Docker build in CI; Docker ignored the local lockfile.
+Observed mismatch: image \texttt{cryptography 50.0.2}, lockfile \texttt{50.0.1}.
+Manual build/import and Compose configuration validation passed.
 
-\subheading{Improvement -- second real improvement}
-I added a CI job that builds \texttt{./server} and runs \texttt{import rmap}
-inside the image. I also added \path{server/requirements.txt}, generated with
-\texttt{pip-compile}, pinning 26 registry distributions. Docker installs that
-file and the project once with \texttt{-{}-no-deps}; pytest uses the same runtime
-requirements. CI regenerates the file and fails on a diff; the Python base image
-is pinned by digest. A clean local Docker build passed, all 26 installed versions
-matched, and \texttt{pip check} and \texttt{import rmap} passed. Recorded CI run
-\href{https://github.com/chirichexe/tatou-2026/actions/runs/36756093546}{\texttt{36756093546}}
-passed the lock check, Docker job and Ruff; pytest reported 368 passed, 11 skipped,
-2 xfailed. Commits:
+\textbf{Improvement -- second real improvement.}
+Added CI image build and \texttt{import rmap}; tracked requirements pinning
+26 Python distributions; shared runtime versions for Docker and pytest; base-image
+digest pinning; CI dependency-drift check. Clean build passed; all 26 installed
+versions matched; \texttt{pip check} and \texttt{import rmap} passed.
+Recorded CI run \href{https://github.com/chirichexe/tatou-2026/actions/runs/36756093546}{\texttt{36756093546}}:
+lock check, Docker and Ruff passed; pytest 368 passed, 11 skipped, 2 xfailed.
+Commits:
 \href{https://github.com/chirichexe/tatou-2026/commit/8a1073f7b43b87a0fefb77366456fb2a4518a76c}{\texttt{8a1073f}},
 \href{https://github.com/chirichexe/tatou-2026/commit/f0cd7aef43f7857a6e610fd0189cc04da6c0e4e1}{\texttt{f0cd7ae}},
 \href{https://github.com/chirichexe/tatou-2026/commit/f7e50c307136f364113cbdd55ce0822dc94618c5}{\texttt{f7e50c3}}.
 
-\subheading{Scorecard}
-\textbf{Level 2, using the assignment rubric, for the server image and Python
-runtime dependencies.} CI automates build/import checks, installs tracked exact
-versions and checks for dependency drift. System packages remain unpinned,
-RMAP uses a release tag, and fresh full-stack startup was not tested. Level 3
-requires a security gate: no dedicated dependency/image vulnerability scan or
-confirmed required merge check is established.
+\textbf{Scorecard.} Assignment rubric; Secure Build.
+\par\begin{tabularx}{\linewidth}{|L|H|L|}
+\hline
+\textbf{Level 1} & \textbf{Level 2 -- assigned} & \textbf{Level 3} \\
+\hline
+Manual, inconsistent builds. & Automated, reproducible builds; pinned dependencies. & Automated security checks as a build-pipeline gate. \\
+\hline
+\end{tabularx}\par
+\textbf{Evidence:} Repeatable CI build/import, exact tracked Python versions and
+passing drift/version checks support Level 2 for the server/Python build.
+System packages remain unpinned; full-stack startup was not tested. No dedicated
+vulnerability scan or confirmed required merge check establishes Level 3.
 
 \sectionheading{Hours}
-
-Track 2 time spent (self-reported): \reportedhours.
-
+\begin{tabularx}{\linewidth}{|l|X|X|X|}
+\hline
+ & \textbf{Reading} & \textbf{Audit} & \textbf{Improvement} \\
+\hline
+Core & 1 h & 3 h & 1 h \\
+Further Work & --- & 3 h & 1 h \\
+\hline
+\end{tabularx}\par
+{\small Audit includes scorecards, evidence review and write-up; --- means no separate reading entry in Notion.}\par
+\textbf{Total: 9 hours (self-reported).}
 \end{document}
