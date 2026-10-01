@@ -2,44 +2,71 @@
 
 \usepackage[T1]{fontenc}
 \usepackage[utf8]{inputenc}
-\usepackage[a4paper,margin=2.5cm]{geometry}
-\usepackage{hyperref}
-\usepackage{xcolor}
-\usepackage{enumitem}
-\setlist[itemize]{nosep,leftmargin=1.3em}
+\usepackage[a4paper,margin=2.2cm]{geometry}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
 \setlength{\parindent}{0pt}
-\setlength{\parskip}{0.35em}
-
-\newcommand{\answer}[1]{\textit{\textcolor{gray}{[#1]}}}
+\setlength{\parskip}{0.45em}
+\newcommand{\reportedhours}{9 hours (5 Core + 4 Further Work)}
 
 \begin{document}
 
 \begin{center}
-    {\Large\bfseries Assurance Assignment --- Track 2: OWASP SAMM}\par
-    {\small Individual hand-in | SAMM specialist}
+    {\large\bfseries Assurance Assignment -- Track 2: OWASP SAMM}\par
+    Francesco Maria Fuligni \quad | \quad \textbf{Role: SAMM specialist}
 \end{center}
 
-\textbf{Role:} SAMM specialist
+\textbf{Core practice -- Security Testing (Verification):}
+Dedicated security test cases for known-risk areas are run regularly.
+\textbf{Baseline: Level 2; after the improvement: Level 2.}
+All scores below use the assignment's simplified rubric.
 
-\textbf{SAMM practice chosen — full one-line statement:}\\
-\answer{Write the complete statement for the selected practice in context; do not enter only its name or code.}
+\textbf{Actual baseline evidence.}
+Before my core improvement, the team's repository already contained dedicated
+authorization, path-traversal and login-throttling tests. GitHub Actions ran pytest
+on pull requests to \texttt{main} and pushes to \texttt{main} or feature branches.
+The link-access tests already checked a valid issued link (HTTP 200/PDF), four
+unissued-link patterns (HTTP 404/no PDF), and separation of two users' documents.
+These were repeatable tests for known risks. The remaining Level 3 gap is
+systematic security coverage tracking.
 
-\textbf{Actual evidence from the team's practice:}\\
-\answer{State the specific evidence observed and what it shows. Do not give only a file path or commit hash.}
+\textbf{Core improvement and observed evidence.}
+Previously, the SHA-1 candidate tried in the CC work was only a manual check,
+and the negative-link tests did not assert absence of sensitive fixture values.
+I added a deterministic regression:
+\texttt{GET /api/get-version/640d87e741e6aa4c669a82a4cd304787960513ab}
+must return HTTP 404 without PDF data. I also made the four existing unissued-link
+cases assert that responses contain no fixture watermark secrets, intended
+recipients or filenames. Focused verification on 30 September 2026 passed all
+seven link-access cases and Ruff. The improvement is recorded in commit
+\texttt{fbae18a}; the evidence is the assertions and their observed outcomes.
 
-\textbf{Baseline scorecard:} Level \answer{1/2/3}.\\
-\textbf{Rationale and gap to the next level:} \answer{Give the evidence-based reason for the score and the concrete missing practice.}
+\textbf{Further Work option 1 -- Second practice audited: Secure Build (Implementation).}
+Builds are automated and reproducible; dependencies are pinned.
+\textbf{Baseline: Level 1; after improvements: scoped Level 2.}
+At the audited baseline, CI did not build the Docker image and Docker installed
+flexible Python dependency ranges instead of a tracked pinned set. A locally
+built image contained \texttt{cryptography 50.0.2}, while the unused local lockfile
+specified \texttt{50.0.1}. This showed that the image did not follow that lockfile.
 
-\textbf{Core improvement made:}\\
-\answer{State what was missing before, what changed, and the concrete evidence or observed result after the change.}
+\textbf{Further Work option 2 -- Second real improvement.}
+I addressed those build gaps with a CI Docker build/\texttt{import rmap} check
+and a tracked \texttt{requirements.txt} with 26 exactly versioned registry
+distributions. Docker and pytest install those requirements; CI regenerates
+the file and fails on drift. The Python base image is digest-pinned.
+Recorded build verification found all 26 versions matching the image;
+\texttt{pip check} and \texttt{import rmap} passed. Commits \texttt{8a1073f},
+\texttt{f0cd7ae} and \texttt{f7e50c3} record these changes.
 
-\textbf{Further work — select exactly two and report the result for each:}
-\begin{itemize}
-    \item Second SAMM practice audited: \answer{Practice, evidence, score, and result.}
-    \item Second concrete improvement: \answer{Gap addressed, change, and evidence or result.}
-    \item Effectiveness check: \answer{Before/after measure or concrete result.}
-\end{itemize}
+\textbf{Limits and remaining build gap.}
+The link tests use in-memory SQLite and the test-only \texttt{toy-eof} watermark;
+they establish selected regression outcomes, not general link unpredictability.
+The build score covers the server/Python runtime: system packages and the full
+Compose stack remain outside the reproducibility claim, and RMAP uses a release
+tag. The Docker check verifies an import, not full-stack startup. No dedicated
+dependency/image vulnerability gate is established; Secure Build Level 3 is not
+claimed.
 
-\textbf{Track 2 hours spent (self-reported):} \answer{hours}
+\textbf{Track 2 hours spent (self-reported):} \reportedhours.
 
 \end{document}
