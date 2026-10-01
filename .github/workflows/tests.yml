@@ -54,16 +54,37 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
-          cache-dependency-path: server/pyproject.toml
+          cache-dependency-path: |
+            server/pyproject.toml
+            server/requirements.txt
+
+      - name: Check pinned requirements
+        run: |
+          python -m pip install pip==25.0.1 pip-tools==7.5.3
+          pip-compile --no-header --strip-extras --output-file=requirements.txt pyproject.toml
+          git diff --exit-code -- requirements.txt
 
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y tesseract-ocr
-          python -m pip install --upgrade pip
-          pip install -e .[dev]
+          pip install -r requirements.txt -e .[dev]
 
       - name: Run tests
         run: |
           export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
           pytest
+
+  docker-smoke:
+    name: Docker build and smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build server image
+        run: docker build --tag tatou-server:ci ./server
+
+      - name: Check application dependencies inside the image
+        run: docker run --rm --entrypoint python tatou-server:ci -c "import rmap; print('rmap import OK')"

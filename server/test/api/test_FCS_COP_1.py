@@ -172,6 +172,28 @@ def test_unissued_link_returns_404(link_app, make_link):
     assert response.status_code == 404
     assert response.mimetype != "application/pdf"
     assert b"%PDF" not in response.data
+    sensitive_values = [
+        value
+        for user in link_app.users
+        for value in (
+            user.secret,
+            user.version["intended_for"],
+            user.version["filename"],
+        )
+    ]
+    assert all(value.encode() not in response.data for value in sensitive_values)
+
+
+def test_sha1_of_known_input_is_not_an_issued_link(link_app):
+    # Independently verified: SHA-1 of the UTF-8 input b"s1".
+    candidate = "640d87e741e6aa4c669a82a4cd304787960513ab"
+    issued = {user.version["link"] for user in link_app.users}
+    assert candidate not in issued
+
+    response = link_app.client.get(f"/api/get-version/{candidate}")
+    assert response.status_code == 404
+    assert response.mimetype != "application/pdf"
+    assert b"%PDF" not in response.data
 
 
 # ---------------------------------------------------------------------------
