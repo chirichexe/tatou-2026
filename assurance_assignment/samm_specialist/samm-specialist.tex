@@ -10,7 +10,8 @@
 \setlength{\parskip}{0.35em}
 \setlength{\emergencystretch}{2em}
 \renewcommand{\arraystretch}{1.15}
-\newcommand{\sectionheading}[1]{\par\vspace{0.5em}{\normalsize\bfseries #1}\par\nobreak}
+\newcommand{\sectionheading}[1]{\par\vspace{0.6em}\colorbox{black!6}{\makebox[\dimexpr\linewidth-2\fboxsep\relax][l]{\large\bfseries #1}}\par\nobreak}
+\newcommand{\subheading}[1]{\par\smallskip\textbf{#1}\par\nobreak}
 \newcolumntype{H}{>{\columncolor{blue!9}\raggedright\arraybackslash}X}
 \newcolumntype{L}{>{\raggedright\arraybackslash}X}
 \begin{document}
@@ -21,8 +22,8 @@
 \end{center}
 \vspace{-0.2em}\hrule
 
-\sectionheading{Core}
-\textbf{Security Testing (Verification).}
+\sectionheading{1. Core}
+\subheading{1.1 Security Testing (Verification)}
 Dedicated security test cases for known-risk areas, run regularly.
 Audit: authorization, path traversal, login throttling and link access.
 Existing link tests checked HTTP 200/PDF without authentication for an issued
@@ -30,7 +31,7 @@ link; HTTP 404/no PDF for random, last-character-flipped, plus-one and all-zero
 unissued links; and separation of two users' documents and watermark secrets.
 Pytest runs in CI on PRs to \texttt{main} and pushes to \texttt{main}/\texttt{feat/**}.
 
-\textbf{Improvement.}
+\subheading{1.2 Improvement}
 The manual SHA-1(\texttt{s1}) check became an automated regression:
 \par\texttt{GET /api/get-version/640d87e741e6aa4c669a82a4cd304787960513ab}\par
 Result: HTTP 404, no PDF. Four negative-link cases gained assertions excluding
@@ -38,7 +39,7 @@ both users' secrets, recipients and filenames from responses. On 30 September,
 the focused module passed all seven cases and Ruff. Commit:
 \href{https://github.com/chirichexe/tatou-2026/commit/fbae18a9970c721a8809d2ff2d43ef10be03d7fc}{\texttt{fbae18a}}.
 
-\textbf{Scorecard.} Assignment rubric; Security Testing.
+\subheading{1.3 Scorecard (assignment rubric)}
 \par\begin{tabularx}{\linewidth}{|L|H|L|}
 \hline
 \textbf{Level 1} & \textbf{Level 2 -- assigned} & \textbf{Level 3} \\
@@ -50,15 +51,15 @@ Security tested only incidentally. & Dedicated security test cases for known-ris
 strengthen that coverage. Systematic coverage tracking is missing. SQLite and
 \texttt{toy-eof} fixtures limit the results to the tested cases.
 
-\sectionheading{Further Work}
-\textbf{Secure Build (Implementation) -- second practice audit.}
-Builds automated and reproducible; dependencies pinned.
+\sectionheading{2. Further Work}
+\subheading{2.1 Secure Build (Implementation)}
+Second practice audit: builds automated and reproducible; dependencies pinned.
 Before improvement: no Docker build in CI; Docker ignored the local lockfile.
 Observed mismatch: image \texttt{cryptography 50.0.2}, lockfile \texttt{50.0.1}.
 Manual build/import and Compose configuration validation passed.
 
-\textbf{Improvement -- second real improvement.}
-Added CI image build and \texttt{import rmap}; tracked requirements pinning
+\subheading{2.2 Improvement}
+Second real improvement: CI image build and \texttt{import rmap}; tracked requirements pinning
 26 Python distributions; shared runtime versions for Docker and pytest; base-image
 digest pinning; CI dependency-drift check. Clean build passed; all 26 installed
 versions matched; \texttt{pip check} and \texttt{import rmap} passed.
@@ -69,7 +70,7 @@ Commits:
 \href{https://github.com/chirichexe/tatou-2026/commit/f0cd7aef43f7857a6e610fd0189cc04da6c0e4e1}{\texttt{f0cd7ae}},
 \href{https://github.com/chirichexe/tatou-2026/commit/f7e50c307136f364113cbdd55ce0822dc94618c5}{\texttt{f7e50c3}}.
 
-\textbf{Scorecard.} Assignment rubric; Secure Build.
+\subheading{2.3 Scorecard (assignment rubric)}
 \par\begin{tabularx}{\linewidth}{|L|H|L|}
 \hline
 \textbf{Level 1} & \textbf{Level 2 -- assigned} & \textbf{Level 3} \\
@@ -82,7 +83,7 @@ passing drift/version checks support Level 2 for the server/Python build.
 System packages remain unpinned; full-stack startup was not tested. No dedicated
 vulnerability scan or confirmed required merge check establishes Level 3.
 
-\sectionheading{Hours}
+\sectionheading{3. Hours}
 \begin{tabularx}{\linewidth}{|l|X|X|X|}
 \hline
  & \textbf{Reading} & \textbf{Audit} & \textbf{Improvement} \\
