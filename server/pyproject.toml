@@ -20,7 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
-    "ruff==0.16.9"
+    "ruff==0.16.10"
 ]
 
 [tool.pytest.ini_options]
