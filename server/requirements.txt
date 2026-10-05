@@ -47,7 +47,7 @@ requests==2.34.2
     # via rmap
 rmap @ git+https://github.com/nharrand/RMAP.git@v1.0.2
     # via Tatou-Server (pyproject.toml)
-sqlalchemy==2.1.1
+sqlalchemy==2.1.3
     # via Tatou-Server (pyproject.toml)
 typing-extensions==4.16.0
     # via sqlalchemy
