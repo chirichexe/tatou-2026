@@ -220,3 +220,8 @@ assurance_assignment/samm_specialist/samm-specialist.fls
 assurance_assignment/samm_specialist/samm-specialist.out
 assurance_assignment/samm_specialist/samm-specialist.synctex.gz
 assurance_assignment/samm_specialist/samm-specialist.aux
+
+# Agent operational files & local knowledge base
+AGENTS.md
+HANDOFF.md
+wiki/
