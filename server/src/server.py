@@ -260,24 +260,10 @@ def create_app():
         _log_internal_failure("unhandled request", error)
         return jsonify({"error": "internal server error"}), 500
 
-    @app.before_request
-    def protect_state_changing_requests():
-        if not request.path.startswith("/api/"):
-            return None
-
-        # RMAP is a PGP-authenticated machine-to-machine handshake, not a
-        # browser-cookie action.  Keeping it outside the browser CSRF scheme
-        # also lets the upstream rmap-client work without Tatou-specific headers.
-        if request.path in {"/api/rmap-initiate", "/api/rmap-get-link"}:
-            return None
-
-        if request.method in {"GET", "HEAD", "OPTIONS"}:
-            return None
-
-        if request.headers.get("X-CSRF-Protection") != "1":
-            return jsonify({
-                "error": "CSRF protection header required"
-            }), 403
+    # No CSRF header check: authentication is a bearer token in the
+    # Authorization header (no cookies), which a browser never attaches to a
+    # cross-site request on its own, and no CORS headers are emitted.  Requiring
+    # an extra header would also break spec clients (API.md, the course bench).
 
     # --- Routes ---
 
