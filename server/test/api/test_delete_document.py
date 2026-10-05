@@ -137,40 +137,33 @@ STATE_CHANGING_ROUTES = [
 
 
 @pytest.mark.parametrize("method,url", STATE_CHANGING_ROUTES)
-@pytest.mark.parametrize("csrf_header", [None, "wrong"])
-def test_csrf_rejects_requests_before_endpoint_runs(
-    document_app, monkeypatch, method, url, csrf_header,
+def test_spec_clients_without_extra_headers_reach_the_endpoint(
+    document_app, monkeypatch, method, url,
 ):
+    # API.md clients (course bench, other groups) send only Authorization and
+    # Content-Type; no Tatou-specific header may be required on top of that.
     env = document_app
-    headers = env.headers(7)
-    headers.pop("X-CSRF-Protection")
-    if csrf_header is not None:
-        headers["X-CSRF-Protection"] = csrf_header
+    headers = {"Authorization": env.headers(7)["Authorization"]}
+    reached = []
 
-    def must_not_run(**kwargs):
-        pytest.fail("CSRF rejection must happen before the endpoint runs")
+    def endpoint(**kwargs):
+        reached.append(kwargs)
+        return {"ok": True}, 200
 
-    # Check the real Flask routing and before_request hook, with a tripwire
-    # in place of each endpoint to prove rejected requests cannot reach it.
     rule, _ = env.app.url_map.bind("localhost").match(url.split("?")[0], method=method)
-    monkeypatch.setitem(env.app.view_functions, rule, must_not_run)
+    monkeypatch.setitem(env.app.view_functions, rule, endpoint)
     response = env.client.open(url, method=method, headers=headers, json={"id": 42})
-    assert response.status_code == 403
-    assert response.get_json() == {"error": "CSRF protection header required"}
-    assert_documents_unchanged(env)
-
-
-@pytest.mark.parametrize("method", ["POST", "PUT", "PATCH", "DELETE"])
-def test_csrf_covers_all_mutating_methods(document_app, method):
-    response = document_app.client.open("/api/delete-document/42", method=method)
-    assert response.status_code == 403
-    assert_documents_unchanged(document_app)
-
-
-@pytest.mark.parametrize("method", ["GET", "HEAD"])
-def test_csrf_does_not_block_read_only_requests(document_app, method):
-    response = document_app.client.open("/api/get-watermarking-methods", method=method)
     assert response.status_code == 200
+    assert len(reached) == 1
+
+
+def test_owner_can_delete_without_extra_headers(document_app):
+    env = document_app
+    headers = {"Authorization": env.headers(7)["Authorization"]}
+    response = env.client.delete("/api/delete-document/42", headers=headers)
+    assert response.status_code == 200
+    with env.engine.connect() as conn:
+        assert conn.execute(text("SELECT id FROM Documents")).scalars().all() == [43]
 
 
 @pytest.mark.parametrize("method,url", STATE_CHANGING_ROUTES)
