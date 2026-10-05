@@ -8,7 +8,7 @@ services:
       context: server
       dockerfile: Dockerfile
     ports:
-      - "127.0.0.1:5000:5000"
+      - "5000:5000"
     volumes:
       - user-files:/app/storage
       - ${RMAP_KEYS_HOST_DIR:-./rmap-keys}:/app/rmap-keys:ro
