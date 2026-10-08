@@ -137,9 +137,8 @@ def _scaled_text_pdf() -> bytes:
 
 def test_khaled_tolerant_parsing_handles_scaled_text_and_inline_images():
     pdf = _scaled_text_pdf()
-    with fitz.open(stream=pdf, filetype="pdf") as doc:
-        with pytest.raises(ValueError):
-            collect_runs(doc)  # strict: the inline image page rejects the document
+    with fitz.open(stream=pdf, filetype="pdf") as doc, pytest.raises(ValueError):
+        collect_runs(doc)  # strict: the inline image page rejects the document
     assert KhaledTextSpacingWatermark.capacity_bits(pdf, tolerant=True) >= 640
     assert KhaledTextSpacingWatermark.is_watermark_applicable(pdf)
 
