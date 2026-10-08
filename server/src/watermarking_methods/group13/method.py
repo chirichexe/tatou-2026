@@ -29,9 +29,13 @@ from watermarking_methods.khaled.method import MAX_SECRET_BYTES as KHALED_MAX_SE
 
 logger = logging.getLogger(__name__)
 
+# the layers keep their original criteria (no scanned-page or tolerant-text
+# fallback), so group13 copies, RMAP included, are marked exactly as before
+
 DAVIDE = DavideWatermark()
 KHALED = KhaledTextSpacingWatermark()
 FRANCESCO = FrancescoWatermark()
+_FRANCESCO_MAX_PAGES = 10  # francesco's page limit before it was raised
 
 # the smallest limit among the methods (khaled): a secret fits every layer
 MAX_SECRET_BYTES = KHALED_MAX_SECRET_BYTES
@@ -58,7 +62,8 @@ class Group13Watermark(WatermarkingMethod):
             data = load_pdf_bytes(pdf)
         except (TypeError, ValueError, OSError):
             return False
-        return DAVIDE.is_watermark_applicable(data) or KHALED.is_watermark_applicable(data)
+        return (DAVIDE.is_watermark_applicable(data, scans=False)
+                or KHALED.is_watermark_applicable(data, tolerant=False))
 
     @classmethod
     def add_watermark(
@@ -77,12 +82,12 @@ class Group13Watermark(WatermarkingMethod):
         applied: list[WatermarkingMethod] = []
 
         # ---- 1. davide: encrypted secret + recipient fingerprint in the images
-        if DAVIDE.is_watermark_applicable(data):
+        if DAVIDE.is_watermark_applicable(data, scans=False):
             data = DAVIDE.add_watermark(data, secret, key)
             applied.append(DAVIDE)
 
         # ---- 2. khaled: encrypted secret in the spacing of the text
-        if KHALED.is_watermark_applicable(data):
+        if KHALED.is_watermark_applicable(data, tolerant=False):
             data = KHALED.add_watermark(data, secret, key)
             applied.append(KHALED)
 
@@ -92,7 +97,7 @@ class Group13Watermark(WatermarkingMethod):
         # ---- 3. francesco: QR codes and visible labels drawn on top. Last,
         # otherwise davide would re-encode its pictures; optional, because
         # only here we learn if the page borders have room for the QR codes
-        if FRANCESCO.is_watermark_applicable(data):
+        if FRANCESCO.is_watermark_applicable(data, max_pages=_FRANCESCO_MAX_PAGES):
             try:
                 data = FRANCESCO.add_watermark(data, secret, key, intended_for=intended_for)
                 applied.append(FRANCESCO)
@@ -124,7 +129,7 @@ class Group13Watermark(WatermarkingMethod):
     @classmethod
     def score_recipients(cls, pdf: PdfSource, original: PdfSource, key: str,
                          secrets: list[str]) -> dict[str, float]:
-        return DAVIDE.score_recipients(pdf, original, key, secrets)
+        return DAVIDE.score_recipients(pdf, original, key, secrets, scans=False)
 
     @classmethod
     def embedded_layers(cls, pdf: PdfSource, key: str, secret: str) -> list[str]:
