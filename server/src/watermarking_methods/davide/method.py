@@ -44,8 +44,12 @@ logger = logging.getLogger(__name__)
 
 # the server runs a single worker: bigger images are skipped and every
 # document has a total budget of pixels
-_MAX_PIXELS = 12_000_000  # scanned A4 pages at 300 DPI are about 9 MP
-_MAX_TOTAL_PIXELS = 2 * _MAX_PIXELS
+_MAX_PIXELS = 2048 * 2048
+_MAX_TOTAL_PIXELS = 4 * _MAX_PIXELS
+# fallback for scanned pages (about 9 MP at 300 DPI): bigger images are used
+# only when no image within the limits above can be marked
+_MAX_SCAN_PIXELS = 12_000_000
+_MAX_SCAN_TOTAL_PIXELS = 2 * _MAX_SCAN_PIXELS
 
 MAX_SECRET_BYTES = 128
 TAG_BYTES = 16        # added by AES-SIV
@@ -79,13 +83,21 @@ def decrypt(ciphertext: bytes, key: str) -> str | None:
 
 def _images(doc) -> Iterator[tuple[int, Image.Image]]:
     """(xref, image) of every image that can be marked, decoded one at a time"""
-    seen = set()
-    budget = _MAX_TOTAL_PIXELS
+    return _pass(doc, _MAX_PIXELS, _MAX_TOTAL_PIXELS, set())
 
+
+def _scan_images(doc) -> Iterator[tuple[int, Image.Image]]:
+    """The images that _images leaves out, up to the scanned-page limits"""
+    return _pass(doc, _MAX_SCAN_PIXELS, _MAX_SCAN_TOTAL_PIXELS,
+                 {xref for xref, _ in _images(doc)})
+
+
+def _pass(doc, max_pixels: int, budget: int, skip: set[int]) -> Iterator[tuple[int, Image.Image]]:
+    seen = set(skip)
     for page in doc:
         for info in page.get_images(full=True):
             xref, width, height = info[0], info[2], info[3]
-            if xref in seen or width * height > min(_MAX_PIXELS, budget):
+            if xref in seen or width * height > min(max_pixels, budget):
                 continue
             seen.add(xref)
 
@@ -96,7 +108,7 @@ def _images(doc) -> Iterator[tuple[int, Image.Image]]:
                 img = Image.open(io.BytesIO(doc.extract_image(xref)["image"]))
                 # the size in the PDF may lie: check the real one before decoding
                 pixels = max(width * height, img.width * img.height)
-                if pixels > min(_MAX_PIXELS, budget):
+                if pixels > min(max_pixels, budget):
                     continue
                 img = img.convert("RGB")
             except (KeyError, OSError, RuntimeError, ValueError, Image.DecompressionBombError) as error:
@@ -152,12 +164,16 @@ class DavideWatermark(WatermarkingMethod):
         return "Embed an encrypted watermark and a recipient fingerprint in the PDF's images"
 
     @classmethod
-    def is_watermark_applicable(cls, pdf: PdfSource, position: str | None = None) -> bool:
-        # position is not used: at least one image must hold the longest secret
+    def is_watermark_applicable(cls, pdf: PdfSource, position: str | None = None,
+                                *, scans: bool = True) -> bool:
+        # position is not used: at least one image must hold the longest secret.
+        # scans=False: only the normal images, as before the scanned-page fallback
         needed = (MAX_SECRET_BYTES + TAG_BYTES) * 8 * MIN_REPETITIONS
         try:
             with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
-                return not doc.is_encrypted and any(capacity(img) >= needed for _, img in _images(doc))
+                return not doc.is_encrypted and (
+                    any(capacity(img) >= needed for _, img in _images(doc))
+                    or (scans and any(capacity(img) >= needed for _, img in _scan_images(doc))))
         except (OSError, RuntimeError, TypeError, ValueError):
             return False
 
@@ -169,12 +185,16 @@ class DavideWatermark(WatermarkingMethod):
 
         with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
             marked = 0
-            for xref, img in _images(doc):
-                if capacity(img) < len(bits) * MIN_REPETITIONS:
-                    continue
-                img = embed_fingerprint(embed_payload(img, bits, key), key, secret)
-                _replace_image(doc, xref, img)
-                marked += 1
+            # scanned pages only when no normal image fits
+            for images in (_images, _scan_images):
+                for xref, img in images(doc):
+                    if capacity(img) < len(bits) * MIN_REPETITIONS:
+                        continue
+                    img = embed_fingerprint(embed_payload(img, bits, key), key, secret)
+                    _replace_image(doc, xref, img)
+                    marked += 1
+                if marked:
+                    break
 
             if not marked:
                 raise WatermarkingError("PDF does not contain a large enough image")
@@ -188,6 +208,9 @@ class DavideWatermark(WatermarkingMethod):
 
         with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
             found = {secret for _, img in _images(doc) if (secret := _read_image(img, key)) is not None}
+            if not found:
+                found = {secret for _, img in _scan_images(doc)
+                         if (secret := _read_image(img, key)) is not None}
 
         # images taken from two different copies: better no answer than a wrong one
         if len(found) > 1:
@@ -197,26 +220,40 @@ class DavideWatermark(WatermarkingMethod):
         return found.pop()
 
     @classmethod
-    def score_recipients(cls, pdf: PdfSource, original: PdfSource, key: str, secrets: list[str]) -> dict[str, float]:
+    def score_recipients(cls, pdf: PdfSource, original: PdfSource, key: str, secrets: list[str],
+                         *, scans: bool = True) -> dict[str, float]:
         """Fingerprint score of every secret in the leaked `pdf`, compared with the unmarked `original`"""
         if not key:
             raise InvalidKeyError("Key must not be empty")
 
+        scores = _scores(pdf, original, key, secrets, _images)
+        # secrets that add_watermark had to put in scanned pages
         with fitz.open(stream=load_pdf_bytes(original), filetype="pdf") as doc:
-            originals = [(img, _page_box(doc, xref)) for xref, img in _images(doc)]
-
-        scores = {secret: float("-inf") for secret in secrets}
-        with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
-            # images may have been reordered, so every pair is tried
-            for _, leak in _images(doc):
-                for source, box in originals:
-                    candidates = [leak]
-                    # the leak may be a screenshot of the whole page
-                    if box is not None:
-                        x0, y0, x1, y1 = box
-                        candidates.append(leak.crop((round(x0 * leak.width), round(y0 * leak.height),
-                                                     round(x1 * leak.width), round(y1 * leak.height))))
-                    for candidate in candidates:
-                        for secret, z in fingerprint_scores(candidate, source, key, secrets).items():
-                            scores[secret] = max(scores[secret], z)
+            caps = [capacity(img) for _, img in _images(doc)]
+        scanned = [secret for secret in secrets
+                   if not any(c >= (len(secret.encode("utf-8")) + TAG_BYTES) * 8 * MIN_REPETITIONS
+                              for c in caps)]
+        if scans and scanned:
+            scores.update(_scores(pdf, original, key, scanned, _scan_images))
         return scores
+
+
+def _scores(pdf: PdfSource, original: PdfSource, key: str, secrets: list[str], images) -> dict[str, float]:
+    with fitz.open(stream=load_pdf_bytes(original), filetype="pdf") as doc:
+        originals = [(img, _page_box(doc, xref)) for xref, img in images(doc)]
+
+    scores = {secret: float("-inf") for secret in secrets}
+    with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
+        # images may have been reordered, so every pair is tried
+        for _, leak in images(doc):
+            for source, box in originals:
+                candidates = [leak]
+                # the leak may be a screenshot of the whole page
+                if box is not None:
+                    x0, y0, x1, y1 = box
+                    candidates.append(leak.crop((round(x0 * leak.width), round(y0 * leak.height),
+                                                 round(x1 * leak.width), round(y1 * leak.height))))
+                for candidate in candidates:
+                    for secret, z in fingerprint_scores(candidate, source, key, secrets).items():
+                        scores[secret] = max(scores[secret], z)
+    return scores

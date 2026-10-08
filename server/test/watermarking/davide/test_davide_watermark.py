@@ -199,7 +199,8 @@ def test_pdf_without_usable_image_is_rejected():
 def test_images_above_the_pixel_limit_are_left_untouched():
     side = int(method_module._MAX_PIXELS ** 0.5) + 8
     big = make_photo(side, side, smooth=True)
-    assert not DavideWatermark.is_watermark_applicable(photo_pdf([big]))
+    # only as a scanned-page fallback, never next to a normal image
+    assert not DavideWatermark.is_watermark_applicable(photo_pdf([big]), scans=False)
 
     mixed = photo_pdf([big, make_photo(640, 640)])
     out = DavideWatermark.add_watermark(mixed, LEAKER, KEY)
@@ -207,6 +208,37 @@ def test_images_above_the_pixel_limit_are_left_untouched():
     assert after[0] == before[0]
     assert after[1][1] != before[1][1]
     assert DavideWatermark.read_secret(out, KEY) == LEAKER
+
+
+def test_images_above_the_scan_limit_are_never_used(monkeypatch):
+    monkeypatch.setattr(method_module, "_MAX_PIXELS", 500 * 500)
+    monkeypatch.setattr(method_module, "_MAX_SCAN_PIXELS", 900 * 900)
+    pdf = photo_pdf([make_photo(960, 960)])
+    assert not DavideWatermark.is_watermark_applicable(pdf)
+    with pytest.raises(WatermarkingError):
+        DavideWatermark.add_watermark(pdf, LEAKER, KEY)
+
+
+def test_scanned_pages_are_a_fallback_only(monkeypatch):
+    # a smaller limit keeps the test fast: 640x640 is "normal", 800x800 a "scan"
+    monkeypatch.setattr(method_module, "_MAX_PIXELS", 700 * 700)
+    scan = make_photo(800, 800)
+    only_scan = photo_pdf([scan])
+    assert not DavideWatermark.is_watermark_applicable(only_scan, scans=False)
+    assert DavideWatermark.is_watermark_applicable(only_scan)
+    out = DavideWatermark.add_watermark(only_scan, LEAKER, KEY)
+    assert DavideWatermark.read_secret(out, KEY) == LEAKER
+    scores = DavideWatermark.score_recipients(out, only_scan, KEY, [LEAKER, OTHER])
+    assert scores[LEAKER] > THRESHOLD > scores[OTHER]
+    # group13 keeps the original criteria
+    assert DavideWatermark.score_recipients(out, only_scan, KEY, [LEAKER], scans=False)[LEAKER] < THRESHOLD
+
+    # with a normal image the scan is left untouched, as before the fallback
+    mixed = photo_pdf([scan, make_photo(640, 640)])
+    out = DavideWatermark.add_watermark(mixed, LEAKER, KEY)
+    before, after = _raw_images(mixed), _raw_images(out)
+    assert after[0] == before[0]
+    assert after[1][1] != before[1][1]
 
 
 def test_real_image_size_is_checked_before_decoding():

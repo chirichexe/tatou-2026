@@ -149,3 +149,25 @@ def test_fingerprint_attribution(source, marked):
     scores = G13.score_recipients(marked, source, KEY, [SECRET, OTHER])
     assert scores[SECRET] > G13.ATTRIBUTION_THRESHOLD > scores[OTHER]
     assert G13.ATTRIBUTION_THRESHOLD == DavideWatermark.ATTRIBUTION_THRESHOLD
+
+
+def test_layers_keep_their_original_criteria(monkeypatch):
+    # the fallbacks of the single methods (scanned pages, long documents,
+    # tolerant text) do not change which layers group13 applies
+    import watermarking_methods.davide.method as davide_module
+
+    with fitz.open() as doc:
+        for _ in range(12):  # francesco alone accepts it, group13 keeps the 10-page limit
+            page = doc.new_page()
+            for row in range(40):
+                page.insert_text((70, 110 + row * 16), "Tatou carries a traceable secret here.", fontsize=10)
+        long_text = doc.tobytes()
+    out = G13.add_watermark(long_text, SECRET, KEY)
+    assert G13.embedded_layers(out, KEY, SECRET) == ["khaled-text-spacing-watermark"]
+
+    monkeypatch.setattr(davide_module, "_MAX_PIXELS", 600 * 600)  # the photo becomes a "scan"
+    scan_only = _pdf(text=False)
+    assert DavideWatermark.is_watermark_applicable(scan_only)
+    assert not G13.is_watermark_applicable(scan_only)
+    with pytest.raises(WatermarkingError):
+        G13.add_watermark(scan_only, SECRET, KEY)

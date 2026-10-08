@@ -124,12 +124,13 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
             return 0
 
     @classmethod
-    def is_watermark_applicable(cls, pdf: PdfSource,
-                                position: str | None = None) -> bool:
+    def is_watermark_applicable(cls, pdf: PdfSource, position: str | None = None,
+                                *, tolerant: bool = True) -> bool:
+        """tolerant=False: only the strict parsing, as before the fallback"""
         if position not in (None, "", "auto"):
             return False
         needed = (MAX_SECRET_BYTES + TAG_BYTES + PARITY_BYTES) * 8
-        return cls._capacity(pdf, False) >= needed or cls._capacity(pdf, True) >= needed
+        return cls._capacity(pdf, False) >= needed or (tolerant and cls._capacity(pdf, True) >= needed)
 
     @classmethod
     def add_watermark(cls, pdf: PdfSource, secret: str, key: str,
