@@ -14,13 +14,13 @@ MAX_PAGES: Final[int] = 64
 MAX_PIXELS_PER_PAGE: Final[int] = 16_000_000
 
 
-def is_document_applicable(data: bytes) -> bool:
+def is_document_applicable(data: bytes, max_pages: int = MAX_PAGES) -> bool:
     """Validate document limits: page count, unencrypted status, and DPI pixel bounds."""
     if len(data) > MAX_INPUT_BYTES:
         return False
     try:
         with fitz.open(stream=data, filetype="pdf") as document:
-            if document.is_encrypted or not 1 <= document.page_count <= MAX_PAGES:
+            if document.is_encrypted or not 1 <= document.page_count <= max_pages:
                 return False
             for page in document:
                 width = math.ceil(page.rect.width * DEFAULT_DPI / 72)
@@ -33,10 +33,9 @@ def is_document_applicable(data: bytes) -> bool:
 
 
 def rasterize_page(page: fitz.Page, dpi: int = DEFAULT_DPI) -> Image.Image:
-    """Rasterize a single PDF page into a grayscale PIL Image at the specified DPI."""
-    # the QR is black on white: gray is enough and about 4x faster to scan
-    pixmap = page.get_pixmap(dpi=dpi, colorspace=fitz.csGRAY, alpha=False)
-    return Image.frombytes("L", (pixmap.width, pixmap.height), pixmap.samples)
+    """Rasterize a single PDF page into an RGB PIL Image at the specified DPI."""
+    pixmap = page.get_pixmap(dpi=dpi, colorspace=fitz.csRGB, alpha=False)
+    return Image.frombytes("RGB", (pixmap.width, pixmap.height), pixmap.samples)
 
 
 def stamp_qr_on_page(

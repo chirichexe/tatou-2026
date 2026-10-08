@@ -49,9 +49,10 @@ class FrancescoWatermark(WatermarkingMethod):
             "Supports any passphrase or hex key."
         )
 
-    def is_watermark_applicable(self, pdf: PdfSource, position: str | None = None) -> bool:
+    def is_watermark_applicable(self, pdf: PdfSource, position: str | None = None,
+                                *, max_pages: int = pdf_ops.MAX_PAGES) -> bool:
         try:
-            return pdf_ops.is_document_applicable(load_pdf_bytes(pdf))
+            return pdf_ops.is_document_applicable(load_pdf_bytes(pdf), max_pages)
         except (OSError, TypeError, ValueError):
             return False
 
