@@ -1101,13 +1101,12 @@ def create_app():
     # GET /api/get-watermarking-methods -> {"methods":[{"name":..., "description":...}, ...], "count":N}
     @app.get("/api/get-watermarking-methods")
     def get_watermarking_methods():
-        # The manual watermarking interface offers each component and the
-        # combined method. RMAP's own default remains group13-watermark.
+        # One method per member. group13-watermark (the three combined) is not
+        # listed but stays registered: RMAP and create-watermark still use it.
         method_names = (
             "davide-watermark",
             "francesco-watermark",
             "khaled-text-spacing-watermark",
-            "group13-watermark",
         )
         methods = [
             {
