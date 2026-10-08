@@ -43,3 +43,23 @@ def test_native_overlay_preserves_text_and_streams(pdf_bytes):
         assert "A document with a table and a photograph" in text
         images = page.get_images()
         assert len(images) >= 1
+
+
+def test_long_documents_are_applicable_and_readable():
+    # course papers are often 12-45 pages
+    with fitz.open() as doc:
+        for number in range(45):
+            doc.new_page(width=595, height=842).insert_text((72, 72), f"Page {number}")
+        long_pdf = doc.tobytes()
+    assert pdf_ops.is_document_applicable(long_pdf)
+
+    method = FrancescoWatermark()
+    marked = method.add_watermark(long_pdf, "long-copy", KEY, intended_for="Group_13")
+    assert method.read_secret(marked, KEY) == "long-copy"
+
+
+def test_page_limit_still_applies():
+    with fitz.open() as doc:
+        for _ in range(pdf_ops.MAX_PAGES + 1):
+            doc.new_page()
+        assert not pdf_ops.is_document_applicable(doc.tobytes())
