@@ -109,22 +109,27 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
                 "position is auto and secrets are at most 48 UTF-8 bytes")
 
     @staticmethod
-    def capacity_bits(pdf: PdfSource) -> int:
+    def capacity_bits(pdf: PdfSource, tolerant: bool = False) -> int:
         """Count structurally stable one-bit carriers before embedding."""
         with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
             if doc.is_encrypted or doc.get_sigflags() > 0:
                 return 0
-            return len(carriers(collect_runs(doc)))
+            return len(carriers(collect_runs(doc, tolerant)))
+
+    @classmethod
+    def _capacity(cls, pdf: PdfSource, tolerant: bool) -> int:
+        try:
+            return cls.capacity_bits(pdf, tolerant)
+        except (ValueError, RuntimeError, OSError, fitz.FileDataError, UnsupportedText):
+            return 0
 
     @classmethod
     def is_watermark_applicable(cls, pdf: PdfSource,
                                 position: str | None = None) -> bool:
         if position not in (None, "", "auto"):
             return False
-        try:
-            return cls.capacity_bits(pdf) >= (MAX_SECRET_BYTES + TAG_BYTES + PARITY_BYTES) * 8
-        except (ValueError, RuntimeError, OSError, fitz.FileDataError, UnsupportedText):
-            return False
+        needed = (MAX_SECRET_BYTES + TAG_BYTES + PARITY_BYTES) * 8
+        return cls._capacity(pdf, False) >= needed or cls._capacity(pdf, True) >= needed
 
     @classmethod
     def add_watermark(cls, pdf: PdfSource, secret: str, key: str,
@@ -141,6 +146,8 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
         with _CODEC_LOCK:
             packet = bytes(_CODEC.encode(bytearray(ciphertext)))
         source = load_pdf_bytes(pdf)
+        # strict parsing whenever it fits, so documents it handled are unchanged
+        tolerant = cls._capacity(source, False) < len(packet) * 8
 
         try:
             with fitz.open(stream=source, filetype="pdf") as doc:
@@ -149,7 +156,7 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
                 if doc.get_sigflags() > 0:
                     raise WatermarkingError("Signed PDFs are unsupported")
                 original_text = _visible_text(doc)
-                runs = collect_runs(doc)
+                runs = collect_runs(doc, tolerant)
                 selected = _ordered(carriers(runs), order_key)
                 if len(selected) < len(packet) * 8:
                     raise WatermarkingError(
@@ -173,7 +180,7 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
                 if _visible_text(doc) != original_text:
                     raise WatermarkingError("Watermark changed extracted text")
                 after_ids = [item.identity for item in
-                             _ordered(carriers(collect_runs(doc)), order_key)]
+                             _ordered(carriers(collect_runs(doc, tolerant)), order_key)]
                 if after_ids != original_ids:
                     raise WatermarkingError("Text carrier order changed after embedding")
                 output = doc.tobytes(garbage=3, deflate=True, no_new_id=True,
@@ -191,27 +198,37 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
     @classmethod
     def read_secret(cls, pdf: PdfSource, key: str) -> str:
         cipher_key, order_key, dither_key = _keys(key)
-        try:
-            with fitz.open(stream=load_pdf_bytes(pdf), filetype="pdf") as doc:
-                if doc.is_encrypted:
-                    raise SecretNotFoundError("No readable text watermark")
-                selected = _ordered(carriers(collect_runs(doc)), order_key)
-                bits = [_read_bit(item, dither_key) for item in selected[:
-                    (MAX_SECRET_BYTES + TAG_BYTES + PARITY_BYTES) * 8]]
-        except (RuntimeError, fitz.FileDataError, UnsupportedText) as exc:
-            raise SecretNotFoundError("No readable text watermark") from exc
-
-        for length in range(1, MAX_SECRET_BYTES + 1):
-            needed = (length + TAG_BYTES + PARITY_BYTES) * 8
-            if len(bits) < needed:
-                break
-            packet = _pack(bits[:needed])
+        data = load_pdf_bytes(pdf)
+        # strict first (older copies), then the tolerant parsing
+        for tolerant in (False, True):
             try:
-                with _CODEC_LOCK:
-                    corrected = bytes(_CODEC.decode(bytearray(packet))[0])
-                plain = AESSIV(cipher_key).decrypt(corrected, _AAD)
-                if len(plain) == length:
-                    return plain.decode("utf-8")
-            except (ReedSolomonError, InvalidTag, UnicodeDecodeError, ValueError, IndexError):
+                with fitz.open(stream=data, filetype="pdf") as doc:
+                    if doc.is_encrypted:
+                        raise SecretNotFoundError("No readable text watermark")
+                    selected = _ordered(carriers(collect_runs(doc, tolerant)), order_key)
+                    bits = [_read_bit(item, dither_key) for item in selected[:
+                        (MAX_SECRET_BYTES + TAG_BYTES + PARITY_BYTES) * 8]]
+            except (RuntimeError, fitz.FileDataError, UnsupportedText):
                 continue
+            secret = _decode(bits, cipher_key)
+            if secret is not None:
+                return secret
         raise SecretNotFoundError("No readable text watermark")
+
+
+def _decode(bits: list[int], cipher_key: bytes) -> str | None:
+    """The secret in the first carrier bits, None if no length authenticates."""
+    for length in range(1, MAX_SECRET_BYTES + 1):
+        needed = (length + TAG_BYTES + PARITY_BYTES) * 8
+        if len(bits) < needed:
+            break
+        packet = _pack(bits[:needed])
+        try:
+            with _CODEC_LOCK:
+                corrected = bytes(_CODEC.decode(bytearray(packet))[0])
+            plain = AESSIV(cipher_key).decrypt(corrected, _AAD)
+            if len(plain) == length:
+                return plain.decode("utf-8")
+        except (ReedSolomonError, InvalidTag, UnicodeDecodeError, ValueError, IndexError):
+            continue
+    return None

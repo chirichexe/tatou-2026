@@ -181,14 +181,18 @@ def _unicode_map(doc: fitz.Document, font_xref: int) -> dict[int, str] | None:
     return mapping
 
 
-def _letter_codes(doc: fitz.Document, page: fitz.Page) -> dict[bytes, set[int]]:
+def _letter_codes(doc: fitz.Document, page: fitz.Page,
+                  tolerant: bool = False) -> dict[bytes, set[int]]:
     result: dict[bytes, set[int]] = {}
     for xref, _ext, font_type, _base, resource, encoding, _referencer in page.get_fonts(full=True):
         if font_type not in ("Type1", "TrueType"):
             continue
         mapping = _unicode_map(doc, xref)
         if mapping is None:
-            if encoding not in ("WinAnsiEncoding", "StandardEncoding"):
+            # tolerant: a Type1 font without /Encoding uses its built-in one,
+            # Latin letters for text fonts (the extracted-text check guards it)
+            if encoding not in ("WinAnsiEncoding", "StandardEncoding") and not (
+                    tolerant and font_type == "Type1" and not encoding):
                 continue
             good = set(_ASCII_LETTERS)
         else:
@@ -303,7 +307,27 @@ def _page_transformed(doc: fitz.Document, page: fitz.Page) -> bool:
     return any(has_text and scaled for has_text, scaled in groups)
 
 
-def collect_runs(doc: fitz.Document) -> list[TextRun]:
+def _axis_scale(tokens: list[Token], i: int) -> float | None:
+    """The horizontal scale of an ``a 0 0 d x y`` matrix (a, d > 0), else None."""
+    values = [_num(tokens, i - 6 + j) for j in range(4)] if i >= 6 else [None]
+    if any(v is None for v in values):
+        return None
+    a, b, c, d = values
+    if abs(b) > 1e-9 or abs(c) > 1e-9 or a <= 0 or d <= 0:
+        return None
+    return a
+
+
+def collect_runs(doc: fitz.Document, tolerant: bool = False) -> list[TextRun]:
+    """Text runs that can carry bits.
+
+    The default (strict) mode only accepts simple text. ``tolerant`` also
+    accepts scaled, axis-aligned text and page matrices (``1 Tf`` +
+    ``a 0 0 d x y Tm``, ``0.1 0 0 0.1 0 0 cm``), non-default Tc/Tw/Tz/Ts/Tr
+    and fonts with a built-in encoding, and skips pages it cannot parse
+    instead of rejecting the document. Bits stay in the same TJ gaps: only
+    the set of accepted runs changes.
+    """
     runs: list[TextRun] = []
     seen_xrefs: set[int] = set()
     # Carriers are numbered by text page, not by page: dropping or adding a
@@ -313,77 +337,107 @@ def collect_runs(doc: fitz.Document) -> list[TextRun]:
         if page.rotation:
             continue
         found = len(runs)
-        fonts = _letter_codes(doc, page)
-        ordinal = 0
-        transformed = _page_transformed(doc, page)
-        # The font is graphics state: it outlives BT/ET and the stream, and
-        # only Q restores it. Resetting it at BT made text that inherits its
-        # font invisible until a resave (clean=True) wrote Tf again.
-        font_name: bytes | None = None
-        font_size = 0.0
-        fonts_saved: list[tuple[bytes | None, float]] = []
-        for stream_no, xref in enumerate(page.get_contents()):
-            # A resave with garbage collection merges identical streams (e.g. the
-            # q/Q wrappers of overlays). A shared stream still counts towards the
-            # ordinals, but only its first occurrence yields carriers.
-            shared = xref in seen_xrefs
-            seen_xrefs.add(xref)
-            data = doc.xref_stream(xref)
-            tokens = tokenize(data)
-            array_stack: list[int] = []
-            array_open: dict[int, int] = {}
-            for i, token in enumerate(tokens):
-                if token.value == b"[" and token.kind == "symbol":
-                    array_stack.append(i)
-                elif token.value == b"]" and token.kind == "symbol":
-                    if not array_stack:
-                        raise UnsupportedText("unbalanced PDF array")
-                    array_open[i] = array_stack.pop()
-            if array_stack:
-                raise UnsupportedText("unbalanced PDF array")
-
-            inside = False
-            simple_state = True
-            for i, token in enumerate(tokens):
-                word = token.value if token.kind == "word" else None
-                if word == b"q":
-                    fonts_saved.append((font_name, font_size))
-                elif word == b"Q" and fonts_saved:
-                    font_name, font_size = fonts_saved.pop()
-                elif word == b"BT":
-                    inside = True
-                    simple_state = not transformed
-                elif word == b"ET":
-                    inside = False
-                elif word == b"Tf" and i >= 2:
-                    if tokens[i - 2].kind == "name" and _num(tokens, i - 1) is not None:
-                        font_name = bytes(tokens[i - 2].value)
-                        font_size = float(tokens[i - 1].value)
-                    else:
-                        font_name = None
-                elif word in (b"Tc", b"Tw", b"Ts", b"Tr") and inside:
-                    if _num(tokens, i - 1) is None or abs(float(tokens[i - 1].value)) > 1e-9:
-                        simple_state = False
-                elif word == b"Tz" and inside:
-                    if _num(tokens, i - 1) is None or abs(float(tokens[i - 1].value) - 100) > 1e-9:
-                        simple_state = False
-                elif word == b"Tm" and inside and _scaling_cm(tokens, i):
-                    simple_state = False
-                elif word in (b"Tj", b"TJ", b"'", b'"'):
-                    if inside:
-                        ordinal += 1
-                    if not inside or not simple_state or font_name not in fonts or not 8 <= font_size <= 30:
-                        continue
-                    show = _show_data(tokens, i, array_open)
-                    if show is None:
-                        continue
-                    start, chars, gaps, prefix, suffix = show
-                    if len(chars) >= 3 and not shared:
-                        runs.append(TextRun(page_no, stream_no, xref, ordinal,
-                                            start, token.end, font_size, chars,
-                                            gaps, prefix, suffix, fonts[font_name]))
+        try:
+            page_runs = _page_runs(doc, page, page_no, seen_xrefs, tolerant)
+        except UnsupportedText:
+            if not tolerant:
+                raise
+            continue
+        runs.extend(page_runs)
         if len(runs) > found:
             page_no += 1
+    return runs
+
+
+def _page_runs(doc: fitz.Document, page: fitz.Page, page_no: int,
+               seen_xrefs: set[int], tolerant: bool) -> list[TextRun]:
+    runs: list[TextRun] = []
+    seen_here: set[int] = set()
+    fonts = _letter_codes(doc, page, tolerant)
+    ordinal = 0
+    # tolerant mode follows the scale of axis-aligned cm instead
+    transformed = False if tolerant else _page_transformed(doc, page)
+    # The font is graphics state: it outlives BT/ET and the stream, and
+    # only Q restores it. Resetting it at BT made text that inherits its
+    # font invisible until a resave (clean=True) wrote Tf again.
+    font_name: bytes | None = None
+    font_size = 0.0
+    # horizontal scale of the text matrix and of the CTM (tolerant mode only)
+    text_scale = 1.0
+    ctm_scale: float | None = 1.0  # None: rotated or skewed
+    fonts_saved: list[tuple[bytes | None, float, float | None]] = []
+    for stream_no, xref in enumerate(page.get_contents()):
+        # A resave with garbage collection merges identical streams (e.g. the
+        # q/Q wrappers of overlays). A shared stream still counts towards the
+        # ordinals, but only its first occurrence yields carriers.
+        shared = xref in seen_xrefs or xref in seen_here
+        seen_here.add(xref)
+        data = doc.xref_stream(xref)
+        tokens = tokenize(data)
+        array_stack: list[int] = []
+        array_open: dict[int, int] = {}
+        for i, token in enumerate(tokens):
+            if token.value == b"[" and token.kind == "symbol":
+                array_stack.append(i)
+            elif token.value == b"]" and token.kind == "symbol":
+                if not array_stack:
+                    raise UnsupportedText("unbalanced PDF array")
+                array_open[i] = array_stack.pop()
+        if array_stack:
+            raise UnsupportedText("unbalanced PDF array")
+
+        inside = False
+        simple_state = True
+        for i, token in enumerate(tokens):
+            word = token.value if token.kind == "word" else None
+            if word == b"q":
+                fonts_saved.append((font_name, font_size, ctm_scale))
+            elif word == b"Q" and fonts_saved:
+                font_name, font_size, ctm_scale = fonts_saved.pop()
+            elif word == b"cm" and tolerant:
+                scale = _axis_scale(tokens, i)
+                ctm_scale = None if scale is None or ctm_scale is None else ctm_scale * scale
+            elif word == b"BT":
+                inside = True
+                simple_state = not transformed
+                text_scale = 1.0
+            elif word == b"ET":
+                inside = False
+            elif word == b"Tf" and i >= 2:
+                if tokens[i - 2].kind == "name" and _num(tokens, i - 1) is not None:
+                    font_name = bytes(tokens[i - 2].value)
+                    font_size = float(tokens[i - 1].value)
+                else:
+                    font_name = None
+            elif word in (b"Tc", b"Tw", b"Ts", b"Tr") and inside:
+                if _num(tokens, i - 1) is None or (
+                        abs(float(tokens[i - 1].value)) > 1e-9 and not tolerant):
+                    simple_state = False
+            elif word == b"Tz" and inside:
+                if _num(tokens, i - 1) is None or (
+                        abs(float(tokens[i - 1].value) - 100) > 1e-9 and not tolerant):
+                    simple_state = False
+            elif word == b"Tm" and inside:
+                scale = _axis_scale(tokens, i) if tolerant else None
+                if scale is not None:
+                    text_scale = scale
+                elif _scaling_cm(tokens, i):
+                    simple_state = False
+            elif word in (b"Tj", b"TJ", b"'", b'"'):
+                if inside:
+                    ordinal += 1
+                size = font_size * text_scale * (ctm_scale or 0.0)
+                if not inside or not simple_state or font_name not in fonts or not 8 <= size <= 30:
+                    continue
+                show = _show_data(tokens, i, array_open)
+                if show is None:
+                    continue
+                start, chars, gaps, prefix, suffix = show
+                if len(chars) >= 3 and not shared:
+                    runs.append(TextRun(page_no, stream_no, xref, ordinal,
+                                        start, token.end, size, chars,
+                                        gaps, prefix, suffix, fonts[font_name]))
+    seen_xrefs |= seen_here
     return runs
 
 
