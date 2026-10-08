@@ -114,3 +114,44 @@ def test_text_inheriting_its_font_is_used_and_survives_clean():
     with fitz.open(stream=marked, filetype="pdf") as doc:
         cleaned = doc.tobytes(garbage=4, clean=True, deflate=True)
     assert KhaledTextSpacingWatermark.read_secret(cleaned, KEY) == SECRET
+
+
+def _scaled_text_pdf() -> bytes:
+    """Ghostscript/Word style text: 1 Tf + scaled Tm inside a scaled cm, Tc set,
+    plus a page with an inline image that the strict parser rejects."""
+    sentence = "Tatou carries a traceable secret in selectable letters on scaled text"
+    with fitz.open() as doc:
+        page = doc.new_page()
+        page.insert_text((30, 40), "x", fontsize=10)  # adds a WinAnsi Helvetica resource
+        font = page.get_fonts()[0][4]
+        lines = [f"BT /{font} 1 Tf 0.01 Tc 10 0 0 10.4 30 {40 + row * 18} Tm ({sentence}) Tj ET"
+                 for row in range(42)]
+        content = "q 0.1 0 0 0.1 0 0 cm q 10 0 0 10 0 0 cm " + " ".join(lines) + " Q Q"
+        doc.update_stream(page.get_contents()[0], content.encode())
+        inline = doc.new_page()
+        inline.insert_text((30, 40), "x", fontsize=10)
+        doc.update_stream(inline.get_contents()[0],
+                          b"q 10 0 0 10 50 50 cm BI /W 1 /H 1 /BPC 8 /CS /G ID \x80 EI Q")
+        return doc.tobytes()
+
+
+def test_khaled_tolerant_parsing_handles_scaled_text_and_inline_images():
+    pdf = _scaled_text_pdf()
+    with fitz.open(stream=pdf, filetype="pdf") as doc, pytest.raises(ValueError):
+        collect_runs(doc)  # strict: the inline image page rejects the document
+    assert KhaledTextSpacingWatermark.capacity_bits(pdf, tolerant=True) >= 640
+    assert KhaledTextSpacingWatermark.is_watermark_applicable(pdf)
+
+    marked = KhaledTextSpacingWatermark.add_watermark(pdf, SECRET, KEY)
+    assert KhaledTextSpacingWatermark.read_secret(marked, KEY) == SECRET
+    assert _page_text(marked) == _page_text(pdf)
+
+
+def test_khaled_simple_text_still_uses_strict_carriers(mixed_pdf):
+    # documents the strict parser handles are marked exactly as before
+    strict = KhaledTextSpacingWatermark.capacity_bits(mixed_pdf)
+    assert strict == KhaledTextSpacingWatermark.capacity_bits(mixed_pdf, tolerant=True)
+    marked = KhaledTextSpacingWatermark.add_watermark(mixed_pdf, SECRET, KEY)
+    with fitz.open(stream=marked, filetype="pdf") as doc:
+        selected = _ordered(carriers(collect_runs(doc)), _keys(KEY)[1])
+    assert len(selected) == strict

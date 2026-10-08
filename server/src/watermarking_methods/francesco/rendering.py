@@ -7,8 +7,10 @@ import io
 import math
 import random
 import textwrap
+from functools import lru_cache
 from typing import Final
 
+import numpy as np
 import pymupdf as fitz
 import zxingcpp
 from PIL import Image, ImageDraw, ImageFont
@@ -69,6 +71,17 @@ def boxes_overlap(box1: Box, box2: Box, min_gap: float) -> bool:
         or y1_1 + min_gap <= y0_2
         or y1_2 + min_gap <= y0_1
     )
+
+
+def _overlaps(cands: np.ndarray, boxes, min_gap: float) -> np.ndarray:
+    """boxes_overlap of every candidate (rows) with every box (columns)"""
+    if not len(boxes):
+        return np.zeros((len(cands), 0), dtype=bool)
+    other = np.asarray(boxes, dtype=float)
+    return ~((cands[:, None, 2] + min_gap <= other[None, :, 0])
+             | (other[None, :, 2] + min_gap <= cands[:, None, 0])
+             | (cands[:, None, 3] + min_gap <= other[None, :, 1])
+             | (other[None, :, 3] + min_gap <= cands[:, None, 1]))
 
 
 # -----------------------------------------------------------------------------
@@ -161,6 +174,7 @@ def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         return ImageFont.load_default(size=size)
 
 
+@lru_cache(maxsize=32)  # same label on every page: render it once
 def _label_png(
     label: str, fontsize: float, rotate: int, alpha: int = VISIBLE_TEXT_ALPHA,
 ) -> tuple[bytes, float, float]:
@@ -267,22 +281,28 @@ def stamp_random_native_visible_text(
         best_box: Box | None = None
         best_score = (-float("inf"), -1.0)
 
-        for _attempt in range(1000):
-            px, py = rng.uniform(margin_x, max_x), rng.uniform(margin_y, max_y)
-            cand_box = (px - 10.0, py - 10.0, px + span_x + 10.0, py + span_y + 10.0)
-            if any(boxes_overlap(cand_box, box, min_gap) for box in (*protected_boxes, *chosen_boxes)):
-                continue
+        # 1000 random candidates, scored at once with numpy (same choice as a loop)
+        points = np.array([(rng.uniform(margin_x, max_x), rng.uniform(margin_y, max_y))
+                           for _attempt in range(1000)])
+        cands = np.column_stack((points[:, 0] - 10.0, points[:, 1] - 10.0,
+                                 points[:, 0] + span_x + 10.0, points[:, 1] + span_y + 10.0))
+        valid = ~_overlaps(cands, (*protected_boxes, *chosen_boxes), min_gap).any(axis=1)
+        if valid.any():
             # Prefer whitespace, then spread the labels that fit without
             # colliding. On dense pages, content remains a soft exclusion.
-            content_hits = sum(boxes_overlap(cand_box, box, 0) for box in content_boxes)
-            center_x, center_y = (cand_box[0] + cand_box[2]) / 2, (cand_box[1] + cand_box[3]) / 2
-            distance = min(
-                (center_x - (box[0] + box[2]) / 2) ** 2 + (center_y - (box[1] + box[3]) / 2) ** 2
-                for box in chosen_boxes
-            ) if chosen_boxes else 0.0
-            score = (-content_hits, distance)
-            if score > best_score:
-                best_box, best_score = cand_box, score
+            hits = _overlaps(cands, content_boxes, 0).sum(axis=1)
+            center_x, center_y = (cands[:, 0] + cands[:, 2]) / 2, (cands[:, 1] + cands[:, 3]) / 2
+            if chosen_boxes:
+                chosen = np.array(chosen_boxes)
+                distance = ((center_x[:, None] - (chosen[:, 0] + chosen[:, 2]) / 2) ** 2
+                            + (center_y[:, None] - (chosen[:, 1] + chosen[:, 3]) / 2) ** 2).min(axis=1)
+            else:
+                distance = np.zeros(len(cands))
+            best_hits = hits[valid].min()
+            best = valid & (hits == best_hits)
+            index = int(np.flatnonzero(best & (distance == distance[best].max()))[0])
+            best_box = tuple(float(v) for v in cands[index])
+            best_score = (-int(best_hits), float(distance[index]))
 
         if best_box is None:
             if not chosen_boxes:

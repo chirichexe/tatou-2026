@@ -44,8 +44,8 @@ logger = logging.getLogger(__name__)
 
 # the server runs a single worker: bigger images are skipped and every
 # document has a total budget of pixels
-_MAX_PIXELS = 2048 * 2048
-_MAX_TOTAL_PIXELS = 4 * _MAX_PIXELS
+_MAX_PIXELS = 12_000_000  # scanned A4 pages at 300 DPI are about 9 MP
+_MAX_TOTAL_PIXELS = 2 * _MAX_PIXELS
 
 MAX_SECRET_BYTES = 128
 TAG_BYTES = 16        # added by AES-SIV
