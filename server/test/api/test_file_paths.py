@@ -586,6 +586,7 @@ def test_khaled_text_watermark_runs_alone_through_api(file_app):
         "davide-watermark",
         "francesco-watermark",
         "khaled-text-spacing-watermark",
+        "group13-watermark",
     ]
 
     created = env.client.post(
