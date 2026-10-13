@@ -48,3 +48,8 @@ known-third-party = ["rmap"]
 
 [project.scripts]
 pdfwm = "watermarking_cli:main"                 # now you can run `pdfwm methods`
+
+[tool.mutmut]
+source_paths = ["src/"]
+pytest_add_cli_args_test_selection = ["test/"]
+mutate_only_covered_lines = false

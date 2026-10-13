@@ -1,5 +1,5 @@
 # tatou
-A web platform for pdf watermarking. This project is intended for pedagogical use, and contain security vulnerabilities. Do not deploy on an open network.
+A web platform for PDF watermarking. This project is intended for pedagogical use and may contain security vulnerabilities. Do not deploy on an open network.
 
 ## Instructions
 
@@ -28,16 +28,16 @@ Open a pull request against `main`; CI (lint and tests) must pass before merging
 ### Setup
 
 ```bash
-cd tatou/server
+cd tatou-2026/server
 
-# Create a python virtual environement
-python3 -m venv .venv
+# Create a Python 3.12 virtual environment (the CI/container version)
+python3.12 -m venv .venv
 
-# Activate your virtual environement
+# Activate your virtual environment
 . .venv/bin/activate
 
 # Install the necessary dependencies (editable install, with dev extras)
-python -m pip install -e ".[dev]"
+python -m pip install -r requirements.txt -e ".[dev]"
 ```
 
 ### Run unit and API tests
@@ -55,10 +55,59 @@ python -m pytest test/api
 # Run only the RMAP protocol tests
 python -m pytest test/rmap
 
-# Run the end-to-end tests (real server image + MariaDB in Docker, test keys only)
-python -m pytest test_e2e
+# Run lint
+python -m ruff check .
 ```
-See `server/test_e2e/README.md` for what the end-to-end suite covers.
+
+API tests are in `test/api/`, RMAP integration tests in `test/rmap/`, and
+watermarking tests in `test/watermarking/`. There is no `test_e2e/` suite in this
+checkout. Install Tesseract for visible-label OCR tests; Ghostscript is used by
+optional PDF transformation tests. Record skips and expected failures separately.
+
+### Mutation testing
+
+From `server/`, using the same Python 3.12 environment:
+
+```bash
+source .venv/bin/activate
+python -m pip install "mutmut==3.8.0"
+../mutation --help
+../mutation                       # Same as all
+```
+
+The helper starts a fresh campaign, generates a temporary test key and uses the
+`[tool.mutmut]` configuration in `server/pyproject.toml`.
+
+| Command argument | Mutants selected for execution |
+|---|---|
+| `all` (default) | All configured source modules |
+| `backend` | Flask backend and login rate limiter |
+| `francesco`, `davide`, `khaled` | The selected watermarking package |
+| `common` | Group13, Toy EOF, registry, base contract, utilities and CLI |
+
+From the repository root, use `./mutation`; from `server/`, use `../mutation`.
+Activation is not required when running the launcher: it directly uses Python and
+mutmut from `server/.venv`. That environment must already contain the project
+dependencies and mutmut. For example, `./mutation backend` works from the root
+without an active virtual environment.
+The launcher resolves the project location automatically, without a machine-specific
+path. For example, run `../mutation davide` from `server/`. All tests remain available;
+mutmut selects associated tests. These execution filters do not restrict initial
+generation or statistics collection to the selected package. Mutmut 3.8 focuses
+on exercised functions; including `src/` does not guarantee every statement is mutated.
+
+Inspect the native output from `server/`:
+
+```bash
+mutmut results
+mutmut browse
+mutmut browse --show-killed
+```
+
+Run one campaign at a time. Every helper invocation replaces the same ignored
+`mutants/` directory, including after an interrupted run. Preserve baseline results
+privately before rerunning. Analyze surviving mutants for missing assertions,
+untested cases or equivalent behavior; the mutation score alone is insufficient.
 
 ### Run coverage analysis
 
@@ -87,18 +136,13 @@ need a fast method.
 From the root of the directory:
 
 ```bash
-# Create a file to set environement variables like passwords.
+# Create a file to set environment variables like passwords.
 cp sample.env .env
 
 # Edit .env and pick the passwords you want
 
 # Generate a signing key, then paste it into SECRET_KEY in .env only.
 python3 -c 'import secrets; print(secrets.token_hex(32))'
-
-# When upgrading an existing deployment, stop and remove the old phpMyAdmin
-# container before applying this configuration.
-docker compose stop phpmyadmin
-docker compose rm -f phpmyadmin
 
 # Rebuild the docker image and deploy the containers
 docker compose up --build -d
@@ -128,14 +172,8 @@ The standard deployment starts the application and MariaDB. MariaDB is
 available only to the application through Docker's internal backend network;
 it does not publish a port on the host.
 
-phpMyAdmin is an optional local administration tool. Start the local
-administration profile explicitly with:
-
-```bash
-docker compose --profile admin up -d phpmyadmin
-```
-
-phpMyAdmin is then available only at `http://127.0.0.1:8080`.
+phpMyAdmin is commented out in the current Compose file; no active admin profile
+is provided.
 
 For direct database administration without publishing MariaDB, use
 `docker compose exec db mariadb -u root -p` and enter the root password from
@@ -236,8 +274,8 @@ Layers that do not fit the PDF are skipped, and the combined reader can still
 read copies carrying a compatible component layer. The fingerprint attributes
 cropped, rescaled or screenshotted leaks through `read-watermark`.
 `toy-eof` is easily stripped and kept only for the test suite.
-`server/test_robustness/` measures every method against a set of removal
-attacks.
+Removal-attack tests are included under `server/test/watermarking/`; there is no
+separate `server/test_robustness/` directory in this checkout.
 
 When the server private key has a passphrase, create
 `rmap-keys/server_passphrase` locally with mode `600`, place the passphrase in
