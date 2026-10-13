@@ -211,7 +211,11 @@ marimo/_lsp/
 __marimo__/
 .DS_Store
 
-# Local handoff notes for Claude Code (not for the shared repo)
 CLAUDE.md
+HANDOFF.md
+AGENTS.md
+PLAN.md
+wiki/
 rmap-keys/
 server/uv.lock
+server/mutants/
