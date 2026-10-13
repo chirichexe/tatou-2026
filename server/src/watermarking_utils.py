@@ -9,7 +9,6 @@ This module exposes:
 - :func:`explore_pdf`: build a lightweight JSON-serializable tree of PDF
   nodes with deterministic identifiers ("name nodes").
 - :func:`apply_watermark`: run a concrete watermarking method on a PDF.
-- :func:`apply_watermark`: run a concrete watermarking method on a PDF.
 - :func:`read_watermark`: recover a secret using a concrete method.
 - :func:`register_method` / :func:`get_method`: registry helpers.
 
@@ -119,8 +118,8 @@ def is_watermarking_applicable(
     method: str | WatermarkingMethod,
     pdf: PdfSource,
     position: str | None = None,
-) -> bytes:
-    """Apply a watermark using the specified method and return new PDF bytes."""
+) -> bool:
+    """Return whether the method can watermark the PDF at the given position."""
     m = get_method(method)
     return m.is_watermark_applicable(pdf=pdf, position=position)
 
