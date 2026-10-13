@@ -174,8 +174,11 @@ class WatermarkingMethod(ABC):
     ) -> bytes:
         """Return a new PDF with an embedded watermark.
 
-        Implementations *must* be deterministic given identical inputs
-        to support reproducible pipelines and testing.
+        Implementations may use randomness during embedding, so identical
+        inputs need not produce byte-identical PDFs. For supported inputs,
+        the embedded secret must be recoverable using the correct key;
+        tests should verify that behavior rather than byte equality unless
+        the concrete method explicitly guarantees deterministic output.
 
         Parameters
         ----------

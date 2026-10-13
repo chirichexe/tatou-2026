@@ -940,7 +940,7 @@ def create_app():
     @app.post("/api/create-watermark/<int:document_id>")
     @require_auth
     def create_watermark(document_id: int | None = None):
-        # accept id from path, query (?id= / ?documentid=), or JSON body on GET
+        # Accept id from the path, query (?id= / ?documentid=), or POST JSON body.
         if not document_id:
             document_id = (
                 request.args.get("id")
