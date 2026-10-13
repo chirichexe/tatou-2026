@@ -71,8 +71,10 @@ From `server/`, using the same Python 3.12 environment:
 ```bash
 source .venv/bin/activate
 python -m pip install "mutmut==3.8.0"
-../mutation --help
+../mutation help                  # Also accepts --help or -h
 ../mutation                       # Same as all
+../mutation pause                 # Safely stop the active campaign
+../mutation resume                # Continue the last recorded campaign
 ```
 
 The helper starts a fresh campaign, generates a temporary test key and uses the
@@ -104,9 +106,25 @@ mutmut browse
 mutmut browse --show-killed
 ```
 
-Run one campaign at a time. Every helper invocation replaces the same ignored
-`mutants/` directory, including after an interrupted run. Preserve baseline results
-privately before rerunning. Analyze surviving mutants for missing assertions,
+Run one campaign at a time and invoke session controls sequentially. Fresh campaigns
+ask for confirmation before replacing the same ignored `mutants/` directory, and
+are refused while a campaign for this checkout is active. Preserve baseline results
+privately before starting another fresh campaign.
+
+`pause` sends SIGINT to the campaign coordinator, using mutmut's worker cleanup.
+Completed results are preserved; unfinished work can run again on resume. If
+shutdown takes more than ten seconds, the helper reports that it is still pending;
+wait for it to finish before resuming. Without an active campaign, pause does nothing.
+`resume` keeps saved results and the original scope filters. It does nothing if
+already running, if that scope is complete, or if session data cannot be recovered.
+The ignored `mutants/.mutation-session.json` records arguments only, never the test
+key. To adopt a campaign started before these controls existed, invoke resume while
+it is still active; an already stopped legacy campaign with unknown filters cannot
+be recovered automatically. Changes to sources, tests or configuration may invalidate
+mutmut's cached results. Process discovery uses `ps` and requires permission to
+read the process list. Help never starts or modifies a campaign.
+
+Analyze surviving mutants for missing assertions,
 untested cases or equivalent behavior; the mutation score alone is insufficient.
 
 ### Run coverage analysis
