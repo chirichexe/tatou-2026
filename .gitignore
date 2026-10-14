@@ -219,3 +219,6 @@ wiki/
 rmap-keys/
 server/uv.lock
 server/mutants/
+
+# Local working report draft
+DRAFT.md
