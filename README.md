@@ -1,18 +1,5 @@
 # tatou
-A web platform for PDF watermarking. This project is intended for pedagogical use and may contain security vulnerabilities. Do not deploy on an open network.
-
-## Contents
-
-- [Setup](#prerequisites-and-python-setup)
-- [Tests and lint](#run-tests)
-- [Coverage](#coverage-analysis)
-- [Reports](#reports)
-- [Mutation testing](#mutation-testing)
-- [Watermarking methods](#add-a-watermarking-method)
-- [Deployment](#deploy)
-- [Monitoring](#monitoring-stack)
-- [RMAP](#enable-rmap)
-- [Monitoring configuration](#monitoring-configuration)
+A web platform for pdf watermarking. This project is intended for pedagogical use, and contain security vulnerabilities. Do not deploy on an open network.
 
 ## Instructions
 
@@ -38,130 +25,40 @@ named after its purpose, with one of these prefixes:
 
 Open a pull request against `main`; CI (lint and tests) must pass before merging.
 
-### Prerequisites and Python setup
-
-Use Python 3.12, Git, and pip for local checks. Install Tesseract OCR for
-visible-label extraction tests; Ghostscript is optional for PDF transformation
-tests. Deployment requires Docker Engine and Docker Compose v2 with support
-for the `include` directive.
-
-From the repository root:
+### Setup
 
 ```bash
-make setup
-make help
+cd tatou/server
+
+# Create a python virtual environement
+python3 -m venv .venv
+
+# Activate your virtual environement
+. .venv/bin/activate
+
+# Install the necessary dependencies (editable install, with dev extras)
+python -m pip install -e ".[dev]"
 ```
 
-`make setup` creates `server/.venv` with Python 3.12 and installs runtime dependencies
-and development tools, including coverage.py, pytest-cov and mutmut. Subsequent Make commands use that environment
-without requiring activation. Coverage is a local analysis tool, not a runtime
-dependency. Tesseract and optional Ghostscript must be installed separately.
-
-### Run tests
-
-From the repository root:
+### Run unit and API tests
 
 ```bash
-make test  # Complete suite with a freshly generated temporary test key
-make lint  # Separate Ruff checks
+export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+
+# Run everything under server/test (unit tests in test/watermarking,
+# HTTP API tests in test/api, RMAP protocol tests in test/rmap)
+python -m pytest
+
+# Run only the HTTP API tests
+python -m pytest test/api
+
+# Run only the RMAP protocol tests
+python -m pytest test/rmap
+
+# Run the end-to-end tests (real server image + MariaDB in Docker, test keys only)
+python -m pytest test_e2e
 ```
-
-`make test` always runs the complete suite; it takes no test-selection arguments.
-For manual targeted runs, activate `server/.venv`, work from `server/`, and
-export a temporary `SECRET_KEY` before calling pytest directly.
-
-Under `server/`, API tests are in `test/api/`, RMAP integration tests in
-`test/rmap/`, and watermarking tests in `test/watermarking/`. There is no
-`test_e2e/` suite in this checkout. Install Tesseract for visible-label OCR tests; Ghostscript is used by
-optional PDF transformation tests. Record skips and expected failures separately.
-
-API tests use Flask's in-process test client and isolated temporary storage and
-SQLite fixtures. They do not require a running deployment and do not establish
-end-to-end behavior against MariaDB. The watermarking directory includes both
-unit tests and integration tests; it is not a unit-only suite.
-
-### Coverage analysis
-
-From the repository root, after `make setup`:
-
-```bash
-make coverage         # Run the suite and save coverage measurements
-make coverage-report  # Print the saved summary and missing lines
-make coverage-html    # Generate the HTML report from saved measurements
-```
-
-`make coverage` uses pytest-cov to run the complete suite with line and branch
-coverage of `server/src/` and a fresh temporary test key. It saves measurements
-in `server/.coverage` without generating reports. `make coverage-report` and
-`make coverage-html` read those measurements without rerunning tests; HTML is
-written to `server/htmlcov/index.html`. Run measurement first; reports describe
-that execution, not later source changes. Generated coverage files are ignored
-by Git. Coverage does not prove that assertions are effective. An optional XML
-export is available with `cd server && .venv/bin/python -m coverage xml`.
-
-### Reports
-
-```bash
-make report             # report/report.pdf
-make report-francesco   # artifacts/francesco/mutation-testing-report.pdf
-```
-
-Both commands require `pdflatex`, run two compilation passes when sources change,
-and keep intermediate files in each report's `.build/` directory. The main source
-is `report/report.tex`; section files are build dependencies. There are no watch
-targets. Report workspaces are local and ignored by Git.
-
-### Mutation testing
-
-From the repository root, run `make setup` once, then use:
-
-| Command | Action |
-|---|---|
-| `make mutation` | Fresh campaign for all configured modules |
-| `make mutation-backend` | Flask backend and login rate limiter |
-| `make mutation-francesco` | Francesco watermarking package |
-| `make mutation-davide` | Davide watermarking package |
-| `make mutation-khaled` | Khaled watermarking package |
-| `make mutation-common` | Group13, Toy EOF, registry, base contract, utilities and CLI |
-| `make mutation-pause` | Safely stop the active campaign, preserving saved results |
-| `make mutation-resume` | Resume the recorded campaign with its original filters |
-| `make mutation-results` | Print saved native results |
-| `make mutation-browse` | Open the interactive mutant browser |
-
-All commands use `server/.venv` without activation. `make help` lists the commands.
-The old `./mutation` launcher has been removed. Make delegates campaign lifecycle
-to `scripts/run-mutation.sh` and `scripts/mutation-session.py`; their safety
-checks and confirmation remain in place. A fresh campaign generates a temporary
-test key and uses `[tool.mutmut]` in `server/pyproject.toml`.
-
-Scopes filter mutant execution, not initial generation or statistics collection.
-All tests remain available and mutmut selects associated tests. Mutmut 3.8 focuses
-on exercised functions; including `src/` does not guarantee every statement is mutated.
-To include killed mutants in the browser, use the underlying tool from the root:
-`cd server && .venv/bin/mutmut browse --show-killed`.
-
-Run one campaign at a time and invoke session controls sequentially. Fresh campaigns
-ask for confirmation before replacing the same ignored `mutants/` directory, and
-are refused while a campaign for this checkout is active. Preserve baseline results
-privately before starting another fresh campaign.
-
-`make mutation-pause` sends SIGINT to the campaign coordinator, using mutmut's worker cleanup.
-Completed results are preserved; unfinished work can run again on resume. If
-shutdown takes more than ten seconds, the helper reports that it is still pending;
-wait for it to finish before resuming. Without an active campaign, pause does nothing.
-`make mutation-resume` keeps saved results and the original scope filters.
-For scoped campaigns it passes only unfinished mutant IDs to mutmut, because
-explicit scope filters would otherwise rerun completed mutants. It does nothing if
-already running, if that scope is complete, or if session data cannot be recovered.
-The ignored `mutants/.mutation-session.json` records arguments only, never the test
-key. To adopt a campaign started before these controls existed, invoke `make mutation-resume` while
-it is still active; an already stopped legacy campaign with unknown filters cannot
-be recovered automatically. Changes to sources, tests or configuration may invalidate
-mutmut's cached results. Process discovery uses `ps` and requires permission to
-read the process list. Help never starts or modifies a campaign.
-
-Analyze surviving mutants for missing assertions,
-untested cases or equivalent behavior; the mutation score alone is insufficient.
+See `server/test_e2e/README.md` for what the end-to-end suite covers.
 
 ### Run coverage analysis
 
@@ -189,20 +86,19 @@ need a fast method.
 
 From the root of the directory:
 
-Configure MariaDB and Grafana credentials in `.env`, and replace `FLAG_1` with
-exactly 40 hexadecimal characters. For an isolated local deployment, generate
-a fresh value with `python3 -c 'import secrets; print(secrets.token_hex(20))'`;
-the university deployment must use its assigned flag. Keep all real values
-private. Configure RMAP separately as described below.
-
 ```bash
-# Create a file to set environment variables like passwords.
+# Create a file to set environement variables like passwords.
 cp sample.env .env
 
 # Edit .env and pick the passwords you want
 
 # Generate a signing key, then paste it into SECRET_KEY in .env only.
 python3 -c 'import secrets; print(secrets.token_hex(32))'
+
+# When upgrading an existing deployment, stop and remove the old phpMyAdmin
+# container before applying this configuration.
+docker compose stop phpmyadmin
+docker compose rm -f phpmyadmin
 
 # Rebuild the docker image and deploy the containers
 docker compose up --build -d
@@ -211,7 +107,7 @@ docker compose up --build -d
 docker compose logs -f
 
 # Test if the API is up
-curl --fail http://127.0.0.1:5000/healthz
+http -v :5000/healthz
 
 # Open your browser at 127.0.0.1:5000 to check if the website is up.
 ```
@@ -225,15 +121,21 @@ The project includes a monitoring and logging stack based on Prometheus, Grafana
 - **Loki**: [http://127.0.0.1:3100](http://127.0.0.1:3100)
 - **cAdvisor**: [http://127.0.0.1:8081](http://127.0.0.1:8081)
 
-To browse logs, open Grafana at [http://127.0.0.1:3000](http://127.0.0.1:3000) and visit **Dashboards** > **Tatou Monitoring & Logs Overview**, or use **Explore** with the Loki data source. For more details, see [monitoring configuration](#monitoring-configuration).
+To browse logs, open Grafana at [http://127.0.0.1:3000](http://127.0.0.1:3000) and visit **Dashboards** > **Tatou Monitoring & Logs Overview**, or use **Explore** with the Loki data source. For more details, see [monitoring/README.md](monitoring/README.md).
 
 
 The standard deployment starts the application and MariaDB. MariaDB is
 available only to the application through Docker's internal backend network;
 it does not publish a port on the host.
 
-phpMyAdmin is commented out in the current Compose file; no active admin profile
-is provided.
+phpMyAdmin is an optional local administration tool. Start the local
+administration profile explicitly with:
+
+```bash
+docker compose --profile admin up -d phpmyadmin
+```
+
+phpMyAdmin is then available only at `http://127.0.0.1:8080`.
 
 For direct database administration without publishing MariaDB, use
 `docker compose exec db mariadb -u root -p` and enter the root password from
@@ -334,8 +236,8 @@ Layers that do not fit the PDF are skipped, and the combined reader can still
 read copies carrying a compatible component layer. The fingerprint attributes
 cropped, rescaled or screenshotted leaks through `read-watermark`.
 `toy-eof` is easily stripped and kept only for the test suite.
-Removal-attack tests are included under `server/test/watermarking/`; there is no
-separate `server/test_robustness/` directory in this checkout.
+`server/test_robustness/` measures every method against a set of removal
+attacks.
 
 When the server private key has a passphrase, create
 `rmap-keys/server_passphrase` locally with mode `600`, place the passphrase in
@@ -357,150 +259,3 @@ The reference `RMAPServer` keeps pending nonces in process memory. The
 provided Gunicorn command uses one worker; if you add workers or replicas,
 route both handshake messages to the same process or provide shared session
 state.
-
-### Monitoring configuration
-
-Monitoring configuration and operations:
-
-The `monitoring/` directory provides the monitoring, alerting, and log aggregation stack for Tatou:
-
-- **Prometheus** (Port `9090`): Time-series database scraping metrics from containers and evaluating alert rules.
-- **Alertmanager** (Port `9093`): Alert routing engine dispatching notifications for attacks and system errors.
-- **Alert Logger Webhook** (Port `9095`): Lightweight receiver logging all alerts to `monitoring/alertmanager/alerts.log`.
-- **Grafana** (Port `3000`): Web dashboard UI pre-configured with Loki, Prometheus, and Alertmanager datasources.
-- **Loki** (Port `3100`): Log aggregation engine receiving log streams.
-- **Promtail**: Daemon reading Docker container logs via Docker engine socket and forwarding them with labels to Loki and extracting alert metrics.
-- **cAdvisor** (Port `8081`): Container metrics exporter providing CPU, memory, filesystem, and network statistics per container.
-
----
-
-#### Access URLs
-
-| Service | URL | Default Credentials |
-| :--- | :--- | :--- |
-| **Grafana** | [http://localhost:3000](http://localhost:3000) | Configured via `GF_USERNAME` and `GF_PASSWORD` in `.env` |
-| **Prometheus** | [http://localhost:9090](http://localhost:9090) | No auth required |
-| **Alertmanager** | [http://localhost:9093](http://localhost:9093) | No auth required |
-| **Loki** | [http://localhost:3100](http://localhost:3100) | No auth required |
-| **cAdvisor** | [http://localhost:8081](http://localhost:8081) | No auth required |
-
----
-
-#### Resource Limits (CPU & RAM)
-
-All monitoring services have strict resource limits configured in [docker-compose.monitoring.yml](docker-compose.monitoring.yml):
-
-| Service | CPU Limit | RAM Limit | CPU Reservation | RAM Reservation |
-| :--- | :--- | :--- | :--- | :--- |
-| **prometheus** | `0.50` (50%) | `512MB` | `0.10` | `128MB` |
-| **loki** | `0.50` (50%) | `512MB` | `0.10` | `128MB` |
-| **grafana** | `0.50` (50%) | `512MB` | `0.10` | `128MB` |
-| **cadvisor** | `0.30` (30%) | `256MB` | `0.05` | `64MB` |
-| **promtail** | `0.25` (25%) | `256MB` | `0.05` | `64MB` |
-| **alertmanager** | `0.25` (25%) | `128MB` | `0.05` | `32MB` |
-| **alert-logger** | `0.10` (10%) | `64MB` | `0.02` | `16MB` |
-
----
-
-#### Alerting: Attacks and Errors
-
-Alertmanager receives alerts generated by Prometheus using the rules in [monitoring/prometheus/alert.rules.yml](monitoring/prometheus/alert.rules.yml):
-
-##### 1. Attack Detection Alerts
-- **BruteForceOrAuthAttack**: Detects spikes in failed authentication attempts or HTTP `429 Too Many Requests` responses from the rate limiter.
-- **PotentialDoS_HighCpu**: Detects sustained container CPU usage above 80%, which may indicate a DoS attack, loop or excessive computation.
-- **PotentialDDoS_NetworkFlood**: Detects incoming container network traffic above 10 MB/s.
-- **HighMemoryExhaustion**: Detects RAM usage above 450 MB, which may indicate memory exhaustion from decompression or large uploads.
-
-##### 2. System Error Alerts
-- **ServiceDown**: A monitored target is unreachable (`up == 0`).
-- **ContainerCrashOrRestart**: Detects container restarts or crashes.
-- **HighServerErrorRate**: Detects spikes in HTTP 5xx errors or unhandled Flask server exceptions.
-- **DatabaseErrors**: Detects errors reported by MariaDB.
-
----
-
-#### File Notifications (`alerts.log`)
-
-Alertmanager sends notifications to `alert-logger`, a local webhook on port 9095 that writes formatted, timestamped entries to this file:
-
-```bash
-# Follow alerts in real time
-tail -f monitoring/alertmanager/alerts.log
-```
-
-Example log entry:
-```text
-[2026-09-21 11:45:00 UTC] [FIRING] [CRITICAL] Alert: BruteForceOrAuthAttack | Target: tatou-2026-server-1 | Summary: Potential Brute-Force / Credential Stuffing Attack | Description: Detected spike in authentication failures or 429 rate limit triggers on Tatou server.
-```
-
----
-
-#### Connect a Telegram Channel
-
-Telegram credentials are read from `.env`:
-
-1. Open `.env` and set:
-   ```bash
-   TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
-   TELEGRAM_CHAT_ID=-1001234567890
-   ```
-2. Apply the changes:
-   ```bash
-   docker compose up -d alert-logger
-   ```
-   *The `alert-logger` service writes alerts to the file and sends them to Telegram using HTML formatting.*
-
----
-
-#### How to Start & Stop
-
-##### Option 1: Together with Tatou (Default)
-
-```bash
-# Start application and monitoring stack
-docker compose up -d
-
-# View status of all containers
-docker compose ps
-
-# Stop all containers
-docker compose down
-```
-
-##### Option 2: Run Monitoring Stack Separately
-
-```bash
-# Start only monitoring services
-docker compose -f docker-compose.monitoring.yml up -d
-
-# Stop only monitoring services
-docker compose -f docker-compose.monitoring.yml down
-```
-
----
-
-#### Configuration Files
-
-```text
-monitoring/
-├── alertmanager/
-│   ├── alertmanager.yml                      # Alertmanager routes, webhooks & Telegram configs
-│   ├── webhook.py                            # Webhook script logging alerts to file
-│   └── alerts.log                            # Destination log file for alerts
-├── prometheus/
-│   ├── prometheus.yml                        # Scrape jobs & alerting configuration
-│   └── alert.rules.yml                       # Alerting rules for attacks and errors
-├── loki/
-│   └── loki-config.yaml                      # Loki TSDB & storage configuration
-├── promtail/
-│   └── promtail-config.yaml                  # Promtail Docker discovery and log forwarding config
-└── grafana/
-    ├── provisioning/
-    │   ├── datasources/
-    │   │   └── datasources.yaml              # Auto-provisions Prometheus, Loki, Alertmanager
-    │   └── dashboards/
-    │       └── dashboards.yaml               # Auto-provisions dashboards
-    └── dashboards/
-        └── tatou-overview.json               # Pre-built monitoring & logs dashboard
-```

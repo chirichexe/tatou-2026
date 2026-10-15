@@ -113,3 +113,6 @@ __marimo__/
 # Local delivery artifacts and LaTeX reports
 /artifacts/
 /report/
+# Keep local report and delivery material out of Git
+CLAUDE.md
+server/uv.lock

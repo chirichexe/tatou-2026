@@ -61,3 +61,7 @@ mutation-results:
 
 mutation-browse:
 	cd server && .venv/bin/mutmut browse
+
+.PHONY: report-watch
+report-watch:
+	$(MAKE) -C report watch
