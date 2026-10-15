@@ -2,7 +2,7 @@ groups:
   - name: tatou_alerts
     rules:
       # ==========================================
-      # 1. Error Alerts (Errori e Crash)
+      # 1. Error and Crash Alerts
       # ==========================================
       - alert: ServiceDown
         expr: up == 0
@@ -41,7 +41,7 @@ groups:
           description: "MariaDB database container is generating error logs."
 
       # ==========================================
-      # 2. Attack Alerts (Rilevamento Attacchi)
+      # 2. Attack Detection Alerts
       # ==========================================
       - alert: BruteForceOrAuthAttack
         expr: rate(promtail_custom_auth_attacks_total[1m]) > 0.2
