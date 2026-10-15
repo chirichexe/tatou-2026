@@ -77,8 +77,8 @@ ENV/
 env.bak/
 venv.bak/
 rmap-keys/
-server/uv.lock
 server/mutants/
+server/htmlcov/
 wiki/
 CLAUDE.md
 HANDOFF.md

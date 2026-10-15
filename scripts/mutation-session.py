@@ -2,6 +2,7 @@
 
 import json
 import os
+import secrets
 import shlex
 import signal
 import subprocess
@@ -27,8 +28,12 @@ def active_runs():
             args = shlex.split(command)
         except ValueError:
             continue
-        if str(EXECUTABLE) in args:
-            index = args.index(str(EXECUTABLE))
+        executable = str(EXECUTABLE)
+        # Also recognize campaigns started by the previous relative-path launcher.
+        if executable not in args and str(SERVER / ".venv/bin/python") in args:
+            executable = ".venv/bin/mutmut"
+        if executable in args:
+            index = args.index(executable)
             if args[index + 1:index + 2] == ["run"]:
                 matches[int(pid)] = (int(parent), args[index + 2:])
     return {pid: args for pid, (parent, args) in matches.items() if parent not in matches}
@@ -42,6 +47,9 @@ def save(args):
 
 
 def main():
+    if len(sys.argv) < 2 or sys.argv[1] not in {"check", "record", "pause", "resume"}:
+        print("Internal helper: use make help for supported commands.")
+        return 2
     action = sys.argv[1]
     runs = active_runs()
     if action in {"record", "check"}:
@@ -56,7 +64,8 @@ def main():
         return 0
     if runs:
         pid, args = next(iter(runs.items()))
-        save(args)
+        if not SESSION.is_file():
+            save(args)
         if action == "resume":
             print("The campaign is already running; nothing started.")
             return 0
@@ -84,19 +93,22 @@ def main():
         if not isinstance(args, list) or not all(isinstance(arg, str) for arg in args):
             raise ValueError("invalid arguments")
         metadata = list((SERVER / "mutants").rglob("*.meta"))
-        if not metadata or not any(
-            value is None and (not args or any(fnmatchcase(key.replace("__init__.", ""), pattern) for pattern in args))
+        pending = [
+            key.replace("__init__.", "")
             for path in metadata
             for key, value in json.loads(path.read_text()).get("exit_code_by_key", {}).items()
-        ):
+            if value is None and (not args or any(fnmatchcase(key.replace("__init__.", ""), pattern) for pattern in args))
+        ]
+        if not pending:
             print("No unfinished mutants are available; nothing started.")
             return 0
     except (OSError, ValueError, KeyError, TypeError):
         print("Session data is unavailable or invalid; nothing started.")
         return 0
     os.chdir(SERVER)
-    os.environ["SECRET_KEY"] = __import__("secrets").token_hex(32)
-    os.execv(str(EXECUTABLE), [str(EXECUTABLE), "run", *args])
+    os.environ["SECRET_KEY"] = secrets.token_hex(32)
+    # Explicit filters make mutmut rerun completed results: select pending IDs only.
+    os.execv(str(EXECUTABLE), [str(EXECUTABLE), "run", *(pending if args else [])])
 
 
 if __name__ == "__main__":
