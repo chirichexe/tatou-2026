@@ -1,6 +1,21 @@
 # tatou
 A web platform for PDF watermarking. This project is intended for pedagogical use and may contain security vulnerabilities. Do not deploy on an open network.
 
+## Contents
+
+- [Setup](#prerequisites-and-python-setup)
+- [Tests and lint](#run-tests)
+- [Coverage](#coverage-analysis)
+- [Mutation testing](#mutation-testing)
+- [Watermarking methods](#add-a-watermarking-method)
+- [Deployment](#deploy)
+- [Monitoring](#monitoring-stack)
+- [RMAP](#enable-rmap)
+- [Final artifacts](#final-artifact-collection)
+- [Report and journal](#report-and-journal)
+- [Submission archive](#submission-archive)
+- [Monitoring configuration](#monitoring-configuration)
+
 ## Instructions
 
 The following instructions are meant for a bash terminal on a Linux machine. If you are using something else, you will need to adapt them.
@@ -14,7 +29,12 @@ git clone https://github.com/nharrand/tatou-2026.git
 Note that you should probably fork the repo and clone your own repo.
 
 
-### Run python unit tests
+### Prerequisites and Python setup
+
+Use Python 3.12, Git, and pip for local checks. Install Tesseract OCR for
+visible-label extraction tests; Ghostscript is optional for PDF transformation
+tests. Deployment requires Docker Engine and Docker Compose v2 with support
+for the `include` directive.
 
 ```bash
 cd tatou-2026/server
@@ -27,19 +47,71 @@ python3.12 -m venv .venv
 
 # Install the necessary dependencies
 python -m pip install -r requirements.txt -e ".[dev]"
+```
 
-# Run the unit tests
+### Run tests
+
+Run the following from `server/`, with the virtual environment activated:
+
+```bash
+# Generate a temporary local test key
 export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+
+# Complete test suite
 python -m pytest
+
+# Watermarking unit, contract, and integration tests
+python -m pytest test/watermarking/
+
+# API tests
+python -m pytest test/api/
+
+# RMAP integration tests
+python -m pytest test/rmap/
 
 # Run lint
 python -m ruff check .
 ```
 
+Alternatively, from the repository root after creating `server/.venv` and
+installing the dependencies:
+
+```bash
+make test  # Complete suite with a freshly generated temporary test key
+make lint  # Ruff checks
+```
+
+These targets use `server/.venv/bin/python`; activation is not required.
+
 API tests are in `test/api/`, RMAP integration tests in `test/rmap/`, and
 watermarking tests in `test/watermarking/`. There is no `test_e2e/` suite in this
 checkout. Install Tesseract for visible-label OCR tests; Ghostscript is used by
 optional PDF transformation tests. Record skips and expected failures separately.
+
+API tests use Flask's in-process test client and isolated temporary storage and
+SQLite fixtures. They do not require a running deployment and do not establish
+end-to-end behavior against MariaDB. The watermarking directory includes both
+unit tests and integration tests; it is not a unit-only suite.
+
+### Coverage analysis
+
+From `server/`, with the same environment activated and the temporary
+`SECRET_KEY` exported above, install the optional coverage tool and run:
+
+```bash
+python -m pip install coverage
+python -m coverage run --branch --source=src -m pytest
+python -m coverage report -m
+python -m coverage html
+python -m coverage xml
+```
+
+The terminal report lists missing lines. Open `server/htmlcov/index.html`
+(relative to the repository root) for the HTML report; `server/coverage.xml`
+is the machine-readable report. Coverage includes application code under `src/`
+and measures lines and branches exercised by the complete suite. It does not
+prove that assertions are effective. Preserve the reports separately in the
+final artifact collection: these generated files are ignored by Git.
 
 ### Mutation testing
 
@@ -120,6 +192,12 @@ need a fast method.
 
 From the root of the directory:
 
+Configure MariaDB and Grafana credentials in `.env`, and replace `FLAG_1` with
+exactly 40 hexadecimal characters. For an isolated local deployment, generate
+a fresh value with `python3 -c 'import secrets; print(secrets.token_hex(20))'`;
+the university deployment must use its assigned flag. Keep all real values
+private. Configure RMAP separately as described below.
+
 ```bash
 # Create a file to set environment variables like passwords.
 cp sample.env .env
@@ -136,7 +214,7 @@ docker compose up --build -d
 docker compose logs -f
 
 # Test if the API is up
-http -v :5000/healthz
+curl --fail http://127.0.0.1:5000/healthz
 
 # Open your browser at 127.0.0.1:5000 to check if the website is up.
 ```
@@ -150,7 +228,7 @@ The project includes a monitoring and logging stack based on Prometheus, Grafana
 - **Loki**: [http://127.0.0.1:3100](http://127.0.0.1:3100)
 - **cAdvisor**: [http://127.0.0.1:8081](http://127.0.0.1:8081)
 
-To browse logs, open Grafana at [http://127.0.0.1:3000](http://127.0.0.1:3000) and visit **Dashboards** > **Tatou Monitoring & Logs Overview**, or use **Explore** with the Loki data source. For more details, see [monitoring/README.md](monitoring/README.md).
+To browse logs, open Grafana at [http://127.0.0.1:3000](http://127.0.0.1:3000) and visit **Dashboards** > **Tatou Monitoring & Logs Overview**, or use **Explore** with the Loki data source. For more details, see [monitoring configuration](#monitoring-configuration).
 
 
 The standard deployment starts the application and MariaDB. MariaDB is
@@ -282,3 +360,226 @@ The reference `RMAPServer` keeps pending nonces in process memory. The
 provided Gunicorn command uses one worker; if you add workers or replicas,
 route both handshake messages to the same process or provide shared session
 state.
+
+### Final artifact collection
+
+Organize selected evidence in four folders:
+
+- [Common artifacts](artifacts/common/): coverage HTML/XML reports and test summary, specification-to-test mapping, completed PDF re-identification CSV, and shared evidence.
+- [Francesco](artifacts/francesco/): individual specialization artifacts.
+- [Davide](artifacts/davide/): individual specialization artifacts.
+- [Khaled](artifacts/khaled/): individual specialization artifacts.
+
+These folders are still being populated. For each artifact, record its purpose,
+source commit, execution commands, results, skips and limitations. Map requirements
+to specific test functions and distinguish partial or missing verification.
+Reference existing source code instead of duplicating it.
+
+Store original, unmodified RMAP-retrieved PDFs in
+[common watermarked PDFs](artifacts/common/watermarked-pdfs/) and complete
+`collection.csv`. Collect one copy from each other live instance, ideally around
+ten depending on availability. Record the source, timestamp with timezone,
+requesting identity, status, filename, SHA-256 digest and limitations. Suggested
+statuses: `collected`, `unreachable`, `rmap_failed`, `download_failed`; leave the
+filename and digest blank for failed attempts. Compute a digest with
+`shasum -a 256 Group_XX.pdf` and check that each received PDF opens.
+Keep de-watermarked derivatives in individual specialization artifacts.
+
+Coverage outputs and collected PDFs are ignored by Git: explicitly include them
+in the final submission archive alongside the full Git repository, report and
+journal. Do not include credentials, private keys, passphrases or secret links.
+
+### Report and journal
+
+[report/main.tex](report/main.tex) is a skeleton with section files under
+`report/sections/`; no report content has been written. Replace specialization
+placeholders with the actual selections and document each member's contributions
+and Git identities. The journal is an appendix: record dated events, actors,
+evidence, responses, outcomes and pending actions, without secret values.
+
+Requires Make and a TeX distribution providing `pdflatex` and the packages
+imported by `main.tex`. From the repository root:
+
+```sh
+make report        # Force a manual rebuild when needed
+make report-watch  # Start automatic rebuilding outside the Codex editor
+```
+
+The Codex LaTeX editor automatically recompiles its preview when the open source
+changes. For automatic updates of the on-disk PDF, keep `make report-watch`
+running in a terminal; no manual build is needed for each edit. The watcher
+must be restarted after closing that terminal or restarting the machine.
+
+Watch mode builds immediately and polls every second for changes, additions or
+removals of `.tex` files and Makefiles. Stop it with Ctrl-C. Failed builds are
+retried after the next source change. Each build runs LaTeX twice. Generated
+files stay in the hidden, Git-ignored `report/.build/` directory; include
+`report/.build/main.pdf` explicitly in the final submission when ready.
+
+### Submission archive
+
+Prepare the final archive in a separate staging directory, preserving the
+repository's relative paths. Include the full Git repository **with `.git/`**,
+the completed report PDF, journal, and all four artifact folders. Explicitly
+include ignored coverage reports and collected watermarked PDFs. GitHub's source
+ZIP and `git archive` omit Git history and are insufficient on their own.
+
+Exclude `.venv/`, caches, mutation working directories, LaTeX intermediate files,
+real `.env` files, private keys, passphrases, assigned flag values, and runtime
+databases/storage. Retain the configuration templates and reproducible source.
+Check that the included Git history contains no secrets; excluding a current
+file does not remove it from earlier commits. Do not rewrite history as part of
+packaging without coordinating with the group.
+
+Before submission, extract the archive into a separate temporary directory and
+check that Git history, author identities, report, artifacts, and setup files are
+present. Record the final commit and test results; verify the university instance
+is still running with current flags and working functionality independently of
+the archive. No final archive has been generated by these preparation steps.
+
+### Monitoring configuration
+
+Monitoring configuration and operations:
+
+The `monitoring/` directory provides the monitoring, alerting, and log aggregation stack for Tatou:
+
+- **Prometheus** (Port `9090`): Time-series database scraping metrics from containers and evaluating alert rules.
+- **Alertmanager** (Port `9093`): Alert routing engine dispatching notifications for attacks and system errors.
+- **Alert Logger Webhook** (Port `9095`): Lightweight receiver logging all alerts to `monitoring/alertmanager/alerts.log`.
+- **Grafana** (Port `3000`): Web dashboard UI pre-configured with Loki, Prometheus, and Alertmanager datasources.
+- **Loki** (Port `3100`): Log aggregation engine receiving log streams.
+- **Promtail**: Daemon reading Docker container logs via Docker engine socket and forwarding them with labels to Loki and extracting alert metrics.
+- **cAdvisor** (Port `8081`): Container metrics exporter providing CPU, memory, filesystem, and network statistics per container.
+
+---
+
+#### Access URLs
+
+| Service | URL | Default Credentials |
+| :--- | :--- | :--- |
+| **Grafana** | [http://localhost:3000](http://localhost:3000) | Configured via `GF_USERNAME` and `GF_PASSWORD` in `.env` |
+| **Prometheus** | [http://localhost:9090](http://localhost:9090) | No auth required |
+| **Alertmanager** | [http://localhost:9093](http://localhost:9093) | No auth required |
+| **Loki** | [http://localhost:3100](http://localhost:3100) | No auth required |
+| **cAdvisor** | [http://localhost:8081](http://localhost:8081) | No auth required |
+
+---
+
+#### Resource Limits (CPU & RAM)
+
+All monitoring services have strict resource limits configured in [docker-compose.monitoring.yml](docker-compose.monitoring.yml):
+
+| Service | CPU Limit | RAM Limit | CPU Reservation | RAM Reservation |
+| :--- | :--- | :--- | :--- | :--- |
+| **prometheus** | `0.50` (50%) | `512MB` | `0.10` | `128MB` |
+| **loki** | `0.50` (50%) | `512MB` | `0.10` | `128MB` |
+| **grafana** | `0.50` (50%) | `512MB` | `0.10` | `128MB` |
+| **cadvisor** | `0.30` (30%) | `256MB` | `0.05` | `64MB` |
+| **promtail** | `0.25` (25%) | `256MB` | `0.05` | `64MB` |
+| **alertmanager** | `0.25` (25%) | `128MB` | `0.05` | `32MB` |
+| **alert-logger** | `0.10` (10%) | `64MB` | `0.02` | `16MB` |
+
+---
+
+#### Alerting: Attacchi ed Errori
+
+Alertmanager riceve gli alert generati da Prometheus in base alle regole definite in [monitoring/prometheus/alert.rules.yml](monitoring/prometheus/alert.rules.yml):
+
+##### 1. Alert per Rilevamento Attacchi
+- **BruteForceOrAuthAttack**: Rileva picchi di tentativi di autenticazione falliti o risposte HTTP `429 Too Many Requests` dal rate limiter.
+- **PotentialDoS_HighCpu**: Utilizzo prolungato della CPU oltre l'80% su un container (possibile attacco DoS, loop o abuso computazionale).
+- **PotentialDDoS_NetworkFlood**: Traffico di rete in ingresso anomalo superiore a 10 MB/s su un container.
+- **HighMemoryExhaustion**: Consumo elevato di RAM (> 450MB) indicativo di tentativi di memory exhaustion (es. decompressione zip-bomb o upload massivi).
+
+##### 2. Alert per Errori di Sistema
+- **ServiceDown**: Uno dei servizi essenziali (server, database, prometheus, loki, promtail, cadvisor) è irraggiungibile (`up == 0`).
+- **ContainerCrashOrRestart**: Riavvio anomalo o crash improvviso di un container.
+- **HighServerErrorRate**: Picco di errori HTTP 5xx o eccezioni non gestite dal server Flask.
+- **DatabaseErrors**: Errori o malfunzionamenti generati dal database MariaDB.
+
+---
+
+#### Notifiche su File (`alerts.log`)
+
+Alertmanager invia le notifiche al microservizio `alert-logger` (webhook locale su porta 9095) che le scrive formattate e con timestamp in:
+
+```bash
+# Monitora gli alert in tempo reale
+tail -f monitoring/alertmanager/alerts.log
+```
+
+Esempio di riga registrata:
+```text
+[2026-09-21 11:45:00 UTC] [FIRING] [CRITICAL] Alert: BruteForceOrAuthAttack | Target: tatou-2026-server-1 | Summary: Potential Brute-Force / Credential Stuffing Attack | Description: Detected spike in authentication failures or 429 rate limit triggers on Tatou server.
+```
+
+---
+
+#### Come Collegare un Canale Telegram
+
+Le credenziali di Telegram vengono lette direttamente dal file `.env`:
+
+1. Apri il file `.env` e imposta:
+   ```bash
+   TELEGRAM_BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
+   TELEGRAM_CHAT_ID=-1001234567890
+   ```
+2. Applica le modifiche:
+   ```bash
+   docker compose up -d alert-logger
+   ```
+   *(Il servizio `alert-logger` registra automaticamente gli alert sia su file che sul canale Telegram con formattazione HTML ricca di dettagli).*
+
+---
+
+#### How to Start & Stop
+
+##### Option 1: Together with Tatou (Default)
+
+```bash
+# Start application and monitoring stack
+docker compose up -d
+
+# View status of all containers
+docker compose ps
+
+# Stop all containers
+docker compose down
+```
+
+##### Option 2: Run Monitoring Stack Separately
+
+```bash
+# Start only monitoring services
+docker compose -f docker-compose.monitoring.yml up -d
+
+# Stop only monitoring services
+docker compose -f docker-compose.monitoring.yml down
+```
+
+---
+
+#### Configuration Files
+
+```text
+monitoring/
+├── alertmanager/
+│   ├── alertmanager.yml                      # Alertmanager routes, webhooks & Telegram configs
+│   ├── webhook.py                            # Webhook script logging alerts to file
+│   └── alerts.log                            # Destination log file for alerts
+├── prometheus/
+│   ├── prometheus.yml                        # Scrape jobs & alerting configuration
+│   └── alert.rules.yml                       # Alerting rules for attacks and errors
+├── loki/
+│   └── loki-config.yaml                      # Loki TSDB & storage configuration
+├── promtail/
+│   └── promtail-config.yaml                  # Promtail Docker discovery and log forwarding config
+└── grafana/
+    ├── provisioning/
+    │   ├── datasources/
+    │   │   └── datasources.yaml              # Auto-provisions Prometheus, Loki, Alertmanager
+    │   └── dashboards/
+    │       └── dashboards.yaml               # Auto-provisions dashboards
+    └── dashboards/
+        └── tatou-overview.json               # Pre-built monitoring & logs dashboard
+```
