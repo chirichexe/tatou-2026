@@ -9,12 +9,16 @@ import pymupdf as fitz
 import pytest
 from PIL import Image
 
+import watermarking_utils as utils
 from watermarking_method import WatermarkingError
+from watermarking_methods.add_after_eof import AddAfterEOF
 from watermarking_utils import (
     METHODS,
     apply_watermark,
+    get_method,
     is_watermarking_applicable,
     read_watermark,
+    register_method,
 )
 
 SECRET = "Group_07:da0bb583c432fbfd078959ecc9b62902"
@@ -45,8 +49,20 @@ def marked(source) -> dict[str, bytes]:
     return {name: apply_watermark(name, source, SECRET, KEY) for name in GROUP}
 
 
-def test_every_method_of_the_group_is_registered():
+@pytest.mark.parametrize("replace_existing", [False, True])
+def test_every_method_of_the_group_is_registered(monkeypatch, replace_existing):
     assert set(GROUP) <= set(METHODS)
+    registry = METHODS.copy()
+    if replace_existing:
+        previous = AddAfterEOF()
+        registry[previous.name] = previous
+    monkeypatch.setattr(utils, "METHODS", registry)
+    method = AddAfterEOF()
+
+    register_method(method)
+
+    assert get_method(method.name) is method
+    assert registry == {**METHODS, method.name: method}
 
 
 @pytest.mark.parametrize("name", GROUP)
