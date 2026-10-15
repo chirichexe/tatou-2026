@@ -15,11 +15,11 @@ receivers:
         send_resolved: true
 
     # =========================================================================
-    # Configurazione per canale Telegram
+    # Telegram channel configuration
     # =========================================================================
-    # Per attivare le notifiche Telegram, decommenta le righe seguenti e inserisci:
-    # 1. bot_token: il token fornito da @BotFather
-    # 2. chat_id: l'ID del canale o gruppo (es. -1001234567890)
+    # To enable Telegram notifications, uncomment the following lines and provide:
+    # 1. bot_token: the token provided by @BotFather
+    # 2. chat_id: the channel or group ID (e.g. -1001234567890)
     # =========================================================================
     # telegram_configs:
     #   - bot_token: '<YOUR_TELEGRAM_BOT_TOKEN>'
