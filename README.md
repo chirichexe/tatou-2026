@@ -6,6 +6,7 @@ A web platform for PDF watermarking. This project is intended for pedagogical us
 - [Setup](#prerequisites-and-python-setup)
 - [Tests and lint](#run-tests)
 - [Coverage](#coverage-analysis)
+- [Reports](#reports)
 - [Mutation testing](#mutation-testing)
 - [Watermarking methods](#add-a-watermarking-method)
 - [Deployment](#deploy)
@@ -44,56 +45,34 @@ visible-label extraction tests; Ghostscript is optional for PDF transformation
 tests. Deployment requires Docker Engine and Docker Compose v2 with support
 for the `include` directive.
 
+From the repository root:
+
 ```bash
-cd tatou-2026/server
-
-# Create a Python 3.12 virtual environment (the CI/container version)
-python3.12 -m venv .venv
-
-# Activate your virtual environment
-. .venv/bin/activate
-
-# Install the necessary dependencies (editable install, with dev extras)
-python -m pip install -r requirements.txt -e ".[dev]"
+make setup
+make help
 ```
+
+`make setup` creates `server/.venv` with Python 3.12 and installs runtime dependencies
+and development tools, including coverage.py, pytest-cov and mutmut. Subsequent Make commands use that environment
+without requiring activation. Coverage is a local analysis tool, not a runtime
+dependency. Tesseract and optional Ghostscript must be installed separately.
 
 ### Run tests
 
-Run the following from `server/`, with the virtual environment activated:
-
-```bash
-# Generate a temporary local test key
-export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
-
-# Complete test suite
-python -m pytest
-
-# Watermarking unit, contract, and integration tests
-python -m pytest test/watermarking/
-
-# API tests
-python -m pytest test/api/
-
-# RMAP integration tests
-python -m pytest test/rmap/
-
-# Run lint
-python -m ruff check .
-```
-
-Alternatively, from the repository root after creating `server/.venv` and
-installing the dependencies:
+From the repository root:
 
 ```bash
 make test  # Complete suite with a freshly generated temporary test key
-make lint  # Ruff checks
+make lint  # Separate Ruff checks
 ```
 
-These targets use `server/.venv/bin/python`; activation is not required.
+`make test` always runs the complete suite; it takes no test-selection arguments.
+For manual targeted runs, activate `server/.venv`, work from `server/`, and
+export a temporary `SECRET_KEY` before calling pytest directly.
 
-API tests are in `test/api/`, RMAP integration tests in `test/rmap/`, and
-watermarking tests in `test/watermarking/`. There is no `test_e2e/` suite in this
-checkout. Install Tesseract for visible-label OCR tests; Ghostscript is used by
+Under `server/`, API tests are in `test/api/`, RMAP integration tests in
+`test/rmap/`, and watermarking tests in `test/watermarking/`. There is no
+`test_e2e/` suite in this checkout. Install Tesseract for visible-label OCR tests; Ghostscript is used by
 optional PDF transformation tests. Record skips and expected failures separately.
 
 API tests use Flask's in-process test client and isolated temporary storage and
@@ -103,78 +82,79 @@ unit tests and integration tests; it is not a unit-only suite.
 
 ### Coverage analysis
 
-From `server/`, with the same environment activated and the temporary
-`SECRET_KEY` exported above, install the optional coverage tool and run:
+From the repository root, after `make setup`:
 
 ```bash
-python -m pip install coverage
-python -m coverage run --branch --source=src -m pytest
-python -m coverage report -m
-python -m coverage html
-python -m coverage xml
+make coverage         # Run the suite and save coverage measurements
+make coverage-report  # Print the saved summary and missing lines
+make coverage-html    # Generate the HTML report from saved measurements
 ```
 
-The terminal report lists missing lines. Open `server/htmlcov/index.html`
-(relative to the repository root) for the HTML report; `server/coverage.xml`
-is the machine-readable report. Coverage includes application code under `src/`
-and measures lines and branches exercised by the complete suite. It does not
-prove that assertions are effective. These generated reports are ignored by Git.
+`make coverage` uses pytest-cov to run the complete suite with line and branch
+coverage of `server/src/` and a fresh temporary test key. It saves measurements
+in `server/.coverage` without generating reports. `make coverage-report` and
+`make coverage-html` read those measurements without rerunning tests; HTML is
+written to `server/htmlcov/index.html`. Run measurement first; reports describe
+that execution, not later source changes. Generated coverage files are ignored
+by Git. Coverage does not prove that assertions are effective. An optional XML
+export is available with `cd server && .venv/bin/python -m coverage xml`.
+
+### Reports
+
+```bash
+make report             # report/report.pdf
+make report-francesco   # artifacts/francesco/mutation-testing-report.pdf
+```
+
+Both commands require `pdflatex`, run two compilation passes when sources change,
+and keep intermediate files in each report's `.build/` directory. The main source
+is `report/report.tex`; section files are build dependencies. There are no watch
+targets. Report workspaces are local and ignored by Git.
 
 ### Mutation testing
 
-From `server/`, using the same Python 3.12 environment:
+From the repository root, run `make setup` once, then use:
 
-```bash
-source .venv/bin/activate
-python -m pip install "mutmut==3.8.0"
-../mutation help                  # Also accepts --help or -h
-../mutation                       # Same as all
-../mutation pause                 # Safely stop the active campaign
-../mutation resume                # Continue the last recorded campaign
-```
-
-The helper starts a fresh campaign, generates a temporary test key and uses the
-`[tool.mutmut]` configuration in `server/pyproject.toml`.
-
-| Command argument | Mutants selected for execution |
+| Command | Action |
 |---|---|
-| `all` (default) | All configured source modules |
-| `backend` | Flask backend and login rate limiter |
-| `francesco`, `davide`, `khaled` | The selected watermarking package |
-| `common` | Group13, Toy EOF, registry, base contract, utilities and CLI |
+| `make mutation` | Fresh campaign for all configured modules |
+| `make mutation-backend` | Flask backend and login rate limiter |
+| `make mutation-francesco` | Francesco watermarking package |
+| `make mutation-davide` | Davide watermarking package |
+| `make mutation-khaled` | Khaled watermarking package |
+| `make mutation-common` | Group13, Toy EOF, registry, base contract, utilities and CLI |
+| `make mutation-pause` | Safely stop the active campaign, preserving saved results |
+| `make mutation-resume` | Resume the recorded campaign with its original filters |
+| `make mutation-results` | Print saved native results |
+| `make mutation-browse` | Open the interactive mutant browser |
 
-From the repository root, use `./mutation`; from `server/`, use `../mutation`.
-Activation is not required when running the launcher: it directly uses Python and
-mutmut from `server/.venv`. That environment must already contain the project
-dependencies and mutmut. For example, `./mutation backend` works from the root
-without an active virtual environment.
-The launcher resolves the project location automatically, without a machine-specific
-path. For example, run `../mutation davide` from `server/`. All tests remain available;
-mutmut selects associated tests. These execution filters do not restrict initial
-generation or statistics collection to the selected package. Mutmut 3.8 focuses
+All commands use `server/.venv` without activation. `make help` lists the commands.
+The old `./mutation` launcher has been removed. Make delegates campaign lifecycle
+to `scripts/run-mutation.sh` and `scripts/mutation-session.py`; their safety
+checks and confirmation remain in place. A fresh campaign generates a temporary
+test key and uses `[tool.mutmut]` in `server/pyproject.toml`.
+
+Scopes filter mutant execution, not initial generation or statistics collection.
+All tests remain available and mutmut selects associated tests. Mutmut 3.8 focuses
 on exercised functions; including `src/` does not guarantee every statement is mutated.
-
-Inspect the native output from `server/`:
-
-```bash
-mutmut results
-mutmut browse
-mutmut browse --show-killed
-```
+To include killed mutants in the browser, use the underlying tool from the root:
+`cd server && .venv/bin/mutmut browse --show-killed`.
 
 Run one campaign at a time and invoke session controls sequentially. Fresh campaigns
 ask for confirmation before replacing the same ignored `mutants/` directory, and
 are refused while a campaign for this checkout is active. Preserve baseline results
 privately before starting another fresh campaign.
 
-`pause` sends SIGINT to the campaign coordinator, using mutmut's worker cleanup.
+`make mutation-pause` sends SIGINT to the campaign coordinator, using mutmut's worker cleanup.
 Completed results are preserved; unfinished work can run again on resume. If
 shutdown takes more than ten seconds, the helper reports that it is still pending;
 wait for it to finish before resuming. Without an active campaign, pause does nothing.
-`resume` keeps saved results and the original scope filters. It does nothing if
+`make mutation-resume` keeps saved results and the original scope filters.
+For scoped campaigns it passes only unfinished mutant IDs to mutmut, because
+explicit scope filters would otherwise rerun completed mutants. It does nothing if
 already running, if that scope is complete, or if session data cannot be recovered.
 The ignored `mutants/.mutation-session.json` records arguments only, never the test
-key. To adopt a campaign started before these controls existed, invoke resume while
+key. To adopt a campaign started before these controls existed, invoke `make mutation-resume` while
 it is still active; an already stopped legacy campaign with unknown filters cannot
 be recovered automatically. Changes to sources, tests or configuration may invalidate
 mutmut's cached results. Process discovery uses `ps` and requires permission to

@@ -2,26 +2,17 @@
 
 ## Request headers
 
-All browser state-changing requests under `/api/` (including login, signup,
-uploads, watermark operations, and deletion) require `X-CSRF-Protection: 1`.
-Missing or incorrect values return `403` before the endpoint runs.
-`GET`, `HEAD`, and `OPTIONS` do not require this header.
+Protected endpoints require `Authorization: Bearer <token>`. Authentication does
+not use cookies, and the server does not emit permissive CORS headers.
+`X-CSRF-Protection` is not required or checked by the current implementation.
+Login and signup are public; RMAP authenticates clients using its encrypted PGP
+handshake rather than a bearer token.
 
-The two RMAP handshake endpoints are intentionally exempt: they authenticate
-the machine client through the encrypted PGP protocol rather than browser
-cookies, and are compatible with the upstream `rmap-client` without a
-Tatou-specific header.
-
-Protected endpoints additionally require `Authorization: Bearer <token>`.
-The CSRF header is not an authentication token. This protection relies on
-restricting CORS: do not allow untrusted origins to send the custom header.
-
-For example, a document deletion uses both headers:
+For example:
 
 ```http
 DELETE /api/delete-document/42
 Authorization: Bearer <token>
-X-CSRF-Protection: 1
 ```
 
 ---
@@ -59,7 +50,7 @@ X-CSRF-Protection: 1
 ## healthz
 
 **Path**
-`GET /api/healthz`
+`GET /healthz`
 
 **Description**  
 This endpoint checks the health of the server and confirms it is running.
@@ -70,13 +61,15 @@ _None_
 **Return**
 ```json
 {
-  "message": <string>
+  "message": <string>,
+  "db_connected": <boolean>
 }
 ```
 
 **Specification**
  * The healthz endpoint MUST be accessible without authentication.
  * The response MUST always contain a "message" field of type string.
+ * `db_connected` reports database connectivity; a false value still returns HTTP 200.
  
  ## create-user
  
@@ -429,7 +422,6 @@ of all of them are present, but only the best-scoring version is returned.
 | 201 | Watermark read (or, for the RMAP service account, attributed) |
 | 400 | Missing `method`/`key`, or nothing readable with that key |
 | 401 | Missing or invalid bearer token |
-| 403 | Missing `X-CSRF-Protection` header |
 | 404 | Document does not exist or belongs to another user |
 | 410 | Document file missing on disk |
 | 503 | Database unavailable |

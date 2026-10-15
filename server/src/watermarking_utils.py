@@ -14,15 +14,11 @@ This module exposes:
 
 Dependencies
 ------------
-Only the standard library is required. If available, the exploration
-routine will use *PyMuPDF* (``fitz``) for a richer object inventory. If
-``fitz`` is not installed, it gracefully falls back to a permissive
-regex-based scan for ``obj ... endobj`` blocks (this may miss compressed
-object streams).
-
-To enable the richer exploration, install PyMuPDF:
-
-    pip install pymupdf
+The registered implementations require the project's PDF, image and cryptographic
+runtime dependencies. PyMuPDF is a required project dependency. Exploration first
+tries its object inventory, then falls back to a permissive regex scan for
+``obj ... endobj`` blocks if that inventory fails. The fallback may miss
+compressed object streams; it does not make the whole module dependency-free.
 
 """
 from __future__ import annotations
