@@ -12,11 +12,51 @@ from PIL import Image
 from watermarking_method import SecretNotFoundError, WatermarkingError
 from watermarking_methods.khaled import KhaledTextSpacingWatermark
 from watermarking_methods.khaled.method import STEP_PT, _keys, _ordered
-from watermarking_methods.khaled.pdf_text import carriers, collect_runs, replace_runs
+from watermarking_methods.khaled.pdf_text import (
+    TextRun,
+    Token,
+    _literal,
+    carriers,
+    collect_runs,
+    replace_runs,
+    tokenize,
+)
 
 SECRET = "Group_13:" + "a" * 32
 OTHER = "Group_13:" + "b" * 32
 KEY = "test-only-high-entropy-watermark-key"
+
+
+def test_literal_returns_content_and_next_position():
+    assert _literal(b"(abc)", 0) == (b"abc", 5)
+
+
+@pytest.mark.parametrize(("data", "expected"), [
+    pytest.param(b"  ", [], id="whitespace"),
+    pytest.param(b" <41><42>", [Token("string", b"A", 1, 5), Token("string", b"B", 5, 9)], id="hex-strings"),
+    pytest.param(b" []", [Token("symbol", b"[", 1, 2), Token("symbol", b"]", 2, 3)], id="delimiters"),
+    pytest.param(b"/AA /B", [Token("name", b"AA", 0, 3), Token("name", b"B", 4, 6)], id="names"),
+    pytest.param(b" ab", [Token("word", b"ab", 1, 3)], id="words"),
+])
+def test_tokenize_preserves_values_and_offsets(data, expected):
+    assert tokenize(data) == expected
+
+
+@pytest.mark.parametrize(("chars", "expected"), [
+    pytest.param(b"ABCDE", [1, 3], id="non-overlapping-gaps"),
+    pytest.param(b"1234", [], id="no-letter-carriers"),
+])
+def test_carriers_select_non_overlapping_letter_gaps(chars, expected):
+    run = TextRun(
+        page=0, stream=0, xref=1, ordinal=0, start=0, end=len(chars),
+        font_size=10.0, chars=chars, gaps=[0.0] * (len(chars) - 1),
+        prefix=0.0, suffix=0.0, letters=set(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
+    )
+
+    selected = carriers([run])
+
+    assert [item.middle for item in selected] == expected
+    assert all(item.run is run for item in selected)
 
 
 @pytest.fixture(scope="module")

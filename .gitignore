@@ -69,6 +69,7 @@ celerybeat.pid
 .env
 secrets/
 Group_13.pdf
+Group_13_text.pdf
 .envrc
 .venv
 env/
@@ -79,6 +80,7 @@ venv.bak/
 rmap-keys/
 server/mutants/
 server/htmlcov/
+artifacts/francesco/campaigns/
 wiki/
 CLAUDE.md
 HANDOFF.md
