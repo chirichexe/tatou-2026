@@ -1,0 +1,23 @@
+Status: pending; coverage has not been generated for this collection.
+
+Tested commit:
+Execution date and timezone:
+Python version:
+Operating system:
+Coverage tool version:
+Optional tools available (Tesseract, Ghostscript):
+Commands executed:
+Test exit code:
+Passed:
+Failed:
+Errors:
+Skipped (with reasons):
+Expected failures:
+Unexpected passes:
+Line coverage:
+Branch coverage:
+Limitations and follow-up:
+
+After execution, place the generated HTML report in htmlcov/ and coverage.xml
+in this directory. Record actual results only; do not infer test success from
+coverage percentages.
