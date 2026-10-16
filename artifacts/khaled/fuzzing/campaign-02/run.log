@@ -1,0 +1,6147 @@
+warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+INFO: Instrumenting server
+INFO: Instrumenting sqlite3
+INFO: Instrumenting sqlite3.dbapi2
+INFO: Instrumenting flask
+INFO: Instrumenting flask.json
+INFO: Instrumenting flask.globals
+INFO: Instrumenting werkzeug.local
+INFO: Instrumenting flask.json.provider
+INFO: Instrumenting flask.app
+INFO: Instrumenting click
+INFO: Instrumenting click.core
+INFO: Instrumenting click.types
+INFO: Instrumenting click._compat
+INFO: Instrumenting click.exceptions
+INFO: Instrumenting click.globals
+INFO: Instrumenting click.utils
+INFO: Instrumenting click._utils
+INFO: Instrumenting click.formatting
+INFO: Instrumenting click.parser
+INFO: Instrumenting click.termui
+INFO: Instrumenting click.decorators
+INFO: Instrumenting werkzeug.routing
+INFO: Instrumenting werkzeug.routing.converters
+INFO: Instrumenting werkzeug.routing.exceptions
+INFO: Instrumenting werkzeug.routing.map
+INFO: Instrumenting werkzeug.routing.matcher
+INFO: Instrumenting werkzeug.routing.rules
+INFO: Instrumenting flask.cli
+INFO: Instrumenting flask.helpers
+INFO: Instrumenting flask.signals
+INFO: Instrumenting blinker
+INFO: Instrumenting blinker.base
+INFO: Instrumenting blinker._utilities
+INFO: Instrumenting flask.typing
+INFO: Instrumenting flask.ctx
+INFO: Instrumenting flask.sansio.app
+INFO: Instrumenting flask.config
+INFO: Instrumenting flask.logging
+INFO: Instrumenting flask.templating
+INFO: Instrumenting jinja2
+INFO: Instrumenting jinja2.bccache
+INFO: Instrumenting jinja2.environment
+INFO: Instrumenting jinja2.nodes
+INFO: Instrumenting jinja2.utils
+INFO: Instrumenting jinja2.compiler
+INFO: Instrumenting jinja2.exceptions
+INFO: Instrumenting jinja2.idtracking
+INFO: Instrumenting jinja2.visitor
+INFO: Instrumenting jinja2.optimizer
+INFO: Instrumenting jinja2.defaults
+INFO: Instrumenting jinja2.filters
+INFO: Instrumenting jinja2.async_utils
+INFO: Instrumenting jinja2.runtime
+INFO: Instrumenting jinja2.tests
+INFO: Instrumenting jinja2.lexer
+INFO: Instrumenting jinja2._identifier
+INFO: Instrumenting jinja2.parser
+INFO: Instrumenting jinja2.loaders
+INFO: Instrumenting flask.sansio.scaffold
+INFO: Instrumenting flask.sessions
+INFO: Instrumenting flask.json.tag
+INFO: Instrumenting flask.wrappers
+INFO: Instrumenting flask.blueprints
+INFO: Instrumenting flask.sansio.blueprints
+INFO: Instrumenting rmap
+INFO: Instrumenting rmap.exceptions
+INFO: Instrumenting rmap.server
+INFO: Instrumenting pgpy
+INFO: Instrumenting pgpy.pgp
+INFO: Instrumenting cryptography
+INFO: Instrumenting cryptography.__about__
+INFO: Instrumenting cryptography.hazmat
+INFO: Instrumenting cryptography.hazmat.primitives
+INFO: Instrumenting cryptography.hazmat.primitives.hashes
+INFO: Instrumenting cryptography.hazmat.bindings
+INFO: Instrumenting cryptography.utils
+INFO: Instrumenting pgpy.constants
+INFO: Instrumenting imghdr
+INFO: Instrumenting pyasn1
+INFO: Instrumenting pyasn1.type
+INFO: Instrumenting pyasn1.type.univ
+INFO: Instrumenting pyasn1.error
+INFO: Instrumenting pyasn1.codec
+INFO: Instrumenting pyasn1.codec.ber
+INFO: Instrumenting pyasn1.codec.ber.eoo
+INFO: Instrumenting pyasn1.type.base
+INFO: Instrumenting pyasn1.type.constraint
+INFO: Instrumenting pyasn1.type.error
+INFO: Instrumenting pyasn1.type.tag
+INFO: Instrumenting pyasn1.type.tagmap
+INFO: Instrumenting pyasn1.compat
+INFO: Instrumenting pyasn1.compat.integer
+INFO: Instrumenting pyasn1.type.namedtype
+INFO: Instrumenting pyasn1.type.namedval
+INFO: Instrumenting cryptography.hazmat.backends
+INFO: Instrumenting cryptography.hazmat.backends.openssl
+INFO: Instrumenting cryptography.hazmat.backends.openssl.backend
+INFO: Instrumenting cryptography.hazmat.bindings.openssl
+INFO: Instrumenting cryptography.hazmat.bindings.openssl.binding
+INFO: Instrumenting cryptography.exceptions
+INFO: Instrumenting cryptography.hazmat.bindings.openssl._conditional
+INFO: Instrumenting cryptography.hazmat.primitives._asymmetric
+INFO: Instrumenting cryptography.hazmat.primitives.asymmetric
+INFO: Instrumenting cryptography.hazmat.primitives.asymmetric.ec
+INFO: Instrumenting cryptography.hazmat._oid
+INFO: Instrumenting cryptography.hazmat.primitives._serialization
+INFO: Instrumenting cryptography.hazmat.primitives.asymmetric.utils
+INFO: Instrumenting cryptography.hazmat.primitives.asymmetric.padding
+INFO: Instrumenting cryptography.hazmat.primitives.asymmetric.rsa
+INFO: Instrumenting cryptography.hazmat.primitives.ciphers
+INFO: Instrumenting cryptography.hazmat.primitives._cipheralgorithm
+INFO: Instrumenting cryptography.hazmat.primitives.ciphers.base
+INFO: Instrumenting cryptography.hazmat.primitives.ciphers.modes
+INFO: Instrumenting cryptography.hazmat.decrepit
+INFO: Instrumenting cryptography.hazmat.decrepit.ciphers
+INFO: Instrumenting cryptography.hazmat.decrepit.ciphers.modes
+INFO: Instrumenting cryptography.hazmat.primitives._modes
+INFO: Instrumenting cryptography.hazmat.primitives.ciphers.algorithms
+INFO: Instrumenting cryptography.hazmat.decrepit.ciphers.algorithms
+INFO: Instrumenting pgpy.types
+INFO: Instrumenting pgpy.decorators
+INFO: Instrumenting pgpy.errors
+INFO: Instrumenting pgpy._curves
+INFO: Instrumenting pgpy.packet
+INFO: Instrumenting pgpy.packet.types
+INFO: Instrumenting pgpy.packet.packets
+INFO: Instrumenting cryptography.hazmat.primitives.constant_time
+INFO: Instrumenting pgpy.packet.fields
+INFO: Instrumenting pyasn1.codec.der
+INFO: Instrumenting pyasn1.codec.der.decoder
+INFO: Instrumenting pyasn1.codec.cer
+INFO: Instrumenting pyasn1.codec.cer.decoder
+INFO: Instrumenting pyasn1.codec.streaming
+INFO: Instrumenting pyasn1.codec.ber.decoder
+INFO: Instrumenting pyasn1.debug
+INFO: Instrumenting pyasn1.type.char
+INFO: Instrumenting pyasn1.type.useful
+INFO: Instrumenting pyasn1.codec.der.encoder
+INFO: Instrumenting pyasn1.codec.cer.encoder
+INFO: Instrumenting pyasn1.codec.ber.encoder
+INFO: Instrumenting cryptography.hazmat.primitives.serialization
+INFO: Instrumenting cryptography.hazmat.primitives.asymmetric.dh
+INFO: Instrumenting cryptography.hazmat.primitives.serialization.base
+INFO: Instrumenting cryptography.hazmat.primitives.serialization.ssh
+INFO: Instrumenting cryptography.hazmat.primitives.asymmetric.dsa
+INFO: Instrumenting cryptography.hazmat.primitives.asymmetric.ed25519
+INFO: Instrumenting cryptography.hazmat.primitives.asymmetric.x25519
+INFO: Instrumenting cryptography.hazmat.primitives.kdf
+INFO: Instrumenting cryptography.hazmat.primitives.kdf.concatkdf
+INFO: Instrumenting cryptography.hazmat.primitives.keywrap
+INFO: Instrumenting cryptography.hazmat.primitives.padding
+INFO: Instrumenting pgpy.packet.subpackets
+INFO: Instrumenting pgpy.packet.subpackets.types
+INFO: Instrumenting pgpy.packet.subpackets.signature
+INFO: Instrumenting pgpy.packet.subpackets.userattribute
+INFO: Instrumenting pgpy.symenc
+INFO: Instrumenting rmap.crypto
+INFO: Instrumenting rmap.armor
+INFO: Instrumenting rmap.decompress
+INFO: Instrumenting rmap.logging_utils
+INFO: Instrumenting rmap.client
+INFO: Instrumenting watermarking_utils
+INFO: Instrumenting watermarking_method
+INFO: Instrumenting watermarking_methods
+INFO: Instrumenting watermarking_methods.davide
+INFO: Instrumenting watermarking_methods.davide.method
+INFO: Instrumenting numpy
+INFO: Instrumenting numpy.version
+INFO: Instrumenting numpy._expired_attrs_2_0
+INFO: Instrumenting numpy._globals
+INFO: Instrumenting numpy._utils
+INFO: Instrumenting numpy._utils._conversions
+INFO: Instrumenting numpy._distributor_init
+INFO: Instrumenting numpy.__config__
+INFO: Instrumenting numpy._core
+INFO: Instrumenting numpy._core.multiarray
+INFO: Instrumenting numpy.exceptions
+INFO: Instrumenting numpy._core._exceptions
+INFO: Instrumenting numpy._core.printoptions
+INFO: Instrumenting numpy.dtypes
+INFO: Instrumenting numpy._core.overrides
+INFO: Instrumenting numpy._utils._inspect
+INFO: Instrumenting numpy._core.umath
+INFO: Instrumenting numpy._core.numerictypes
+INFO: Instrumenting numpy._core._string_helpers
+INFO: Instrumenting numpy._core._type_aliases
+INFO: Instrumenting numpy._core.einsumfunc
+INFO: Instrumenting numpy._core.numeric
+INFO: Instrumenting numpy._core.shape_base
+INFO: Instrumenting numpy._core.fromnumeric
+INFO: Instrumenting numpy._core._methods
+INFO: Instrumenting numpy._core._ufunc_config
+INFO: Instrumenting numpy._core._asarray
+INFO: Instrumenting numpy._core.arrayprint
+INFO: Instrumenting numpy._core.function_base
+INFO: Instrumenting numpy._core.getlimits
+INFO: Instrumenting numpy._core.memmap
+INFO: Instrumenting numpy._core.records
+INFO: Instrumenting numpy._core._add_newdocs
+INFO: Instrumenting numpy._core._add_newdocs_scalars
+INFO: Instrumenting numpy._core._dtype
+INFO: Instrumenting numpy._core._dtype_ctypes
+INFO: Instrumenting numpy._core._internal
+INFO: Instrumenting ctypes
+INFO: Instrumenting ctypes._endian
+INFO: Instrumenting numpy._pytesttester
+INFO: Instrumenting numpy.lib
+INFO: Instrumenting numpy.lib._arraypad_impl
+INFO: Instrumenting numpy.lib._index_tricks_impl
+INFO: Instrumenting numpy.matrixlib
+INFO: Instrumenting numpy.matrixlib.defmatrix
+INFO: Instrumenting numpy.linalg
+INFO: Instrumenting numpy.linalg._linalg
+INFO: Instrumenting numpy._typing
+INFO: Instrumenting numpy._typing._array_like
+INFO: Instrumenting numpy._typing._nbit_base
+INFO: Instrumenting numpy._typing._nested_sequence
+INFO: Instrumenting numpy._typing._shape
+INFO: Instrumenting numpy._typing._char_codes
+INFO: Instrumenting numpy._typing._dtype_like
+INFO: Instrumenting numpy._typing._nbit
+INFO: Instrumenting numpy._typing._scalars
+INFO: Instrumenting numpy._typing._ufunc
+INFO: Instrumenting numpy.lib._twodim_base_impl
+INFO: Instrumenting numpy.lib._stride_tricks_impl
+INFO: Instrumenting numpy.lib._array_utils_impl
+INFO: Instrumenting numpy.lib.array_utils
+INFO: Instrumenting numpy.lib._function_base_impl
+INFO: Instrumenting numpy.lib._histograms_impl
+INFO: Instrumenting numpy.lib._arraysetops_impl
+INFO: Instrumenting numpy.lib._arrayterator_impl
+INFO: Instrumenting numpy.lib._nanfunctions_impl
+INFO: Instrumenting numpy.lib._npyio_impl
+INFO: Instrumenting numpy.lib.format
+INFO: Instrumenting numpy.lib._format_impl
+INFO: Instrumenting numpy.lib._utils_impl
+INFO: Instrumenting numpy.lib._datasource
+INFO: Instrumenting numpy.lib._iotools
+INFO: Instrumenting numpy.lib._polynomial_impl
+INFO: Instrumenting numpy.lib._type_check_impl
+INFO: Instrumenting numpy.lib._ufunclike_impl
+INFO: Instrumenting numpy.lib._shape_base_impl
+INFO: Instrumenting numpy.lib._version
+INFO: Instrumenting numpy.lib.introspect
+INFO: Instrumenting numpy.lib.mixins
+INFO: Instrumenting numpy.lib.npyio
+INFO: Instrumenting numpy.lib.scimath
+INFO: Instrumenting numpy.lib._scimath_impl
+INFO: Instrumenting numpy.lib.stride_tricks
+INFO: Instrumenting numpy._array_api_info
+INFO: Instrumenting cryptography.hazmat.primitives.ciphers.aead
+INFO: Instrumenting PIL
+INFO: Instrumenting PIL._version
+INFO: Instrumenting PIL.Image
+INFO: Instrumenting PIL.ExifTags
+INFO: Instrumenting PIL.ImageMode
+INFO: Instrumenting PIL.TiffTags
+INFO: Instrumenting PIL._binary
+INFO: Instrumenting PIL._deprecate
+INFO: Instrumenting PIL._util
+INFO: Instrumenting watermarking_methods.davide.image
+INFO: Instrumenting watermarking_methods.davide.align
+INFO: Instrumenting PIL.ImageFilter
+INFO: Instrumenting PIL.ImageOps
+INFO: Instrumenting PIL.ImagePalette
+INFO: Instrumenting PIL.GimpGradientFile
+INFO: Instrumenting PIL.GimpPaletteFile
+INFO: Instrumenting PIL.ImageColor
+INFO: Instrumenting PIL.PaletteFile
+INFO: Instrumenting watermarking_methods.francesco
+INFO: Instrumenting watermarking_methods.francesco.method
+INFO: Instrumenting zxingcpp
+INFO: Instrumenting watermarking_methods.francesco.crypto
+INFO: Instrumenting reedsolo
+INFO: Instrumenting watermarking_methods.francesco.pdf
+INFO: Instrumenting watermarking_methods.francesco.rendering
+INFO: Instrumenting PIL.ImageDraw
+INFO: Instrumenting PIL.ImageFont
+INFO: Instrumenting PIL._typing
+INFO: Instrumenting PIL.ImageText
+INFO: Instrumenting watermarking_methods.francesco.visible
+INFO: Instrumenting watermarking_methods.group13
+INFO: Instrumenting watermarking_methods.group13.method
+INFO: Instrumenting watermarking_methods.khaled
+INFO: Instrumenting watermarking_methods.khaled.method
+INFO: Instrumenting cryptography.hazmat.primitives.kdf.hkdf
+INFO: Instrumenting watermarking_methods.khaled.pdf_text
+INFO: Instrumenting login_rate_limit
+INFO: Using built-in libfuzzer
+WARNING: Failed to find function "__sanitizer_acquire_crash_state".
+WARNING: Failed to find function "__sanitizer_print_stack_trace".
+WARNING: Failed to find function "__sanitizer_set_death_callback".
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 1301
+INFO:       40 files found in ../artifacts/khaled/fuzzing/corpus
+INFO: seed corpus: files: 40 min: 3b max: 855b total: 7704b rss: 142Mb
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+#41	INITED cov: 605 ft: 613 corp: 4/370b exec/s: 41 rss: 143Mb
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#64	pulse  cov: 605 ft: 613 corp: 4/370b lim: 281 exec/s: 32 rss: 144Mb
+#67	REDUCE cov: 605 ft: 613 corp: 4/365b lim: 281 exec/s: 33 rss: 144Mb L: 25/281 MS: 1 EraseBytes-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#80	NEW    cov: 607 ft: 616 corp: 5/646b lim: 281 exec/s: 40 rss: 144Mb L: 281/281 MS: 3 ShuffleBytes-ShuffleBytes-ChangeByte-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#124	REDUCE cov: 607 ft: 616 corp: 5/645b lim: 281 exec/s: 41 rss: 145Mb L: 2/281 MS: 2 ChangeASCIIInt-EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#126	NEW    cov: 607 ft: 619 corp: 6/926b lim: 281 exec/s: 42 rss: 145Mb L: 281/281 MS: 2 ChangeASCIIInt-ChangeASCIIInt-
+MuPDF error: format error: cycle in page tree
+
+#128	pulse  cov: 607 ft: 620 corp: 6/926b lim: 281 exec/s: 42 rss: 146Mb
+#128	NEW    cov: 608 ft: 620 corp: 7/1207b lim: 281 exec/s: 42 rss: 146Mb L: 281/281 MS: 2 ChangeBinInt-ChangeASCIIInt-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#144	REDUCE cov: 608 ft: 620 corp: 7/1119b lim: 281 exec/s: 36 rss: 146Mb L: 193/281 MS: 1 EraseBytes-
+#152	REDUCE cov: 608 ft: 620 corp: 7/1118b lim: 281 exec/s: 38 rss: 146Mb L: 1/281 MS: 3 ChangeBit-ChangeBit-EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#209	REDUCE cov: 608 ft: 620 corp: 7/1058b lim: 281 exec/s: 34 rss: 146Mb L: 221/281 MS: 1 EraseBytes-
+#231	REDUCE cov: 608 ft: 620 corp: 7/1040b lim: 281 exec/s: 46 rss: 146Mb L: 263/281 MS: 2 ChangeASCIIInt-EraseBytes-
+#256	pulse  cov: 608 ft: 620 corp: 7/1040b lim: 281 exec/s: 42 rss: 146Mb
+#278	REDUCE cov: 608 ft: 620 corp: 7/1035b lim: 281 exec/s: 46 rss: 147Mb L: 20/281 MS: 2 CrossOver-EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: non-page object in page tree
+
+#444	REDUCE cov: 608 ft: 620 corp: 7/1014b lim: 281 exec/s: 44 rss: 147Mb L: 242/281 MS: 1 EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+#512	pulse  cov: 608 ft: 620 corp: 7/1014b lim: 281 exec/s: 42 rss: 147Mb
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#585	REDUCE cov: 608 ft: 620 corp: 7/1003b lim: 281 exec/s: 41 rss: 147Mb L: 210/281 MS: 1 EraseBytes-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+#787	REDUCE cov: 608 ft: 620 corp: 7/999b lim: 281 exec/s: 41 rss: 147Mb L: 16/281 MS: 2 ChangeBinInt-EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+#855	REDUCE cov: 608 ft: 620 corp: 7/991b lim: 281 exec/s: 40 rss: 147Mb L: 48/281 MS: 3 CrossOver-ChangeBinInt-EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#867	REDUCE cov: 608 ft: 620 corp: 7/976b lim: 281 exec/s: 39 rss: 147Mb L: 195/281 MS: 2 ChangeByte-EraseBytes-
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#1024	pulse  cov: 608 ft: 620 corp: 7/976b lim: 281 exec/s: 39 rss: 147Mb
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+#1058	REDUCE cov: 608 ft: 620 corp: 7/934b lim: 281 exec/s: 40 rss: 147Mb L: 239/242 MS: 1 EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#1117	REDUCE cov: 608 ft: 620 corp: 7/929b lim: 281 exec/s: 39 rss: 147Mb L: 43/242 MS: 4 ChangeBit-CMP-CopyPart-EraseBytes- DE: "@%\004\004\004"-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+#1273	REDUCE cov: 608 ft: 620 corp: 7/921b lim: 281 exec/s: 39 rss: 147Mb L: 35/242 MS: 1 EraseBytes-
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+#1385	REDUCE cov: 608 ft: 620 corp: 7/918b lim: 281 exec/s: 39 rss: 147Mb L: 13/242 MS: 1 EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+#1536	REDUCE cov: 608 ft: 620 corp: 7/853b lim: 281 exec/s: 41 rss: 148Mb L: 177/239 MS: 1 EraseBytes-
+#1543	REDUCE cov: 608 ft: 620 corp: 7/849b lim: 281 exec/s: 41 rss: 148Mb L: 9/239 MS: 2 CopyPart-EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+#1625	REDUCE cov: 608 ft: 620 corp: 7/843b lim: 281 exec/s: 40 rss: 148Mb L: 29/239 MS: 1 EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#1642	REDUCE cov: 608 ft: 620 corp: 7/840b lim: 281 exec/s: 41 rss: 148Mb L: 190/239 MS: 2 ChangeBinInt-EraseBytes-
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#1972	REDUCE cov: 608 ft: 620 corp: 7/836b lim: 281 exec/s: 41 rss: 148Mb L: 235/235 MS: 5 ChangeByte-CMP-ChangeByte-ChangeBit-EraseBytes- DE: "\377\377"-
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+#1978	REDUCE cov: 608 ft: 620 corp: 7/819b lim: 281 exec/s: 41 rss: 148Mb L: 160/235 MS: 1 EraseBytes-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#2048	pulse  cov: 608 ft: 620 corp: 7/819b lim: 281 exec/s: 40 rss: 148Mb
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#2589	REDUCE cov: 608 ft: 620 corp: 7/817b lim: 281 exec/s: 41 rss: 148Mb L: 158/235 MS: 1 EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+#2590	REDUCE cov: 608 ft: 620 corp: 7/805b lim: 281 exec/s: 41 rss: 148Mb L: 183/235 MS: 1 EraseBytes-
+#2606	REDUCE cov: 608 ft: 620 corp: 7/804b lim: 281 exec/s: 41 rss: 148Mb L: 28/235 MS: 1 EraseBytes-
+MuPDF error: syntax error: invalid key in dict
+
+#2662	REDUCE cov: 608 ft: 620 corp: 7/803b lim: 281 exec/s: 41 rss: 148Mb L: 8/235 MS: 1 EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: expected 'R' keyword (2 0 R)
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+#3668	REDUCE cov: 608 ft: 620 corp: 7/796b lim: 289 exec/s: 43 rss: 148Mb L: 183/235 MS: 1 EraseBytes-
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#4096	pulse  cov: 608 ft: 620 corp: 7/796b lim: 289 exec/s: 43 rss: 149Mb
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#4570	REDUCE cov: 608 ft: 620 corp: 7/784b lim: 297 exec/s: 43 rss: 149Mb L: 223/223 MS: 2 ChangeBit-EraseBytes-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+#4781	REDUCE cov: 608 ft: 620 corp: 7/782b lim: 297 exec/s: 43 rss: 149Mb L: 6/223 MS: 1 EraseBytes-
+#4782	REDUCE cov: 608 ft: 620 corp: 7/775b lim: 297 exec/s: 43 rss: 149Mb L: 151/223 MS: 1 EraseBytes-
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#4954	REDUCE cov: 608 ft: 620 corp: 7/770b lim: 297 exec/s: 43 rss: 149Mb L: 218/218 MS: 2 CMP-EraseBytes- DE: "PD%2P"-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#5000	REDUCE cov: 608 ft: 620 corp: 7/767b lim: 297 exec/s: 43 rss: 149Mb L: 25/218 MS: 1 EraseBytes-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+#5587	REDUCE cov: 608 ft: 620 corp: 7/766b lim: 297 exec/s: 43 rss: 149Mb L: 5/218 MS: 2 ShuffleBytes-EraseBytes-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#5754	REDUCE cov: 608 ft: 620 corp: 7/761b lim: 297 exec/s: 44 rss: 150Mb L: 213/213 MS: 2 InsertByte-EraseBytes-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#5761	REDUCE cov: 608 ft: 620 corp: 7/758b lim: 297 exec/s: 44 rss: 150Mb L: 210/210 MS: 2 ChangeASCIIInt-EraseBytes-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#5983	REDUCE cov: 608 ft: 620 corp: 7/714b lim: 297 exec/s: 44 rss: 150Mb L: 166/183 MS: 1 EraseBytes-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+#6301	REDUCE cov: 608 ft: 620 corp: 7/692b lim: 297 exec/s: 44 rss: 150Mb L: 144/183 MS: 1 EraseBytes-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#6533	REDUCE cov: 608 ft: 620 corp: 7/688b lim: 297 exec/s: 44 rss: 150Mb L: 179/183 MS: 1 CrossOver-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#8192	pulse  cov: 608 ft: 620 corp: 7/688b lim: 313 exec/s: 45 rss: 151Mb
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: expected 'R' keyword (2 0 R)
+
+MuPDF error: syntax error: expected 'R' keyword (2 0 R)
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#10434	REDUCE cov: 608 ft: 620 corp: 7/684b lim: 329 exec/s: 45 rss: 153Mb L: 21/183 MS: 1 EraseBytes-
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+#12370	REDUCE cov: 608 ft: 620 corp: 7/675b lim: 345 exec/s: 45 rss: 154Mb L: 170/183 MS: 1 EraseBytes-
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#13442	REDUCE cov: 608 ft: 620 corp: 7/665b lim: 353 exec/s: 45 rss: 158Mb L: 160/183 MS: 2 CMP-EraseBytes- DE: "\000\000"-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#14728	REDUCE cov: 608 ft: 620 corp: 7/657b lim: 361 exec/s: 45 rss: 158Mb L: 136/183 MS: 1 EraseBytes-
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#15284	REDUCE cov: 608 ft: 620 corp: 7/656b lim: 361 exec/s: 44 rss: 159Mb L: 20/183 MS: 1 EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: expected 'R' keyword (2 0 R)
+
+MuPDF error: syntax error: expected 'R' keyword (2 0 R)
+
+MuPDF error: syntax error: expected 'R' keyword (2 0 R)
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+#16384	pulse  cov: 608 ft: 620 corp: 7/656b lim: 369 exec/s: 44 rss: 159Mb
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#16857	REDUCE cov: 608 ft: 620 corp: 7/649b lim: 369 exec/s: 44 rss: 160Mb L: 176/176 MS: 3 ChangeBit-ChangeASCIIInt-EraseBytes-
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: expected 'R' keyword (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+#19094	REDUCE cov: 608 ft: 620 corp: 7/646b lim: 385 exec/s: 43 rss: 162Mb L: 148/176 MS: 2 ChangeASCIIInt-EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+#20370	REDUCE cov: 608 ft: 620 corp: 7/637b lim: 393 exec/s: 43 rss: 162Mb L: 167/167 MS: 1 EraseBytes-
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#21127	REDUCE cov: 608 ft: 620 corp: 7/636b lim: 393 exec/s: 43 rss: 162Mb L: 135/167 MS: 2 ChangeByte-EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#22808	REDUCE cov: 608 ft: 620 corp: 7/635b lim: 409 exec/s: 43 rss: 164Mb L: 166/166 MS: 1 EraseBytes-
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#22849	REDUCE cov: 608 ft: 620 corp: 7/625b lim: 409 exec/s: 43 rss: 164Mb L: 125/166 MS: 1 EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+#22895	REDUCE cov: 608 ft: 620 corp: 7/623b lim: 409 exec/s: 43 rss: 164Mb L: 164/164 MS: 1 EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+#23717	REDUCE cov: 608 ft: 620 corp: 7/612b lim: 417 exec/s: 43 rss: 165Mb L: 114/164 MS: 2 InsertByte-EraseBytes-
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: expected 'R' keyword (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#24558	REDUCE cov: 608 ft: 623 corp: 8/760b lim: 425 exec/s: 43 rss: 166Mb L: 148/164 MS: 1 ChangeBit-
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+#24649	NEW    cov: 608 ft: 625 corp: 9/908b lim: 425 exec/s: 43 rss: 166Mb L: 148/164 MS: 1 ChangeASCIIInt-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+#24895	REDUCE cov: 608 ft: 625 corp: 9/905b lim: 425 exec/s: 43 rss: 166Mb L: 17/164 MS: 1 EraseBytes-
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: syntax error: syntax error in object (2 0 R)
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: format error: cycle in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: cannot parse indirect reference in array
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: non-page object in page tree
+
+MuPDF error: syntax error: invalid key in dict
+
+MuPDF error: format error: cycle in page tree
+
+#26450	DONE   cov: 608 ft: 625 corp: 9/905b lim: 433 exec/s: 44 rss: 168Mb
+###### Recommended dictionary. ######
+"@%\004\004\004" # Uses: 675
+"\377\377" # Uses: 681
+"PD%2P" # Uses: 546
+"\000\000" # Uses: 282
+###### End of recommended dictionary. ######
+Done 26450 runs in 601 second(s)
+stat::number_of_executed_units: 26450
+stat::average_exec_per_sec:     44
+stat::new_units_added:          57
+stat::slowest_unit_time_sec:    0
+stat::peak_rss_mb:              168

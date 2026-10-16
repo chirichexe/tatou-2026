@@ -1,0 +1,24 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.3, pytest-9.1.1, pluggy-1.7.0
+rootdir: /mnt/d/Khaled/Projects/SOFTSEC/tatou-2026/server
+configfile: pyproject.toml
+plugins: cov-7.1.0
+collected 192 items
+
+test/api/test_FDP_ACF_1.py .......                                       [  3%]
+test/api/test_auth_config.py ........                                    [  7%]
+test/api/test_delete_document.py ....................................... [ 28%]
+.......................                                                  [ 40%]
+test/api/test_file_paths.py ............................................ [ 63%]
+...........................................                              [ 85%]
+test/api/test_healthz.py .                                               [ 85%]
+test/api/test_login_rate_limit.py ...............                        [ 93%]
+test/api/test_version_ownership.py ............                          [100%]
+
+=============================== warnings summary ===============================
+.venv/lib/python3.12/site-packages/pgpy/constants.py:5
+  /mnt/d/Khaled/Projects/SOFTSEC/tatou-2026/server/.venv/lib/python3.12/site-packages/pgpy/constants.py:5: DeprecationWarning: 'imghdr' is deprecated and slated for removal in Python 3.13
+    import imghdr
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 192 passed, 1 warning in 55.32s ========================
