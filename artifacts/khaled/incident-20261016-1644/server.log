@@ -1,0 +1,29 @@
+2026-10-16T10:30:23.836626151Z Initializing server-container flag
+2026-10-16T10:30:23.839003773Z Starting server...
+2026-10-16T10:30:24.163440712Z [2026-10-16 10:30:24 +0000] [1] [INFO] Starting gunicorn 26.2.0
+2026-10-16T10:30:24.163675965Z [2026-10-16 10:30:24 +0000] [1] [INFO] Listening at: http://0.0.0.0:5000 (1)
+2026-10-16T10:30:24.163706545Z [2026-10-16 10:30:24 +0000] [1] [INFO] Using worker: sync
+2026-10-16T10:30:24.164847616Z [2026-10-16 10:30:24 +0000] [11] [INFO] Booting worker with pid: 11
+2026-10-16T10:30:24.300638410Z [2026-10-16 10:30:24 +0000] [1] [INFO] Control socket listening at /root/.gunicorn/gunicorn.ctl
+2026-10-16T10:30:24.302093434Z warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
+2026-10-16T10:43:56.193855456Z [2026-10-16 10:43:56,193] WARNING in server: HTTP request failed (NotFound)
+2026-10-16T10:43:56.194607564Z 172.19.0.1 - - [16/Oct/2026:10:43:56 +0000] "GET /api/get-version HTTP/1.1" 404 27 "-" "curl/8.14.1"
+2026-10-16T10:44:15.190585834Z 172.19.0.1 - - [16/Oct/2026:10:44:15 +0000] "GET /get-doc/9e8405b57c0aff62afb0bbd18ea69c3c HTTP/1.1" 404 207 "-" "curl/8.14.1"
+2026-10-16T13:47:35.569754708Z 10.100.11.31 - - [16/Oct/2026:13:47:35 +0000] "GET / HTTP/1.1" 200 0 "-" "curl/8.14.1"
+2026-10-16T14:29:56.123460460Z /usr/local/lib/python3.12/site-packages/pgpy/constants.py:193: CryptographyDeprecationWarning: TripleDES has been moved to cryptography.hazmat.decrepit.ciphers.algorithms.TripleDES and will be removed from cryptography.hazmat.primitives.ciphers.algorithms in 48.0.0.
+2026-10-16T14:29:56.123478840Z   SymmetricKeyAlgorithm.TripleDES: algorithms.TripleDES,
+2026-10-16T14:29:56.123928154Z /usr/local/lib/python3.12/site-packages/pgpy/constants.py:200: CryptographyDeprecationWarning: Camellia has been moved to cryptography.hazmat.decrepit.ciphers.algorithms.Camellia and will be removed from cryptography.hazmat.primitives.ciphers.algorithms in 49.0.0.
+2026-10-16T14:29:56.123934615Z   SymmetricKeyAlgorithm.Camellia128: algorithms.Camellia,
+2026-10-16T14:29:56.124096695Z /usr/local/lib/python3.12/site-packages/pgpy/constants.py:201: CryptographyDeprecationWarning: Camellia has been moved to cryptography.hazmat.decrepit.ciphers.algorithms.Camellia and will be removed from cryptography.hazmat.primitives.ciphers.algorithms in 49.0.0.
+2026-10-16T14:29:56.124099455Z   SymmetricKeyAlgorithm.Camellia192: algorithms.Camellia,
+2026-10-16T14:29:56.124192586Z /usr/local/lib/python3.12/site-packages/pgpy/constants.py:202: CryptographyDeprecationWarning: Camellia has been moved to cryptography.hazmat.decrepit.ciphers.algorithms.Camellia and will be removed from cryptography.hazmat.primitives.ciphers.algorithms in 49.0.0.
+2026-10-16T14:29:56.124195146Z   SymmetricKeyAlgorithm.Camellia256: algorithms.Camellia}
+2026-10-16T14:29:56.124783273Z /usr/local/lib/python3.12/site-packages/pgpy/symenc.py:50: CryptographyDeprecationWarning: CFB has been moved to cryptography.hazmat.decrepit.ciphers.modes.CFB and will be removed from cryptography.hazmat.primitives.ciphers.modes in 49.0.0.
+2026-10-16T14:29:56.124789843Z   decryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).decryptor()
+2026-10-16T14:29:56.127904883Z /usr/local/lib/python3.12/site-packages/pgpy/symenc.py:29: CryptographyDeprecationWarning: CFB has been moved to cryptography.hazmat.decrepit.ciphers.modes.CFB and will be removed from cryptography.hazmat.primitives.ciphers.modes in 49.0.0.
+2026-10-16T14:29:56.127920683Z   encryptor = Cipher(alg.cipher(key), modes.CFB(iv), default_backend()).encryptor()
+2026-10-16T14:29:56.128671161Z 10.100.11.31 - - [16/Oct/2026:14:29:56 +0000] "POST /api/rmap-initiate HTTP/1.1" 200 311 "-" "Python-urllib/3.13"
+2026-10-16T14:29:57.293159036Z 10.100.11.31 - - [16/Oct/2026:14:29:57 +0000] "POST /api/rmap-get-link HTTP/1.1" 200 279 "-" "Python-urllib/3.13"
+2026-10-16T14:33:32.664859415Z 10.100.11.31 - - [16/Oct/2026:14:33:32 +0000] "POST /api/rmap-initiate HTTP/1.1" 200 307 "-" "Python-urllib/3.13"
+2026-10-16T14:33:33.508935509Z 10.100.11.31 - - [16/Oct/2026:14:33:33 +0000] "POST /api/rmap-get-link HTTP/1.1" 200 279 "-" "Python-urllib/3.13"
+2026-10-16T14:33:33.515172870Z 10.100.11.31 - - [16/Oct/2026:14:33:33 +0000] "GET /api/get-version/8474e400a633ae1f5d975980fa9c9e41 HTTP/1.1" 200 0 "-" "Python-urllib/3.13"
