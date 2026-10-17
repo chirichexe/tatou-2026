@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import pymupdf as fitz
+import pytest
 
 from watermarking_methods.francesco import pdf as pdf_ops
 from watermarking_methods.francesco.method import FrancescoWatermark
@@ -33,9 +34,7 @@ def test_is_document_applicable(pdf_bytes):
 
 def test_native_overlay_preserves_text_and_streams(pdf_bytes):
     method = FrancescoWatermark()
-    watermarked = method.add_watermark(
-        pdf_bytes, "copy-check", KEY, position="group=Group_13"
-    )
+    watermarked = method.add_watermark(pdf_bytes, "copy-check", KEY, position="group=Group_13")
 
     with fitz.open(stream=watermarked, filetype="pdf") as doc:
         page = doc[0]
@@ -63,3 +62,54 @@ def test_page_limit_still_applies():
         for _ in range(pdf_ops.MAX_PAGES + 1):
             doc.new_page()
         assert not pdf_ops.is_document_applicable(doc.tobytes())
+
+
+@pytest.mark.parametrize(
+    "width,height,expected",
+    [(120, 120, True), (119.7, 120, False), (120, 119.7, False), (960, 960, True), (960.01, 960, False)],
+)
+def test_raster_geometry_boundaries(width, height, expected):
+    with fitz.open() as document:
+        document.new_page(width=width, height=height)
+        assert pdf_ops.is_document_applicable(document.tobytes()) is expected
+
+
+@pytest.mark.parametrize("pages,expected", [(2, True), (3, False)])
+def test_custom_page_budget(pages, expected):
+    with fitz.open() as document:
+        for _ in range(pages):
+            document.new_page()
+        assert pdf_ops.is_document_applicable(document.tobytes(), max_pages=2) is expected
+
+
+def test_encrypted_document_is_rejected():
+    with fitz.open() as document:
+        document.new_page()
+        data = document.tobytes(
+            encryption=fitz.PDF_ENCRYPT_AES_256, owner_pw="synthetic-owner", user_pw="synthetic-user"
+        )
+    assert not pdf_ops.is_document_applicable(data)
+
+
+def test_rasterization_preserves_color_and_dimensions():
+    with fitz.open() as document:
+        page = document.new_page(width=144, height=216)
+        page.draw_rect(page.rect, color=None, fill=(1, 0, 0))
+        image = pdf_ops.rasterize_page(page, dpi=72)
+        assert image.mode == "RGB"
+        assert image.size == (144, 216)
+        assert image.getpixel((72, 108)) == (255, 0, 0)
+
+
+@pytest.mark.parametrize("extra,expected", [(0, True), (1, False)])
+def test_input_byte_budget_is_inclusive(monkeypatch, extra, expected):
+    with fitz.open() as document:
+        document.new_page()
+        data = document.tobytes()
+    monkeypatch.setattr(pdf_ops, "MAX_INPUT_BYTES", len(data))
+    assert pdf_ops.is_document_applicable(data + b" " * extra) is expected
+
+
+@pytest.mark.parametrize("source", [None, 42, b"invalid-pdf"])
+def test_method_applicability_rejects_invalid_sources(source):
+    assert not FrancescoWatermark().is_watermark_applicable(source)

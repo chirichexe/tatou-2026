@@ -64,5 +64,30 @@ def test_visible_payload_uses_salted_aes_and_lowercase_base32():
     assert set(first) <= set("abcdefghijklmnopqrstuvwxyz234567")
     assert crypto.decrypt_visible_payload(first, DUMMY_KEY) == secret
     assert crypto.decrypt_visible_payload(second, DUMMY_KEY) == secret
+    assert crypto.decrypt_visible_payload(first.upper(), DUMMY_KEY) == secret
     with pytest.raises(InvalidKeyError):
         crypto.decrypt_visible_payload(first, OTHER_DUMMY_KEY)
+
+
+@pytest.mark.parametrize("channel,salt_number,secret", [("qr", 55, "x"), ("visible", 38, "xy"), ("visible", 55, "x")])
+def test_payload_preserves_final_x(monkeypatch, channel, salt_number, secret):
+    key = "synthetic-francesco-review-key"
+    monkeypatch.setattr(crypto.os, "urandom", lambda size: salt_number.to_bytes(size, "big"))
+    encrypt = getattr(crypto, f"encrypt_{channel}_payload")
+    decrypt = getattr(crypto, f"decrypt_{channel}_payload")
+    payload = encrypt(secret, key)
+    if salt_number == 38 or channel == "qr":
+        assert payload.upper().endswith("X")
+    assert decrypt(payload, key) == secret
+
+
+@pytest.mark.parametrize("secret", ["x", "é", "x" * 64, "é" * 32])
+def test_both_channels_authenticate_utf8_boundaries(secret):
+    for encrypt, decrypt in (
+        (crypto.encrypt_qr_payload, crypto.decrypt_qr_payload),
+        (crypto.encrypt_visible_payload, crypto.decrypt_visible_payload),
+    ):
+        payload = encrypt(secret, DUMMY_KEY)
+        assert decrypt(payload, DUMMY_KEY) == secret
+        with pytest.raises(InvalidKeyError):
+            decrypt(payload, OTHER_DUMMY_KEY)
