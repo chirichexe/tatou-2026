@@ -81,6 +81,7 @@ rmap-keys/
 server/mutants/
 server/htmlcov/
 artifacts/francesco/campaigns/
+.vscode/
 wiki/
 CLAUDE.md
 HANDOFF.md
@@ -88,6 +89,13 @@ NOTES.md
 AGENTS.md
 PLAN.md
 DRAFT.md
+.wiki/
+.CLAUDE.md
+.AGENTS.md
+.HANDOFF.md
+.NOTES.md
+.PLAN.md
+.DRAFT.md
 
 # Editor and developer-tool state
 .spyderproject
