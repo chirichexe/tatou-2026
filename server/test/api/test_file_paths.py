@@ -145,6 +145,22 @@ def upload(env, filename="report.pdf", content=PDF, login="alice"):
     )
 
 
+@pytest.fixture(params=[None, 17], ids=["normal-reads", "short-reads"])
+def upload_reads(file_app, monkeypatch, request):
+    """Exercise incremental streams without specifying the server's chunk size."""
+    if request.param is not None:
+        read_size = request.param
+
+        class ShortReads(io.BytesIO):
+            def read(self, size=-1):
+                assert isinstance(size, int) and size > 0, "Upload reads must be bounded"
+                return super().read(min(size, read_size))
+
+        monkeypatch.setattr(
+            file_app.app.request_class, "_get_file_stream", lambda *_args, **_kwargs: ShortReads(),
+        )
+
+
 def assert_sanitized_failure(response, caplog, status, message):
     assert response.status_code == status
     assert response.get_json() == {"error": message}
@@ -263,7 +279,7 @@ def test_upload_rejects_invalid_pdf_content_without_residue(file_app, content):
         assert conn.execute(text("SELECT COUNT(*) FROM Documents")).scalar_one() == 1
 
 
-def test_upload_rejects_document_over_configured_size(file_app):
+def test_upload_rejects_document_over_configured_size(file_app, upload_reads):
     file_app.app.config["MAX_UPLOAD_SIZE_BYTES"] = len(PDF) - 1
 
     response = upload(file_app)
@@ -274,6 +290,118 @@ def test_upload_rejects_document_over_configured_size(file_app):
     assert not user_dir.exists() or list(user_dir.iterdir()) == []
     with file_app.engine.connect() as conn:
         assert conn.execute(text("SELECT COUNT(*) FROM Documents")).scalar_one() == 1
+
+
+@pytest.fixture
+def bounded_hash_reads(file_app, monkeypatch):
+    """Simulate partial file reads while rejecting whole-file memory allocations."""
+    real_open = Path.open
+
+    class PartialReader:
+        def __init__(self, source):
+            self.source = source
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            self.source.close()
+
+        def read(self, size=-1):
+            assert isinstance(size, int) and size > 0, "File reads must be bounded"
+            return self.source.read(min(size, 17))
+
+    def open_file(path, mode="r", *args, **kwargs):
+        source = real_open(path, mode, *args, **kwargs)
+        if mode == "rb" and path.name.startswith(".upload-") and path.is_relative_to(file_app.storage):
+            return PartialReader(source)
+        return source
+
+    monkeypatch.setattr(Path, "open", open_file)
+
+
+@pytest.mark.parametrize("spare_bytes", [0, 1], ids=["exact-limit", "below-limit"])
+def test_upload_within_limit_preserves_content_and_metadata(
+    file_app, upload_reads, bounded_hash_reads, spare_bytes,
+):
+    file_app.app.config["MAX_UPLOAD_SIZE_BYTES"] = len(PDF) + spare_bytes
+
+    response = upload(file_app)
+
+    assert response.status_code == 201, response.get_json()
+    body = response.get_json()
+    assert body["size"] == len(PDF)
+    assert body["sha256"].lower() == hashlib.sha256(PDF).hexdigest()
+    path = document_path(file_app, body["id"])
+    assert path.read_bytes() == PDF
+    assert list(path.parent.iterdir()) == [path]
+    with file_app.engine.connect() as conn:
+        assert conn.execute(text("SELECT COUNT(*) FROM Documents")).scalar_one() == 2
+
+
+def test_rejected_upload_with_failed_cleanup_is_sanitized(file_app, monkeypatch, caplog):
+    file_app.app.config["MAX_UPLOAD_SIZE_BYTES"] = len(PDF) - 1
+    real_unlink = Path.unlink
+
+    def deny_temporary_cleanup(path, *args, **kwargs):
+        if path.name.startswith(".upload-"):
+            raise PermissionError(SENSITIVE_CANARY)
+        return real_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "unlink", deny_temporary_cleanup)
+
+    response = upload(file_app)
+
+    assert_sanitized_failure(response, caplog, 413, "document exceeds maximum upload size")
+    assert "WARNING" in caplog.text
+    remaining = list((file_app.storage / "files" / "7").iterdir())
+    assert len(remaining) == 1
+    assert remaining[0].name.startswith(".upload-")
+    assert str(remaining[0]) not in caplog.text
+    with file_app.engine.connect() as conn:
+        assert conn.execute(text("SELECT COUNT(*) FROM Documents")).scalar_one() == 1
+
+
+@pytest.mark.parametrize(
+    "unreadable_pages,status,document_count", [({0}, 201, 2), ({0, 1}, 400, 1)],
+    ids=["later-page-usable", "all-pages-unreadable"],
+)
+def test_upload_requires_at_least_one_loadable_page(
+    file_app, monkeypatch, unreadable_pages, status, document_count,
+):
+    with fitz.open() as doc:
+        doc.new_page()
+        doc.new_page()
+        data = doc.tobytes()
+    real_open = fitz.open
+
+    class DocumentWithUnreadablePages:
+        def __init__(self, *args, **kwargs):
+            self.document = real_open(*args, **kwargs)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            self.document.close()
+
+        def __getattr__(self, name):
+            return getattr(self.document, name)
+
+        def load_page(self, index):
+            page = self.document.load_page(index)
+            if page.number in unreadable_pages:
+                raise RuntimeError(SENSITIVE_CANARY)
+            return page
+
+    monkeypatch.setattr(file_app.server.fitz, "open", DocumentWithUnreadablePages)
+
+    response = upload(file_app, content=data)
+
+    assert response.status_code == status
+    assert SENSITIVE_CANARY not in response.get_data(as_text=True)
+    with file_app.engine.connect() as conn:
+        assert conn.execute(text("SELECT COUNT(*) FROM Documents")).scalar_one() == document_count
 
 
 def test_upload_rejects_oversized_request_before_pdf_processing(

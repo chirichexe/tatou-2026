@@ -51,6 +51,26 @@ jobs:
     name: Run Pytest
     runs-on: ubuntu-latest
 
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          # Disposable CI-only credentials; never use deployment secrets here.
+          MARIADB_ROOT_PASSWORD: synthetic-ci-root
+          MARIADB_DATABASE: tatou_test_ci
+          MARIADB_USER: tatou_test
+          MARIADB_PASSWORD: synthetic-ci-user
+        ports:
+          - 127.0.0.1:3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      TATOU_TEST_MARIADB_URL: mysql+pymysql://tatou_test:synthetic-ci-user@127.0.0.1:3306/tatou_test_ci
+
     defaults:
       run:
         working-directory: server
