@@ -110,9 +110,21 @@ def _pass(doc, max_pixels: int, budget: int, skip: set[int]) -> Iterator[tuple[i
                 pixels = max(width * height, img.width * img.height)
                 if pixels > min(max_pixels, budget):
                     continue
-                img = img.convert("RGB")
-            except (KeyError, OSError, RuntimeError, ValueError, Image.DecompressionBombError) as error:
-                logger.debug("Skipping unreadable PDF image %s: %s", xref, error)
+                if doc.xref_get_key(xref, "Decode")[0] != "null":
+                    # Extracted samples alone do not include the PDF's Decode
+                    # transformation. Apply it before replacing the dictionary.
+                    pix = fitz.Pixmap(doc, xref)
+                    if pix.colorspace != fitz.csRGB:
+                        pix = fitz.Pixmap(fitz.csRGB, pix)
+                    if pix.alpha:
+                        pix = fitz.Pixmap(pix, 0)
+                    img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+                else:
+                    img = img.convert("RGB")
+            except (KeyError, OSError, RuntimeError, ValueError,
+                    Image.DecompressionBombError, fitz.mupdf.FzErrorBase) as error:
+                # Native exception messages can contain private PDF values.
+                logger.debug("Skipping unreadable PDF image %s: %s", xref, type(error).__name__)
                 continue
 
             budget -= pixels

@@ -8,6 +8,7 @@ from __future__ import annotations
 import io
 import shutil
 import subprocess
+from pathlib import Path
 from statistics import NormalDist
 
 import numpy as np
@@ -177,7 +178,8 @@ def test_secret_survives_ghostscript_rewrite(leaked, tmp_path):
 
 # ---------------------------------------------------------------- PDF handling
 
-def test_image_is_replaced_in_place_and_page_kept(original, leaked):
+def test_image_is_replaced_in_place_and_page_kept(original):
+    leaked = DavideWatermark.add_watermark(original, LEAKER, KEY)
     with fitz.open(stream=leaked, filetype="pdf") as doc:
         assert len(doc[0].get_images()) == 1  # no unmarked copy left
         assert "Confidential photo" in doc[0].get_text()
@@ -246,13 +248,13 @@ def test_real_image_size_is_checked_before_decoding():
     side = int(method_module._MAX_PIXELS ** 0.5) + 8
     buf = io.BytesIO()
     Image.new("RGB", (side, side)).save(buf, "JPEG")
-    pdf = photo_pdf([make_photo(640, 640)])
+    pdf = photo_pdf([make_photo(640, 640), make_photo(320, 288)])
     with fitz.open(stream=pdf, filetype="pdf") as doc:
         xref = doc[0].get_images()[0][0]
         doc.update_stream(xref, buf.getvalue(), compress=False)
         doc.xref_set_key(xref, "Filter", "/DCTDecode")
         assert doc[0].get_images()[0][2:4] == (640, 640)
-        assert list(_images(doc)) == []
+        assert [img.size for _, img in _images(doc)] == [(320, 288)]
 
 
 def test_total_pixel_budget_bounds_the_work(monkeypatch):
@@ -291,7 +293,8 @@ def test_images_from_two_copies_are_reported_as_conflicting():
         DavideWatermark.read_secret(mixed, KEY)
 
 
-def test_stencil_masks_are_not_modified():
+@pytest.mark.parametrize("mask_first", [False, True])
+def test_stencil_masks_are_not_modified(mask_first):
     pdf = photo_pdf([make_photo(640, 640)])
     with fitz.open(stream=pdf, filetype="pdf") as doc:
         page = doc[0]
@@ -306,16 +309,23 @@ def test_stencil_masks_are_not_modified():
             doc.xref_set_key(int(value.split()[0]), "Msk", f"{mask} 0 R")
         else:
             doc.xref_set_key(resources, "XObject/Msk", f"{mask} 0 R")
+        if mask_first:
+            photo = page.get_images()[0][0]
+            dictionary = f"<< /Msk {mask} 0 R /fzImg0 {photo} 0 R >>"
+            doc.xref_set_key(resources, "XObject", dictionary)
         contents = page.get_contents()[0]
         doc.update_stream(contents, doc.xref_stream(contents) + b"\nq 200 0 0 200 72 100 cm /Msk Do Q\n")
         pdf = doc.tobytes()
 
     out = DavideWatermark.add_watermark(pdf, LEAKER, KEY)
+    assert DavideWatermark.read_secret(out, KEY) == LEAKER
 
     # the photo is marked, the stencil keeps its type and pixels
     with fitz.open(stream=pdf, filetype="pdf") as src, fitz.open(stream=out, filetype="pdf") as dst:
         (photo_before, mask_before), (photo_after, mask_after) = (
-            [info[0] for info in d[0].get_images(full=True)] for d in (src, dst)
+            [info[0] for info in sorted(d[0].get_images(full=True),
+                                      key=lambda info: d.xref_get_key(info[0], "ImageMask")[1] == "true")]
+            for d in (src, dst)
         )
         assert src.xref_stream_raw(photo_before) != dst.xref_stream_raw(photo_after)
         for key, value in (("ImageMask", "true"), ("BitsPerComponent", "1"), ("ColorSpace", "null")):
@@ -362,3 +372,174 @@ def test_innocent_scores_follow_the_threshold_model(original, other_copy):
     values = np.array(list(scores.values()))
     assert np.mean(values >= 3) <= 2 * 4 * (1 - NormalDist().cdf(3))
     assert values.max() < THRESHOLD
+
+
+@pytest.mark.parametrize("decode", ["[1 0 1 0 1 0]", "[0 1 0 1 0 1]"])
+def test_pdf_decode_preserves_rendered_appearance(decode):
+    pdf = photo_pdf([make_photo(320, 288)])
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        doc.xref_set_key(doc[0].get_images()[0][0], "Decode", decode)
+        pdf = doc.tobytes()
+        pix = doc[0].get_pixmap()
+        before = np.asarray(Image.frombytes("RGB", (pix.width, pix.height), pix.samples), dtype=float)
+    marked = DavideWatermark.add_watermark(pdf, "abcde", KEY)
+    with fitz.open(stream=marked, filetype="pdf") as doc:
+        pix = doc[0].get_pixmap()
+        after = np.asarray(Image.frombytes("RGB", (pix.width, pix.height), pix.samples), dtype=float)
+    assert 10 * np.log10(255 ** 2 / np.mean((before - after) ** 2)) > 32
+    assert DavideWatermark.read_secret(marked, KEY) == "abcde"
+
+
+def test_unreadable_image_does_not_hide_later_carrier_or_log_document_data(caplog):
+    marker = "synthetic_private_document_marker"
+    pdf = photo_pdf([make_photo(64, 64), make_photo(320, 288)])
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        doc.xref_set_key(doc[0].get_images()[0][0], "ColorSpace", "/" + marker)
+        pdf = doc.tobytes()
+    with caplog.at_level("DEBUG", logger=method_module.__name__):
+        assert DavideWatermark.is_watermark_applicable(pdf)
+        marked = DavideWatermark.add_watermark(pdf, "abcde", KEY)
+        assert DavideWatermark.read_secret(marked, KEY) == "abcde"
+    assert caplog.records
+    assert marker not in caplog.text
+
+
+@pytest.mark.parametrize("secret", ["abcde", "éabc"])
+def test_exact_payload_capacity_roundtrip_and_attribution(secret, monkeypatch):
+    # 128*96 provides exactly 1344 slots, for five UTF-8 bytes plus the tag.
+    pdf = photo_pdf([make_photo(128, 96)])
+    marked = DavideWatermark.add_watermark(pdf, secret, KEY)
+    assert DavideWatermark.read_secret(marked, KEY) == secret
+    # At equality the normal carrier is sufficient; scan fallback must not run.
+    def no_scan(*args):
+        pytest.fail("normal image has enough capacity")
+    monkeypatch.setattr(method_module, "_scan_images", no_scan)
+    scores = DavideWatermark.score_recipients(marked, pdf, KEY, [secret, "other"])
+    assert scores[secret] > THRESHOLD > scores["other"]
+
+
+def test_reads_and_attributes_preexisting_copy():
+    data = Path(__file__).with_name("data")
+    pdf, marked = (data / "original.pdf").read_bytes(), (data / "marked.pdf").read_bytes()
+    key, secret = "synthetic-davide-review-key", "abcde"
+    assert DavideWatermark.read_secret(marked, key) == secret
+    scores = DavideWatermark.score_recipients(marked, pdf, key, [secret, "other"])
+    assert scores[secret] > THRESHOLD > scores["other"]
+
+
+def test_shared_xref_uses_budget_once(monkeypatch):
+    pdf = photo_pdf([make_photo(128, 96), make_photo(128, 96)])
+    monkeypatch.setattr(method_module, "_MAX_TOTAL_PIXELS", 2 * 128 * 96)
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        infos = doc[0].get_images()
+        assert infos[0][0] == infos[1][0]
+        assert len(list(_images(doc))) == 1
+
+
+@pytest.mark.parametrize("sizes", [[(80, 300), (300, 80)], [(300, 80), (80, 300)]])
+def test_image_enumeration_preserves_dimensions(sizes):
+    pdf = photo_pdf([make_photo(*size, seed=i) for i, size in enumerate(sizes)])
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        assert [img.size for _, img in _images(doc)] == sizes
+
+
+def test_small_image_does_not_hide_later_carrier():
+    pdf = photo_pdf([make_photo(64, 64), make_photo(320, 288)])
+    marked = DavideWatermark.add_watermark(pdf, "abcde", KEY)
+    assert DavideWatermark.read_secret(marked, KEY) == "abcde"
+
+
+def test_budget_skips_large_image_but_keeps_smaller_one(monkeypatch):
+    monkeypatch.setattr(method_module, "_MAX_PIXELS", 100 * 100)
+    monkeypatch.setattr(method_module, "_MAX_TOTAL_PIXELS", 2 * 100 * 100)
+    sizes = [(100, 100), (160, 160), (80, 100), (80, 100)]
+    pdf = photo_pdf([make_photo(*size, seed=i) for i, size in enumerate(sizes)])
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        assert [img.size for _, img in _images(doc)] == [(100, 100), (80, 100)]
+
+
+@pytest.mark.parametrize("length", [0, 129])
+def test_authenticated_payload_outside_supported_length_is_rejected(length):
+    # Authenticate real ciphertext, bypassing only the writer's length guard.
+    ciphertext = method_module._cipher(KEY).encrypt(b"x" * length, [])
+    bits = np.unpackbits(np.frombuffer(ciphertext, dtype=np.uint8))
+    image = embed_payload(make_photo(640, 640), bits, KEY)
+    assert method_module._read_image(image, KEY) is None
+
+
+@pytest.mark.parametrize("broken", [b"not a document", b"%PDF-1.7\ntruncated"])
+def test_malformed_pdf_is_not_applicable(broken):
+    assert not DavideWatermark.is_watermark_applicable(broken)
+
+
+def test_replacement_publishes_renderable_rgb_and_clears_old_decode_parameters():
+    pdf = photo_pdf([make_photo(128, 96)])
+    replacement = make_photo(160, 120, seed=9)
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        xref = doc[0].get_images()[0][0]
+        doc.xref_set_key(xref, "Decode", "[1 0 1 0 1 0]")
+        doc.xref_set_key(xref, "DecodeParms", "<< /ColorTransform 0 >>")
+        doc.xref_set_key(xref, "ColorSpace", "/DeviceGray")
+        doc.xref_set_key(xref, "BitsPerComponent", "1")
+        _replace_image(doc, xref, replacement)
+        for name, value in [("Filter", "/DCTDecode"), ("ColorSpace", "/DeviceRGB"),
+                            ("Decode", "null"), ("DecodeParms", "null"),
+                            ("BitsPerComponent", "8"), ("Width", "160"), ("Height", "120")]:
+            assert doc.xref_get_key(xref, name)[1] == value
+        pix = fitz.Pixmap(doc, xref)
+        decoded = np.asarray(Image.frombytes("RGB", (pix.width, pix.height), pix.samples), dtype=float)
+        assert decoded.shape == (120, 160, 3)
+        assert 10 * np.log10(255 ** 2 / np.mean((decoded - np.asarray(replacement)) ** 2)) > 32
+
+
+def test_unreferenced_unmarked_image_stream_is_removed():
+    pdf = photo_pdf([make_photo(320, 288)])
+    orphan = b"synthetic-unreferenced-image-canary"
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        xref = doc.get_new_xref()
+        doc.update_object(xref, "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 "
+                                "/ColorSpace /DeviceRGB /BitsPerComponent 8 >>")
+        doc.update_stream(xref, orphan)
+        pdf = doc.tobytes()
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        assert any(doc.xref_stream(i) == orphan for i in range(1, doc.xref_length()))
+    marked = DavideWatermark.add_watermark(pdf, "abcde", KEY)
+    with fitz.open(stream=marked, filetype="pdf") as doc:
+        assert not any(doc.xref_stream(i) == orphan for i in range(1, doc.xref_length()))
+    assert DavideWatermark.read_secret(marked, KEY) == "abcde"
+
+
+@pytest.mark.parametrize("secret", ["abcdef", "ééé"])
+def test_scan_attribution_when_normal_carrier_is_too_small(secret, monkeypatch):
+    monkeypatch.setattr(method_module, "_MAX_PIXELS", 128 * 96)
+    pdf = photo_pdf([make_photo(128, 96), make_photo(320, 288)])
+    marked = DavideWatermark.add_watermark(pdf, secret, KEY)
+    assert DavideWatermark.read_secret(marked, KEY) == secret
+    scores = DavideWatermark.score_recipients(marked, pdf, KEY, [secret, "other"])
+    assert scores[secret] > THRESHOLD > scores["other"]
+    assert DavideWatermark.score_recipients(marked, pdf, KEY, [secret], scans=False)[secret] < THRESHOLD
+
+
+@pytest.mark.parametrize("size", [(320, 256), (256, 320)])
+def test_oversize_metadata_is_rejected_before_image_decoder(size, monkeypatch):
+    pdf = photo_pdf([make_photo(*size)])
+    monkeypatch.setattr(method_module, "_MAX_PIXELS", 256 * 256)
+    def unexpected_decode(*args, **kwargs):
+        pytest.fail("oversize PDF image reached the decoder")
+    monkeypatch.setattr(method_module.Image, "open", unexpected_decode)
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        assert list(_images(doc)) == []
+
+
+def test_budget_charges_larger_declared_dimensions(monkeypatch):
+    pdf = photo_pdf([make_photo(128, 96), make_photo(128, 96, seed=9)])
+    monkeypatch.setattr(method_module, "_MAX_TOTAL_PIXELS", 2 * 128 * 96)
+    with fitz.open(stream=pdf, filetype="pdf") as doc:
+        xref = doc[0].get_images()[0][0]
+        doc.xref_set_key(xref, "Width", "256")
+        assert len(list(_images(doc))) == 1
+
+
+@pytest.mark.parametrize("size,expected", [((320, 240), False), ((352, 240), True)])
+def test_applicability_reserves_capacity_for_the_longest_secret(size, expected):
+    assert DavideWatermark.is_watermark_applicable(photo_pdf([make_photo(*size)])) is expected
