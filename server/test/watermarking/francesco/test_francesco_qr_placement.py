@@ -1,4 +1,4 @@
-"""QR codes must decode reliably: they are the only thing francesco reads back."""
+"""QR decoding across random salts and dense-page placement fallbacks."""
 
 from __future__ import annotations
 
@@ -12,9 +12,8 @@ KEY = "0123456789abcdef" * 4
 SECRET = "Group_07:da0bb583c432fbfd078959ecc9b62902"
 
 
-def test_every_qr_decodes_whatever_the_random_salt(pdf_bytes):
-    # every payload has a random salt: before the codes were drawn with whole
-    # pixels per module and at 10% of the page, about half of them failed
+def test_qr_roundtrip_is_independent_of_random_salt(pdf_bytes):
+    # Exercise several salts because payload patterns affect QR decoding.
     method = FrancescoWatermark()
     for _ in range(6):
         marked = method.add_watermark(pdf_bytes, SECRET, KEY)
@@ -26,7 +25,7 @@ def test_every_qr_decodes_whatever_the_random_salt(pdf_bytes):
 
 def _dense_page(doc: fitz.Document) -> None:
     page = doc.new_page(width=595, height=842)
-    for row in range(84):  # text from edge to edge: no free border
+    for row in range(84):  # Text from edge to edge: no free border.
         page.insert_text((2, 10 + row * 10), "busy " * 40, fontsize=9)
 
 

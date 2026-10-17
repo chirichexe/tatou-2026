@@ -21,7 +21,7 @@ def pdf_bytes() -> bytes:
 
 def test_round_trip_unicode_secret_and_rendering(pdf_bytes):
     method = AddAfterEOF()
-    secret = "watermark-è-🔐"
+    secret = "watermark-\u00e8-\U0001f510"
 
     output = method.add_watermark(BytesIO(pdf_bytes), secret, key="private-key")
 

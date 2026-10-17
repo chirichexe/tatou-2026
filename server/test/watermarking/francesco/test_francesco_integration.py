@@ -1,4 +1,4 @@
-"""End-to-end behavior and composition tests."""
+"""Verify PDF watermark embedding, extraction, and layer composition."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def test_roundtrip_preserves_page_and_text(pdf_bytes):
         assert len(doc[0].get_images()) >= 1
 
 
-def test_wrong_key_and_secret_not_found(pdf_bytes):
+def test_reading_rejects_wrong_key_and_unmarked_pdf(pdf_bytes):
     method = FrancescoWatermark()
     watermarked = method.add_watermark(pdf_bytes, "copy-42", KEY, position=GROUP_POSITION)
 
@@ -47,7 +47,7 @@ def test_conflicting_valid_copies_rejected(pdf_bytes):
     first = method.add_watermark(pdf_bytes, "copy-one", KEY, GROUP_POSITION)
     second = method.add_watermark(pdf_bytes, "copy-two", KEY, GROUP_POSITION)
 
-    # Stitch two different watermarked pages together
+    # Stitch two different watermarked pages together.
     with (
         fitz.open(stream=first, filetype="pdf") as left,
         fitz.open(stream=second, filetype="pdf") as right,
@@ -69,7 +69,7 @@ def test_decoy_qr_does_not_hide_the_real_one(pdf_bytes, decoy, monkeypatch):
         else "A" * 60 if decoy == "random" else "not a watermark!"
     )
 
-    # the leaker pastes a QR code of their own in the middle of the page
+    # The leaker pastes a QR code of their own in the middle of the page.
     with fitz.open(stream=watermarked, filetype="pdf") as doc:
         doc[0].insert_image(fitz.Rect(220, 350, 380, 510),
                             stream=rendering.build_opaque_qr_bytes(payload))
@@ -95,7 +95,7 @@ def test_survives_jpeg_raster_roundtrip(pdf_bytes):
         pdf_bytes, "copy-through-jpeg", KEY, GROUP_POSITION
     )
 
-    # Simulate scan / raster conversion to JPEG 85% quality
+    # Simulate scan / raster conversion to JPEG 85% quality.
     with (
         fitz.open(stream=watermarked, filetype="pdf") as source,
         fitz.open() as rebuilt,
@@ -186,7 +186,7 @@ def test_visible_label_recovers_from_common_ocr_digit_confusions(monkeypatch):
         )
 
 
-@pytest.mark.parametrize("secret", ["x", "xy", "é", "x" * 64, "é" * 32])
+@pytest.mark.parametrize("secret", ["x", "xy", "\u00e9", "x" * 64, "\u00e9" * 32])
 @pytest.mark.parametrize("recipient", ["Group_13", "Group A - " + "B" * 40])
 def test_wrapped_visible_label_recovers_long_encrypted_secret(secret, recipient):
     from watermarking_methods.francesco import visible
@@ -243,7 +243,7 @@ def test_position_is_ignored(pdf_bytes, position):
 
 def test_non_ascii_secret_roundtrip(pdf_bytes):
     method = FrancescoWatermark()
-    secret = "copia-gruppo-13-è"
+    secret = "group-13-copy-\u00e9"
     watermarked = method.add_watermark(
         pdf_bytes, secret, KEY, position="group=Group_13"
     )

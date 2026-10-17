@@ -46,7 +46,6 @@ def test_carriers_select_non_overlapping_letter_gaps(chars, expected):
     assert all(item.run is run for item in selected)
 
 
-
 def _document(content):
     document = fitz.open()
     page = document.new_page(width=600, height=800)
@@ -423,7 +422,6 @@ def test_tolerant_font_policy_is_forwarded_to_the_parser():
         document.xref_set_key(document[0].get_fonts()[0][0], "Encoding", "null")
         assert not parser.collect_runs(document)
         assert len(parser.carriers(parser.collect_runs(document, True))) == 2
-
 
 
 def test_marked_content_dictionary_keeps_text_eligible():

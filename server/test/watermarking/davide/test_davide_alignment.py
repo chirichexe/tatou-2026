@@ -39,8 +39,8 @@ def test_details_preserve_negative_edges():
 
 
 def test_registration_preserves_original_outside_rotated_piece(monkeypatch):
-    # Hold search at a known transform; exercise real resampling, FFT placement
-    # and mask compositing independently of heuristic search convergence.
+    # Hold search at a known transform; exercise real resampling, FFT placement and mask
+    # compositing independently of heuristic search convergence.
     original = make_photo(96, 80)
     leak = original.crop((16, 16, 80, 64))
     monkeypatch.setattr(alignment, "_best", lambda *args: (False, 3, 1.0))

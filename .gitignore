@@ -1,126 +1,50 @@
-# Python bytecode and packaging
+# Python bytecode, test and lint output
 __pycache__/
-*.py[codz]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-*.manifest
-*.spec
-pip-log.txt
-pip-delete-this-directory.txt
-
-# Tests, coverage and caches
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py.cover
-.hypothesis/
+*.py[cod]
 .pytest_cache/
-cover/
+.ruff_cache/
+.coverage*
+htmlcov/
 
-# Framework and tool-generated files
-*.mo
-*.pot
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
-instance/
-.webassets-cache
-.scrapy
-docs/_build/
-.pybuilder/
-target/
-.ipynb_checkpoints
-profile_default/
-ipython_config.py
-.pdm-python
-.pdm-build/
-.pixi
-__pypackages__/
-celerybeat-schedule
-celerybeat.pid
-*.sage.py
-
-# Local environments and confidential material
+# Local environments and credentials
 .env
+.envrc
 secrets/
 Group_13.pdf
 Group_13_text.pdf
-.envrc
-.venv
+.venv/
 env/
 venv/
 ENV/
-env.bak/
-venv.bak/
 rmap-keys/
+/storage/
+db.sqlite3
+db.sqlite3-journal
+
+# Mutation testing output
 server/mutants/
-server/htmlcov/
-artifacts/francesco/campaigns/
+mutation/
+
+# Local editor and working notes
 .vscode/
 wiki/
-CLAUDE.md
-HANDOFF.md
-NOTES.md
-AGENTS.md
-PLAN.md
-DRAFT.md
 .wiki/
+CLAUDE.md
 .CLAUDE.md
-.AGENTS.md
+HANDOFF.md
 .HANDOFF.md
+NOTES.md
 .NOTES.md
+AGENTS.md
+.AGENTS.md
+PLAN.md
 .PLAN.md
+DRAFT.md
 .DRAFT.md
 
-# Editor and developer-tool state
-.spyderproject
-.spyproject
-.ropeproject
-/site
-.mypy_cache/
-.dmypy.json
-dmypy.json
-.pyre/
-.pytype/
-cython_debug/
-.abstra/
-.ruff_cache/
-.pypirc
-.cursorignore
-.cursorindexingignore
-marimo/_static/
-marimo/_lsp/
-__marimo__/
-.DS_Store
-
-# Local delivery artifacts and LaTeX reports
+# Local course artifacts and reports
 /artifacts/
 /report/
-# Keep local report and delivery material out of Git
-CLAUDE.md
 server/uv.lock
+
+.DS_Store

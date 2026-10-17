@@ -1,7 +1,4 @@
-"""What a leaker can do to a watermarked PDF
-
-Every attack takes the PDF bytes and returns the edited PDF bytes
-"""
+"""Apply image and page transformations to synthetic watermarked PDFs."""
 
 from __future__ import annotations
 
@@ -15,11 +12,7 @@ from watermarking_methods.davide.method import _replace_image
 
 
 def edit_image(pdf: bytes, change) -> bytes:
-    """Replace the first image with change(image)
-
-    The object is overwritten in place: page.replace_image would leave the
-    previous version in the file
-    """
+    """Transform the first image in place and discard its unmarked stream."""
     with fitz.open(stream=pdf, filetype="pdf") as doc:
         xref = doc[0].get_images()[0][0]
         img = Image.open(io.BytesIO(doc.extract_image(xref)["image"])).convert("RGB")
@@ -56,7 +49,7 @@ def noise(sigma: float, seed: int = 0):
 
 
 def crop(keep: float):
-    """Keep the central `keep` fraction of each side"""
+    """Keep the central `keep` fraction of each side."""
     def change(img):
         dx, dy = round(img.width * (1 - keep) / 2), round(img.height * (1 - keep) / 2)
         return img.crop((dx, dy, img.width - dx, img.height - dy))
@@ -73,7 +66,7 @@ def flip():
 
 
 def everything():
-    """Mirror, rotate 2 degrees, crop and shrink together"""
+    """Mirror, rotate 2 degrees, crop and shrink together."""
     def change(img):
         img = ImageOps.mirror(img).rotate(2, Image.BICUBIC, fillcolor="white")
         img = img.crop((40, 30, img.width - 80, img.height - 40))
@@ -87,7 +80,7 @@ def rotate(degrees: float):
 
 
 def screenshot(dpi: int, quality: int = 90):
-    """Render the whole page and wrap the picture in a new PDF"""
+    """Render the whole page and wrap the picture in a new PDF."""
     def attack(pdf):
         with fitz.open(stream=pdf, filetype="pdf") as doc, fitz.open() as out:
             page = doc[0]
@@ -100,8 +93,7 @@ def screenshot(dpi: int, quality: int = 90):
 
     return attack
 
-
-# KNOWN_FAILURES are the limits of the method
+# KNOWN_FAILURES are the limits of the method.
 ATTACKS = {
     "none": lambda pdf: pdf,
     "jpeg-q90": jpeg(90),
@@ -128,6 +120,6 @@ ATTACKS = {
 }
 
 KNOWN_FAILURES = {
-    "rotate-10deg": rotate(10),  # the search stops at 6 degrees
-    "blur-3": blur(3),           # the picture is ruined anyway
+    "rotate-10deg": rotate(10),  # The search stops at 6 degrees.
+    "blur-3": blur(3),           # Strong blur exceeds the supported fingerprint recovery range.
 }

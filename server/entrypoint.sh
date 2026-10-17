@@ -14,7 +14,7 @@ if [[ ! "$FLAG_1" =~ ^[[:xdigit:]]{40}$ ]]; then
   exit 1
 fi
 
-# --- Replace placeholder in /app/flag ---
+# Initialize the mounted flag placeholder.
 if [[ ! -f "/app/flag" ]]; then
   echo "ERROR: /app/flag not found" >&2
   exit 1
@@ -34,6 +34,6 @@ if ! grep -Fqx "$FLAG_1" "/app/flag"; then
   exit 1
 fi
 
-# --- Start the server ---
+# Start the WSGI server.
 echo "Starting server..."
 exec gunicorn -b 0.0.0.0:5000 --access-logfile - --error-logfile - server:app

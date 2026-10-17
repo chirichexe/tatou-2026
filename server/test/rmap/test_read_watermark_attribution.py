@@ -1,4 +1,4 @@
-"""read-watermark adds leak attribution only for the RMAP service account."""
+"""Read-watermark adds leak attribution only for the RMAP service account."""
 
 import io
 import os
@@ -27,7 +27,7 @@ SENSITIVE_CANARY = "synthetic-scoring-key-do-not-disclose"
 
 
 def _seed_scoring_database(engine, storage):
-    """Temporary tables also allow a case-sensitive MariaDB integration check."""
+    """Create temporary attribution tables for SQLite or case-sensitive MariaDB."""
     with engine.begin() as conn:
         conn.execute(text("""
             CREATE TEMPORARY TABLE Documents (
@@ -251,7 +251,7 @@ def attribution_app(tmp_path, monkeypatch):
     engine = create_engine("sqlite://")
     with engine.begin() as conn:
         _create_schema(conn)
-        # user 1 = RMAP service account (owns RMAP_DOCUMENT_ID); user 2 = normal user
+        # User 1 = RMAP service account (owns RMAP_DOCUMENT_ID); user 2 = normal user.
         conn.execute(text("""
             INSERT INTO Documents (id, name, path, ownerid) VALUES
             (1, 'source.pdf', :src, 1),
@@ -297,12 +297,11 @@ def test_normal_user_gets_no_attribution_field(attribution_app):
         "method": METHOD, "position": None,
     }
 
-
 DAVIDE_METHOD = "davide-watermark"
 
 
 def _image_pdf(seed):
-    """One-page PDF whose content is a textured photo-like JPEG."""
+    """Create a one-page PDF containing a textured JPEG."""
     rng = np.random.default_rng(seed)
     y, x = np.mgrid[0:512, 0:512]
     base = 96 + 60 * np.sin(x / 31.0) * np.cos(y / 19.0)
@@ -343,10 +342,9 @@ def _cropped(pdf):
 
 
 def _averaged(a, b):
-    """Two recipients combine their copies to hide who leaked."""
+    """Average two recipient copies to simulate collusion."""
     mix = (np.asarray(_photo(a), dtype=np.float64) + np.asarray(_photo(b), dtype=np.float64)) / 2
     return _with_photo(a, Image.fromarray(mix.round().astype(np.uint8)))
-
 
 # Four copies of the same source: two for Group_07, one each for Group_12 and Group_21.
 ISSUED = [
@@ -379,7 +377,7 @@ def fingerprint_app(tmp_path, monkeypatch):
     engine = create_engine("sqlite://")
     with engine.begin() as conn:
         _create_schema(conn)
-        # user 1 = RMAP service account (owns documents 1-7); user 2 = normal user
+        # User 1 = RMAP service account (owns documents 1-7); user 2 = normal user.
         documents = [
             (1, "source.pdf", 1), (2, "cropped.pdf", 1), (3, "unrelated.pdf", 1),
             (4, "cropped.pdf", 2), (5, "source.pdf", 1), (6, "averaged.pdf", 1),

@@ -1,3 +1,5 @@
+"""Log Alertmanager webhooks and forward optional Telegram notifications."""
+
 import html
 import http.server
 import json
@@ -53,7 +55,7 @@ def send_telegram_alert(status, alert_name, severity, target, summary, descripti
                 sys.stderr.write(f"Telegram API response status {resp.status}: {resp.read()}\n")
             else:
                 sys.stdout.write(f"Telegram notification sent for alert: {alert_name}\n")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - Isolate notification delivery failures.
         sys.stderr.write(f"Failed to send Telegram alert: {e}\n")
     sys.stdout.flush()
     sys.stderr.flush()
@@ -95,7 +97,7 @@ class AlertWebhookHandler(http.server.BaseHTTPRequestHandler):
                     description = annotations.get("description", "No description provided")
                     target = labels.get("name") or labels.get("instance") or labels.get("compose_service") or "tatou"
 
-                    # 1. Log to file
+                    # Persist the alert and mirror it to stdout.
                     log_line = (
                         f"[{now_str}] [{status}] [{severity}] "
                         f"Alert: {alert_name} | Target: {target} | "
@@ -104,7 +106,7 @@ class AlertWebhookHandler(http.server.BaseHTTPRequestHandler):
                     f.write(log_line)
                     sys.stdout.write(log_line)
 
-                    # 2. Forward to Telegram if configured in .env
+                    # Forward alerts when Telegram credentials are configured.
                     send_telegram_alert(
                         status=status,
                         alert_name=alert_name,
@@ -122,7 +124,7 @@ class AlertWebhookHandler(http.server.BaseHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(b'{"status":"ok"}')
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - Return JSON for request-processing failures.
             sys.stderr.write(f"Error processing webhook: {e}\n")
             sys.stderr.flush()
             self.send_response(500)
@@ -131,7 +133,7 @@ class AlertWebhookHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(b'{"status":"error"}')
 
     def log_message(self, format, *args):
-        # Suppress standard HTTP access log spam on stdout
+        # Keep stdout reserved for alert records.
         pass
 
 

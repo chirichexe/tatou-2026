@@ -207,9 +207,9 @@ def test_limiter_preserves_preexisting_failure_budgets(tmp_path, monkeypatch, ac
 
     monkeypatch.setattr(login_rate_limit.time, "time", lambda: 1000.0)
     path = tmp_path / "limits.sqlite3"
-    # Frozen records from the existing storage format: do not derive these
-    # identifiers with the implementation under test, or namespace changes
-    # would silently reset both the fixture and the reader together.
+    # Frozen records from the existing storage format: do not derive these identifiers with the
+    # implementation under test, or namespace changes would silently reset both the fixture and
+    # the reader together.
     account_key = "1bae20179b953feac264a5373b5080011b58d693a853a025190c44a6854bd0a6"
     ip_key = "e6f77eda15b022f618c1b684d5e01a3309e0fd320fd19a2b7559d62d9ff28423"
     with sqlite3.connect(path) as conn:

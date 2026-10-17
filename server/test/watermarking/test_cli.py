@@ -41,7 +41,7 @@ def test_explicit_secret_does_not_prompt(monkeypatch):
 
 
 @pytest.mark.parametrize("source", ["argument", "file", "stdin", "prompt"])
-@pytest.mark.parametrize("secret", ["", " X segreto-caffè X \n"])
+@pytest.mark.parametrize("secret", ["", " X secret-caf\u00e9 X \n"])
 def test_secret_sources_preserve_content(monkeypatch, tmp_path, source, secret):
     args = SimpleNamespace(secret=None, secret_file=None, secret_stdin=False)
 
@@ -68,7 +68,9 @@ def test_secret_sources_preserve_content(monkeypatch, tmp_path, source, secret):
 
 
 @pytest.mark.parametrize("key_source", ["argument", "file", "stdin", "prompt"])
-@pytest.mark.parametrize("key_content", ["reader-key", "reader-key-caffè\r\n", " X reader-key X ", "\r\nX-key-X\r\n"])
+@pytest.mark.parametrize("key_content", [
+    "reader-key", "reader-key-caf\u00e9\r\n", " X reader-key X ", "\r\nX-key-X\r\n",
+])
 def test_extract_verifies_without_revealing_secret(
     monkeypatch, capsys, tmp_path, key_source, key_content,
 ):
@@ -275,7 +277,7 @@ def test_help_describes_safe_extract(capsys):
     assert "--out" not in output.out
 
 
-def test_methods_command_still_lists_registered_methods(capsys):
+def test_methods_command_lists_registered_methods(capsys):
     assert cli.main(["methods"]) == 0
     output = capsys.readouterr()
     assert output.err == ""
@@ -283,7 +285,7 @@ def test_methods_command_still_lists_registered_methods(capsys):
                                         "khaled-text-spacing-watermark"]
 
 
-def test_explore_command_still_outputs_json(monkeypatch, capsys):
+def test_explore_command_outputs_json(monkeypatch, capsys):
     monkeypatch.setattr(cli, "explore_pdf", lambda _path: {"type": "Document"})
 
     assert cli.main(["explore", "document.pdf"]) == 0
@@ -337,7 +339,7 @@ def test_embed_forwards_inputs_and_writes_result(monkeypatch, tmp_path):
 def test_explore_writes_utf8_json_file(monkeypatch, tmp_path, capsys):
     output = tmp_path / "tree.json"
     output.write_text("old content that must be replaced", encoding="utf-8")
-    tree = {"type": "Document", "title": "caffè", "children": [{"id": 1}]}
+    tree = {"type": "Document", "title": "caf\u00e9", "children": [{"id": 1}]}
 
     def explore(path):
         assert path == "source.pdf"

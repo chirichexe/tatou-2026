@@ -50,7 +50,6 @@ def make_empty_pdf():
     ])
     return b"".join(parts)
 
-
 PDF = make_pdf()
 WATERMARK = {"method": "toy-eof", "intended_for": "reader", "secret": "secret", "key": "key"}
 SENSITIVE_CANARY = "sensitive=/app/flag;key=do-not-log;sql=SELECT-secret"

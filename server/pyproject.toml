@@ -30,6 +30,17 @@ dev = [
 addopts = "-q"
 testpaths = ["test/"]
 python_files = ["test_*.py"]
+# Fail on new warnings; retain exact exceptions for unresolved dependency deprecations.
+# SWIG metadata: https://github.com/pymupdf/PyMuPDF/issues/4434
+# PGPy compatibility: https://github.com/SecurityInnovation/PGPy/issues/462
+filterwarnings = [
+    "error",
+    "ignore:builtin type (SwigPyPacked|SwigPyObject|swigvarlink) has no __module__ attribute:DeprecationWarning",
+    "ignore:'imghdr' is deprecated and slated for removal in Python 3[.]13:DeprecationWarning:pgpy[.]constants",
+    "ignore:TripleDES has been moved to .*:cryptography.utils.CryptographyDeprecationWarning:pgpy[.]constants",
+    "ignore:Camellia has been moved to .*:cryptography.utils.CryptographyDeprecationWarning:pgpy[.]constants",
+    "ignore:CFB has been moved to .*:cryptography.utils.CryptographyDeprecationWarning:pgpy[.]symenc",
+]
 
 [tool.ruff]
 line-length = 120

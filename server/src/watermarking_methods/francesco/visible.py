@@ -77,8 +77,8 @@ def _candidate_payloads(text: str) -> list[str]:
                 for candidate in _PAYLOAD_PATTERN.findall(line)
             )
 
-    # A long visible label has a group heading followed by Base32 lines. Keep
-    # the lines in order; Reed-Solomon and AES-SIV reject incorrect OCR joins.
+    # A long visible label has a group heading followed by Base32 lines. Keep the lines in
+    # order; Reed-Solomon and AES-SIV reject incorrect OCR joins.
     for index, line in enumerate(lines):
         header = re.search(r"\s-\s*$", line) or _GROUP_HEADER_PATTERN.search(line)
         if header is None:
@@ -190,7 +190,6 @@ def _authenticated_secrets(candidates: list[str], key: str) -> set[str]:
                 except InvalidKeyError:
                     continue
     return found
-
 
 
 def _isolated_watermark_ink(image: Image.Image, min_blue_red: int) -> Image.Image:

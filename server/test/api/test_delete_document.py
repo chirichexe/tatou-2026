@@ -116,12 +116,11 @@ def test_body_cannot_override_authenticated_owner(document_app):
     assert_documents_unchanged(env)
 
 
-def test_nonexistent_document(document_app):
+def test_delete_returns_404_for_unknown_document(document_app):
     env = document_app
     response = env.client.delete("/api/delete-document/999", headers=env.headers(7))
     assert response.status_code == 404
     assert_documents_unchanged(env)
-
 
 STATE_CHANGING_ROUTES = [
     *[(method, url) for method, url, _kwargs in ROUTES],
@@ -140,8 +139,8 @@ STATE_CHANGING_ROUTES = [
 def test_spec_clients_without_extra_headers_reach_the_endpoint(
     document_app, monkeypatch, method, url,
 ):
-    # API.md clients (course bench, other groups) send only Authorization and
-    # Content-Type; no Tatou-specific header may be required on top of that.
+    # API.md clients (course bench, other groups) send only Authorization and Content-Type; no
+    # Tatou-specific header may be required on top of that.
     env = document_app
     headers = {"Authorization": env.headers(7)["Authorization"]}
     reached = []
@@ -180,7 +179,7 @@ def test_untrusted_cors_preflight_cannot_authorize_csrf_header(document_app, met
     assert_documents_unchanged(document_app)
 
 
-def test_disabled_plugin_endpoint_with_valid_headers(document_app):
+def test_load_plugin_returns_410_with_valid_authentication(document_app):
     response = document_app.client.post(
         "/api/load-plugin", headers=document_app.headers(7), json={"filename": "test.pkl"},
     )

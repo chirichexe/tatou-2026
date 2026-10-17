@@ -1,4 +1,4 @@
-"""End-to-end coverage for the thin HTTP integration around RMAP."""
+"""Verify RMAP configuration and in-process HTTP handshake behavior."""
 
 import secrets
 from pathlib import Path
@@ -17,7 +17,7 @@ from watermarking_utils import read_watermark
 
 @pytest.fixture
 def rmap_startup(tmp_path, monkeypatch):
-    """Test application configuration independently of the real PGP handshake."""
+    """Create an isolated configuration fixture without performing a PGP handshake."""
     from server import create_app
 
     monkeypatch.setenv("SECRET_KEY", secrets.token_hex(32))
@@ -60,7 +60,7 @@ def test_rmap_rejects_invalid_source_document(rmap_startup, monkeypatch, documen
     rmap_startup.constructor.assert_not_called()
 
 
-@pytest.mark.parametrize("passphrase", [" càffè-X \t", "\ncàffèX", "càffèX"])
+@pytest.mark.parametrize("passphrase", [" caf\u00e9-X \t", "\ncaf\u00e9X", "caf\u00e9X"])
 def test_rmap_reads_utf8_passphrase_preserving_significant_characters(
     rmap_startup, monkeypatch, tmp_path, caplog, passphrase,
 ):
@@ -98,7 +98,7 @@ def test_rmap_requires_a_watermark_key(rmap_startup, monkeypatch, key):
     rmap_startup.constructor.assert_not_called()
 
 
-@pytest.mark.parametrize("passphrase", [" càffè-X \t", "\ncàffèX"])
+@pytest.mark.parametrize("passphrase", [" caf\u00e9-X \t", "\ncaf\u00e9X"])
 def test_rmap_uses_environment_passphrase(rmap_startup, monkeypatch, caplog, passphrase):
     monkeypatch.setenv("RMAP_SERVER_KEY_PASSPHRASE", passphrase)
 
@@ -274,10 +274,9 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
                 assert response.status_code == 400
                 assert "payload" not in response.get_json()
 
-        # A failing watermark (generic error, or the method refusing the source)
-        # must never produce a link, a version row or a stored file. The error
-        # body differs (handled vs. the app's generic 500 handler); the
-        # invariant does not.
+        # A failing watermark (generic error, or the method refusing the source) must never
+        # produce a link, a version row or a stored file. The error body differs (handled vs.
+        # the app's generic 500 handler); the invariant does not.
         for failure in (RuntimeError("test failure"), WatermarkingError("no usable image")):
             failing_client = RMAPClient("Group_01", client_private, server_public)
             response = http.post("/api/rmap-initiate", json=failing_client.build_msg1())

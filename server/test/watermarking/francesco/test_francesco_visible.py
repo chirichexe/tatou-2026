@@ -15,9 +15,9 @@ from watermarking_methods.francesco import crypto, visible
 KEY = "synthetic-francesco-review-key"
 
 
-@pytest.mark.parametrize("secret", ["x", "xy", "é", "x" * 64])
+@pytest.mark.parametrize("secret", ["x", "xy", "\u00e9", "x" * 64])
 @pytest.mark.parametrize("damage", ["missing", "extra"])
-def test_single_character_recovery(monkeypatch, secret, damage):
+def test_visible_payload_recovers_missing_or_extra_character(monkeypatch, secret, damage):
     monkeypatch.setattr(crypto.os, "urandom", lambda size: b"\x01" * size)
     payload = crypto.encrypt_visible_payload(secret, KEY)
     damaged = payload[1:] if damage == "missing" else "a" + payload
@@ -68,7 +68,7 @@ def test_ocr_failures_do_not_disclose_input(monkeypatch, caplog, capsys, failure
 
 
 @pytest.mark.parametrize("returncode,output,expected", [(0, b"Group 13\xff", "Group 13"), (1, b"private-output", "")])
-def test_ocr_process_contract(monkeypatch, returncode, output, expected):
+def test_ocr_passes_safe_tesseract_options_and_decodes_output(monkeypatch, returncode, output, expected):
     monkeypatch.setattr(visible.shutil, "which", lambda name: "/synthetic/tesseract" if name == "tesseract" else None)
 
     def run(args, **kwargs):
@@ -85,7 +85,7 @@ def test_ocr_process_contract(monkeypatch, returncode, output, expected):
     assert visible._ocr(Image.new("RGB", (8, 8))) == expected
 
 
-def test_missing_ocr_is_controlled(monkeypatch):
+def test_ocr_raises_watermarking_error_without_tesseract(monkeypatch):
     monkeypatch.setattr(visible.shutil, "which", lambda name: None)
     with pytest.raises(WatermarkingError, match="Tesseract"):
         visible._ocr(Image.new("RGB", (8, 8)))
@@ -100,7 +100,7 @@ def test_ink_isolation_uses_signed_color_differences():
     assert np.asarray(isolated).tolist() == [[0, 255, 255, 255, 255, 0, 255, 255]]
 
 
-def test_recovery_variant_budgets():
+def test_payload_repair_respects_candidate_limits():
     candidates = [char * 80 for char in "abcde"]
     repairs = list(visible._single_character_repairs(candidates))
     assert len(repairs) <= 3 * (81 * 32 + 80)
@@ -202,7 +202,6 @@ def test_rotated_label_crop_with_real_ocr(monkeypatch):
         )
         assert visible.read_visible_secrets(document, KEY) == {"x"}
     assert crop_calls
-
 
 
 def test_visible_reader_authenticates_color_isolation_fallback(monkeypatch):

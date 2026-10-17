@@ -10,7 +10,11 @@ import pytest
 
 @pytest.fixture
 def session(tmp_path, monkeypatch):
-    script = Path(__file__).with_name("mutation-session.py")
+    script = next(
+        parent / "scripts" / "mutation-session.py"
+        for parent in Path(__file__).resolve().parents
+        if (parent / "scripts" / "mutation-session.py").is_file()
+    )
     spec = importlib.util.spec_from_file_location("mutation_session", script)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

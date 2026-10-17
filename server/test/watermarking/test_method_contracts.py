@@ -8,11 +8,10 @@ from pathlib import Path
 import fitz
 import pytest
 
-# --------- collect all methods from the registry ----------
 try:
     wm = importlib.import_module("watermarking_utils")
     METHODS = getattr(wm, "METHODS", {})
-except ModuleNotFoundError:  # registry/module missing
+except ModuleNotFoundError:  # Registry/module missing.
     METHODS = {}
 
 CASES: list[tuple[str, object]] = []
@@ -23,10 +22,9 @@ if not CASES:
     pytest.skip("No watermarking methods registered in watermarking_utils.METHODS", allow_module_level=True)
 
 
-# --------- fixtures ----------
 @pytest.fixture(scope="session")
 def sample_pdf_path(tmp_path_factory) -> Path:
-    """A valid one-page PDF usable by structural watermarking methods."""
+    """Create a one-page text PDF for applicability and path-input checks."""
     pdf = tmp_path_factory.mktemp("pdfs") / "sample.pdf"
     with fitz.open() as document:
         page = document.new_page()
@@ -46,21 +44,20 @@ def key() -> str:
 def _as_instance(impl: object) -> object:
     """Return an instance for class objects; pass instances through."""
     if inspect.isclass(impl):
-        return impl()  # assumes zero-arg constructor
+        return impl()  # Assumes zero-arg constructor.
     return impl
 
 
-# --------- parameterization over all methods ----------
 @pytest.mark.parametrize("method_name,impl", CASES, ids=[n for n, _ in CASES])
-class TestAllWatermarkingMethods:
-    def test_is_watermark_applicable(self, method_name: str, impl: object, sample_pdf_path: Path):
+class TestWatermarkingMethodContracts:
+    def test_method_reports_sample_applicability(self, method_name: str, impl: object, sample_pdf_path: Path):
         wm_impl = _as_instance(impl)
         ok = wm_impl.is_watermark_applicable(sample_pdf_path, position=None)
         assert isinstance(ok, bool), f"{method_name}: is_watermark_applicable must return bool"
         if not ok:
             pytest.skip(f"{method_name}: not applicable to the sample PDF")
 
-    def test_add_watermark_and_shape(self, method_name: str, impl: object, sample_pdf_path: Path,
+    def test_embedding_returns_renderable_pdf(self, method_name: str, impl: object, sample_pdf_path: Path,
                                      secret: str, key: str):
         wm_impl = _as_instance(impl)
         if not wm_impl.is_watermark_applicable(sample_pdf_path, position=None):
@@ -72,7 +69,7 @@ class TestAllWatermarkingMethods:
             assert result.page_count == 1, f"{method_name}: output should preserve the page"
             result[0].get_pixmap()
 
-    def test_read_secret_roundtrip(self, method_name: str, impl: object, sample_pdf_path: Path,
+    def test_method_reads_watermarked_file_path(self, method_name: str, impl: object, sample_pdf_path: Path,
                                    secret: str, key: str, tmp_path: Path):
         wm_impl = _as_instance(impl)
         if not wm_impl.is_watermark_applicable(sample_pdf_path, position=None):

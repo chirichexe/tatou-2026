@@ -39,11 +39,7 @@ def is_candidate_payload(payload: str) -> bool:
 
 
 def encrypt_qr_payload(secret: str, key: str, salt: bytes | None = None) -> str:
-    """Encrypt and authenticate the secret using AES-SIV with a random salt.
-
-    The salt (16 random bytes) ensures semantic security (IND-CPA): encrypting the
-    same secret twice produces completely distinct ciphertexts.
-    """
+    """Encrypt and authenticate the secret with AES-SIV and a random 16-byte salt."""
     if not secret:
         raise ValueError("Secret must not be empty")
     if salt is None:

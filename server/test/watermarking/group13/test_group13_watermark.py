@@ -1,4 +1,4 @@
-"""group13-watermark: every layer survives the others and each one alone suffices."""
+"""Verify combined-layer preservation, extraction, and fallback behavior."""
 
 from __future__ import annotations
 
@@ -84,7 +84,7 @@ def layer_mocks(monkeypatch, blank_pdf):
 
 @pytest.fixture(scope="module")
 def tolerant_only_pdf() -> bytes:
-    """Enough scaled text for Khaled, with inline images rejected by strict parsing."""
+    """Create scaled text and inline images accepted only by tolerant parsing."""
     sentence = "Tatou carries a traceable secret in selectable letters on scaled text"
     with fitz.open() as doc:
         page = doc.new_page()
@@ -124,8 +124,8 @@ def test_wrong_key_and_unmarked_pdf_find_nothing(source, marked):
         G13.read_secret(source, KEY)
 
 
-@pytest.mark.parametrize("secret", [None, 7, b"secret", "", "x" * (MAX_SECRET_BYTES + 1), "é" * 25])
-def test_secret_limit(blank_pdf, layer_mocks, secret):
+@pytest.mark.parametrize("secret", [None, 7, b"secret", "", "x" * (MAX_SECRET_BYTES + 1), "\u00e9" * 25])
+def test_invalid_secret_is_rejected_before_layer_processing(blank_pdf, layer_mocks, secret):
     with pytest.raises(ValueError):
         G13.add_watermark(blank_pdf, secret, KEY)
 
@@ -134,7 +134,7 @@ def test_secret_limit(blank_pdf, layer_mocks, secret):
         layer.add_watermark.assert_not_called()
 
 
-@pytest.mark.parametrize("secret", ["x", "x" * MAX_SECRET_BYTES, "é" * 24])
+@pytest.mark.parametrize("secret", ["x", "x" * MAX_SECRET_BYTES, "\u00e9" * 24])
 def test_secret_boundaries_are_inclusive(blank_pdf, layer_mocks, secret):
     layer_mocks.davide.read_secret.return_value = secret
 
@@ -242,7 +242,7 @@ def test_pdf_without_invisible_carrier_is_rejected():
 
 
 def test_resave_with_garbage_collection_keeps_every_layer(marked):
-    # garbage=4 merges identical streams of the overlays: the text layer used to reject them
+    # Merged overlay streams must preserve text carriers.
     with fitz.open(stream=marked, filetype="pdf") as doc:
         resaved = doc.tobytes(garbage=4, deflate=True, clean=True)
     assert G13.embedded_layers(resaved, KEY, SECRET) == ALL_LAYERS
@@ -257,7 +257,7 @@ def test_text_layer_survives_dropping_the_cover(marked):
 
 def test_each_layer_alone_is_enough(marked):
     with fitz.open(stream=marked, filetype="pdf") as doc:
-        # remove every image: the image and QR layers are gone, the text stays
+        # Remove every image: the image and QR layers are gone, the text stays.
         for page in doc:
             for xref in {info[0] for info in page.get_images(full=True)}:
                 page.delete_image(xref)
@@ -266,7 +266,7 @@ def test_each_layer_alone_is_enough(marked):
     assert G13.read_secret(text_left, KEY) == SECRET
 
     with fitz.open(stream=marked, filetype="pdf") as doc:
-        doc.delete_page(1)  # the text page
+        doc.delete_page(1)
         image_left = doc.tobytes(garbage=3, deflate=True)
     assert "davide-watermark" in G13.embedded_layers(image_left, KEY, SECRET)
     assert G13.read_secret(image_left, KEY) == SECRET
@@ -276,26 +276,26 @@ def test_mixed_copies_return_a_real_recipient(source, marked):
     other = G13.add_watermark(source, OTHER, KEY)
     with fitz.open(stream=marked, filetype="pdf") as a, fitz.open(stream=other, filetype="pdf") as b:
         mixed = fitz.open()
-        mixed.insert_pdf(a, from_page=0, to_page=0)   # images of SECRET
-        mixed.insert_pdf(b, from_page=1, to_page=1)   # text of OTHER
+        mixed.insert_pdf(a, from_page=0, to_page=0)   # Images of SECRET.
+        mixed.insert_pdf(b, from_page=1, to_page=1)   # Text of OTHER.
         leak = mixed.tobytes()
         mixed.close()
     assert G13.read_secret(leak, KEY) in {SECRET, OTHER}
 
 
-def test_fingerprint_attribution(source, marked):
+def test_fingerprint_attribution_identifies_recipient(source, marked):
     scores = G13.score_recipients(marked, source, KEY, [SECRET, OTHER])
     assert scores[SECRET] > G13.ATTRIBUTION_THRESHOLD > scores[OTHER]
     assert G13.ATTRIBUTION_THRESHOLD == DavideWatermark.ATTRIBUTION_THRESHOLD
 
 
-def test_layers_keep_their_original_criteria(monkeypatch):
-    # the fallbacks of the single methods (scanned pages, long documents,
-    # tolerant text) do not change which layers group13 applies
+def test_layer_selection_preserves_group13_carrier_limits(monkeypatch):
+    # The fallbacks of the single methods (scanned pages, long documents, tolerant text) do not
+    # change which layers group13 applies.
     import watermarking_methods.davide.method as davide_module
 
     with fitz.open() as doc:
-        for _ in range(12):  # francesco alone accepts it, group13 keeps the 10-page limit
+        for _ in range(12):  # Francesco alone accepts it, group13 keeps the 10-page limit.
             page = doc.new_page()
             for row in range(40):
                 page.insert_text((70, 110 + row * 16), "Tatou carries a traceable secret here.", fontsize=10)
@@ -303,7 +303,7 @@ def test_layers_keep_their_original_criteria(monkeypatch):
     out = G13.add_watermark(long_text, SECRET, KEY)
     assert G13.embedded_layers(out, KEY, SECRET) == ["khaled-text-spacing-watermark"]
 
-    monkeypatch.setattr(davide_module, "_MAX_PIXELS", 600 * 600)  # the photo becomes a "scan"
+    monkeypatch.setattr(davide_module, "_MAX_PIXELS", 600 * 600)
     scan_only = _pdf(text=False)
     assert DavideWatermark.is_watermark_applicable(scan_only)
     assert not G13.is_watermark_applicable(scan_only)
