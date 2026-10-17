@@ -99,8 +99,8 @@ See [API documentation](server/API.md) for HTTP endpoints and attribution behavi
 
 ### Development checks
 
-To verify a checkout, install the development tools and run the checks from the
-repository root:
+From the repository root, install the development tools and run the full suite
+and lint checks:
 
 ```bash
 make setup
@@ -108,12 +108,57 @@ make test
 make lint
 ```
 
-`make setup` installs the development dependencies into `server/.venv`.
-`make test` runs the complete suite with a temporary signing key; no running
-application is required. Tests cover API, RMAP, watermarking, and tooling behavior.
-Tesseract is needed for OCR checks; Ghostscript and a dedicated MariaDB test
-database enable optional integration cases. Skips and expected failures are
-reported separately from passing tests.
+`make setup` installs development dependencies into `server/.venv`.
+`make test` runs all tests with a temporary signing key; no running application
+is required.
+
+#### Unit and component tests
+
+To run individual groups, activate the environment and create a temporary test
+signing key. Start from the repository root:
+
+```bash
+source server/.venv/bin/activate
+export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+```
+
+Run unit and component tests for watermarking, the CLI, and test tooling:
+
+```bash
+(cd server && python -m pytest test/watermarking/ test/tooling/)
+```
+
+The watermarking group includes unit tests and integration tests that exercise
+real PDF, cryptography, QR, and OCR components.
+
+#### API and RMAP tests
+
+In the same terminal, run the HTTP API tests or the RMAP integration tests:
+
+```bash
+(cd server && python -m pytest test/api/)
+(cd server && python -m pytest test/rmap/)
+```
+
+These tests use Flask's test client, temporary storage, and mostly SQLite; they
+do not require a deployed server. Tesseract is needed for OCR checks. Ghostscript
+and a dedicated MariaDB test database enable optional integration cases. Skips
+and expected failures are reported separately from passing tests.
+
+#### Coverage analysis
+
+From the repository root, run the complete suite with statement and branch
+coverage, print missing lines, and generate an HTML report:
+
+```bash
+make coverage
+make coverage-report
+make coverage-html
+```
+
+`make coverage` replaces the previous coverage data. The other two commands read
+the saved data without rerunning tests. Open `server/htmlcov/index.html` for the
+detailed report. Coverage data and the `htmlcov/` directory are ignored by Git.
 
 ### Add a watermarking method
 

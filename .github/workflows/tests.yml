@@ -117,4 +117,7 @@ jobs:
         run: docker build --tag tatou-server:ci ./server
 
       - name: Check application dependencies inside the image
-        run: docker run --rm --entrypoint python tatou-server:ci -c "import rmap; print('rmap import OK')"
+        run: |
+          timeout 30s docker run --rm --network none --entrypoint python \
+            --mount type=bind,src="$PWD/server/test/rmap/import_guard.py",dst=/tmp/import_guard.py,readonly \
+            tatou-server:ci -I -B /tmp/import_guard.py
