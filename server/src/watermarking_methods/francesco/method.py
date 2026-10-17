@@ -1,12 +1,6 @@
-"""francesco-watermark: an authenticated QR code and encrypted visible labels
+"""Embed independently salted AES-SIV payloads in QR codes and visible labels.
 
-- crypto: key derivation and the AES-SIV payloads
-- rendering: QR image, placement away from the page content, visible labels
-- pdf: document limits, page rasterization, QR stamping
-
-The QR code and labels carry independently salted AES-SIV encryptions of the secret.
-
-The shared ``position`` argument is accepted for API compatibility and ignored.
+The shared position argument is accepted for interface compatibility and ignored.
 """
 
 from __future__ import annotations
@@ -94,7 +88,7 @@ class FrancescoWatermark(WatermarkingMethod):
 
     @staticmethod
     def _place_qr_code(page: fitz.Page, seed_material: bytes) -> tuple[float, float, float, float]:
-        """A free spot on the border, or a page corner over the content if there is none"""
+        """Place a QR code in a free border area or fall back to a page corner."""
         width, height = page.rect.width, page.rect.height
         try:
             return render_ops.random_qr_rect(
@@ -116,8 +110,8 @@ class FrancescoWatermark(WatermarkingMethod):
                 for barcode in zxingcpp.read_barcodes(image, formats=zxingcpp.BarcodeFormat.QRCode):
                     if not crypto.is_candidate_payload(barcode.text):
                         continue
-                    # a QR that does not authenticate (wrong key, or a decoy
-                    # pasted by the leaker) must not hide the real ones
+                    # A QR that does not authenticate (wrong key, or a decoy pasted by the
+                    # leaker) must not hide the real ones.
                     try:
                         found.add(crypto.decrypt_qr_payload(barcode.text, key))
                     except InvalidKeyError:

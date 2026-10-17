@@ -23,6 +23,8 @@ _LABEL_PAYLOAD_PATTERN = re.compile(
     r"GROUP[\s_A-Za-z0-9]*\s*-\s*([A-Za-z0-9]{44,200})", re.IGNORECASE,
 )
 _GROUP_HEADER_PATTERN = re.compile(r"GROUP[\s_A-Za-z0-9]*\s*-\s*", re.IGNORECASE)
+# AES-SIV tag, salt, one UTF-8 byte and Reed-Solomon parity, encoded as Base32.
+_MIN_PAYLOAD_CHARS = ((16 + crypto.SALT_BYTES + 1 + crypto.VISIBLE_RS_PARITY_BYTES) * 8 + 4) // 5
 _BASE32_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567"
 _OCR_WHITELIST = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
 _OCR_DIGIT_TRANSLATION = str.maketrans({"0": "o", "1": "l", "8": "b", "9": "g"})
@@ -75,10 +77,10 @@ def _candidate_payloads(text: str) -> list[str]:
                 for candidate in _PAYLOAD_PATTERN.findall(line)
             )
 
-    # A long visible label has a group heading followed by Base32 lines. Keep
-    # the lines in order; Reed-Solomon and AES-SIV reject incorrect OCR joins.
+    # A long visible label has a group heading followed by Base32 lines. Keep the lines in
+    # order; Reed-Solomon and AES-SIV reject incorrect OCR joins.
     for index, line in enumerate(lines):
-        header = _GROUP_HEADER_PATTERN.search(line)
+        header = re.search(r"\s-\s*$", line) or _GROUP_HEADER_PATTERN.search(line)
         if header is None:
             continue
         joined = ""
@@ -93,14 +95,14 @@ def _candidate_payloads(text: str) -> list[str]:
             joined += fragment.translate(_OCR_DIGIT_TRANSLATION)
             if len(joined) > 200:
                 break
-            if len(joined) >= 80:
+            if len(joined) >= _MIN_PAYLOAD_CHARS - 1:
                 candidates.append(joined)
     return candidates
 
 
 def _consensus_candidates(candidates: list[str]) -> set[str]:
     """Combine repeated OCR reads and enumerate ties for AES authentication."""
-    length_counts = Counter(len(candidate) for candidate in candidates if len(candidate) >= 80)
+    length_counts = Counter(len(candidate) for candidate in candidates if len(candidate) >= _MIN_PAYLOAD_CHARS)
     anchor_lengths = {
         length for length, count in length_counts.items() if count >= 2
     }
@@ -133,7 +135,7 @@ def _consensus_candidates(candidates: list[str]) -> set[str]:
 
 def _single_character_repairs(candidates: list[str]):
     """Yield payloads with one OCR insertion or deletion repaired."""
-    for candidate, _count in Counter(c for c in candidates if len(c) >= 80).most_common(3):
+    for candidate, _count in Counter(c for c in candidates if _MIN_PAYLOAD_CHARS - 1 <= len(c) <= 200).most_common(3):
         for index in range(len(candidate) + 1):
             for char in _BASE32_ALPHABET:
                 yield candidate[:index] + char + candidate[index:]
@@ -144,7 +146,7 @@ def _single_character_repairs(candidates: list[str]):
 def _ocr_confusable_variants(candidates: list[str]) -> set[str]:
     variants: set[str] = set()
     for candidate in candidates:
-        if len(candidate) < 80:
+        if len(candidate) < _MIN_PAYLOAD_CHARS:
             continue
         choices = []
         for char in candidate:
@@ -171,17 +173,22 @@ def _authenticated_secrets(candidates: list[str], key: str) -> set[str]:
     for candidate in _ocr_confusable_variants(candidates):
         try:
             found.add(crypto.decrypt_visible_payload(candidate, key))
-            break
+            if len(found) > 1:
+                return found
         except InvalidKeyError:
             continue
 
     if not found:
-        for candidate in _single_character_repairs(candidates):
-            try:
-                found.add(crypto.decrypt_visible_payload(candidate, key))
-                break
-            except InvalidKeyError:
-                continue
+        damaged = Counter(c for c in candidates if _MIN_PAYLOAD_CHARS - 1 <= len(c) <= 200)
+        for candidate, _count in damaged.most_common(3):
+            for repaired in _single_character_repairs([candidate]):
+                try:
+                    found.add(crypto.decrypt_visible_payload(repaired, key))
+                    if len(found) > 1:
+                        return found
+                    break
+                except InvalidKeyError:
+                    continue
     return found
 
 

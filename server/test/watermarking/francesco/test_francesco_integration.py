@@ -1,4 +1,4 @@
-"""End-to-end behavior and composition tests."""
+"""Verify PDF watermark embedding, extraction, and layer composition."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ def test_roundtrip_preserves_page_and_text(pdf_bytes):
         assert len(doc[0].get_images()) >= 1
 
 
-def test_wrong_key_and_secret_not_found(pdf_bytes):
+def test_reading_rejects_wrong_key_and_unmarked_pdf(pdf_bytes):
     method = FrancescoWatermark()
     watermarked = method.add_watermark(pdf_bytes, "copy-42", KEY, position=GROUP_POSITION)
 
@@ -47,7 +47,7 @@ def test_conflicting_valid_copies_rejected(pdf_bytes):
     first = method.add_watermark(pdf_bytes, "copy-one", KEY, GROUP_POSITION)
     second = method.add_watermark(pdf_bytes, "copy-two", KEY, GROUP_POSITION)
 
-    # Stitch two different watermarked pages together
+    # Stitch two different watermarked pages together.
     with (
         fitz.open(stream=first, filetype="pdf") as left,
         fitz.open(stream=second, filetype="pdf") as right,
@@ -59,22 +59,33 @@ def test_conflicting_valid_copies_rejected(pdf_bytes):
         method.read_secret(stitched, KEY)
 
 
-@pytest.mark.parametrize("decoy", ["other-key", "random"])
-def test_decoy_qr_does_not_hide_the_real_one(pdf_bytes, decoy):
+@pytest.mark.parametrize("decoy", ["other-key", "random", "malformed"])
+def test_decoy_qr_does_not_hide_the_real_one(pdf_bytes, decoy, monkeypatch):
     method = FrancescoWatermark()
     watermarked = method.add_watermark(pdf_bytes, "real-copy", KEY)
     payload = (
         crypto.encrypt_qr_payload("fake-copy", OTHER_KEY)
         if decoy == "other-key"
-        else "A" * 60
+        else "A" * 60 if decoy == "random" else "not a watermark!"
     )
 
-    # the leaker pastes a QR code of their own in the middle of the page
+    # The leaker pastes a QR code of their own in the middle of the page.
     with fitz.open(stream=watermarked, filetype="pdf") as doc:
         doc[0].insert_image(fitz.Rect(220, 350, 380, 510),
                             stream=rendering.build_opaque_qr_bytes(payload))
         with_decoy = doc.tobytes()
 
+    original_read = zxingcpp.read_barcodes
+
+    def decoy_first(*args, **kwargs):
+        barcodes = original_read(*args, **kwargs)
+        assert any(barcode.text == payload for barcode in barcodes)
+        return sorted(barcodes, key=lambda barcode: barcode.text != payload)
+
+    from watermarking_methods.francesco import visible
+
+    monkeypatch.setattr(visible.shutil, "which", lambda name: None)
+    monkeypatch.setattr(zxingcpp, "read_barcodes", decoy_first)
     assert method.read_secret(with_decoy, KEY) == "real-copy"
 
 
@@ -84,7 +95,7 @@ def test_survives_jpeg_raster_roundtrip(pdf_bytes):
         pdf_bytes, "copy-through-jpeg", KEY, GROUP_POSITION
     )
 
-    # Simulate scan / raster conversion to JPEG 85% quality
+    # Simulate scan / raster conversion to JPEG 85% quality.
     with (
         fitz.open(stream=watermarked, filetype="pdf") as source,
         fitz.open() as rebuilt,
@@ -102,7 +113,10 @@ def test_survives_jpeg_raster_roundtrip(pdf_bytes):
     assert method.read_secret(candidate, KEY) == "copy-through-jpeg"
 
 
-def test_qr_and_label_encode_the_secret(pdf_bytes, monkeypatch):
+@pytest.mark.parametrize("recipient,heading", [
+    ("Group_07", "Group_07"), ("  Alice   Smith  ", "Group Alice Smith"), ("Group A - B", "Group A - B"),
+])
+def test_qr_and_label_encode_the_secret(pdf_bytes, monkeypatch, recipient, heading):
     method = FrancescoWatermark()
     secret = "Group_07:da0bb583c432fbfd078959ecc9b62902"
     labels: list[str] = []
@@ -113,7 +127,7 @@ def test_qr_and_label_encode_the_secret(pdf_bytes, monkeypatch):
         return original_stamp(**kwargs)
 
     monkeypatch.setattr(rendering, "stamp_random_native_visible_text", capture_label)
-    watermarked = method.add_watermark(pdf_bytes, secret, KEY, intended_for="Group_07")
+    watermarked = method.add_watermark(pdf_bytes, secret, KEY, intended_for=recipient)
 
     with fitz.open(stream=watermarked, filetype="pdf") as document:
         pixmap = document[0].get_pixmap(dpi=300, colorspace=fitz.csRGB, alpha=False)
@@ -126,8 +140,8 @@ def test_qr_and_label_encode_the_secret(pdf_bytes, monkeypatch):
         ]
 
     assert len(labels) == 1
-    assert labels[0].startswith("Group_07 - ")
-    label_payload = labels[0].split(" - ", maxsplit=1)[1]
+    assert labels[0].startswith(f"{heading} - ")
+    label_payload = labels[0].rsplit(" - ", maxsplit=1)[1]
     assert secret not in label_payload
     assert crypto.decrypt_visible_payload(label_payload, KEY) == secret
     assert len(qr_payloads) == 1
@@ -172,12 +186,13 @@ def test_visible_label_recovers_from_common_ocr_digit_confusions(monkeypatch):
         )
 
 
-def test_wrapped_visible_label_recovers_long_encrypted_secret():
+@pytest.mark.parametrize("secret", ["x", "xy", "\u00e9", "x" * 64, "\u00e9" * 32])
+@pytest.mark.parametrize("recipient", ["Group_13", "Group A - " + "B" * 40])
+def test_wrapped_visible_label_recovers_long_encrypted_secret(secret, recipient):
     from watermarking_methods.francesco import visible
 
-    secret = "long-copy-id-" + "x" * 50
     payload = crypto.encrypt_visible_payload(secret, KEY)
-    label = rendering._wrap_visible_label(f"Group_13 - {payload}", 8, 400)
+    label = rendering._wrap_visible_label(f"{recipient} - {payload}", 8, 200)
 
     assert "\n" in label
     assert payload in visible._candidate_payloads(label)
@@ -228,7 +243,7 @@ def test_position_is_ignored(pdf_bytes, position):
 
 def test_non_ascii_secret_roundtrip(pdf_bytes):
     method = FrancescoWatermark()
-    secret = "copia-gruppo-13-è"
+    secret = "group-13-copy-\u00e9"
     watermarked = method.add_watermark(
         pdf_bytes, secret, KEY, position="group=Group_13"
     )

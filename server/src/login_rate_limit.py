@@ -1,4 +1,4 @@
-"""Small shared failure budget for the course deployment (no external service)."""
+"""Enforce shared login failure limits with SQLite-backed reservations."""
 
 import hashlib
 import hmac
@@ -80,8 +80,8 @@ class LoginRateLimiter:
         try:
             yield result
         finally:
-            # Successful logins/server errors release their reservation, but do
-            # not erase previous failures. A crashed worker expires within 60s.
+            # Successful logins/server errors release their reservation, but do not erase
+            # previous failures. A crashed worker expires within 60s.
             if not result.failed:
                 with closing(self._connect()) as conn, conn:
                     conn.execute("DELETE FROM login_attempts WHERE id = ?", (reservation,))

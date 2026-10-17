@@ -19,7 +19,6 @@ def make_pdf():
     document.close()
     return data
 
-
 PDF = make_pdf()
 DOCUMENT_ROUTES = [
     "/api/list-versions/{id}",

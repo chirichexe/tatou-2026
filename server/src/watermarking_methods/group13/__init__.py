@@ -1,9 +1,4 @@
-"""group13-watermark: davide + khaled + francesco in one pipeline
-
-Public: Group13Watermark (add_watermark, read_secret, is_watermark_applicable,
-get_usage, score_recipients). Private to this package: nothing: it only calls the public classes of the
-other three packages.
-"""
+"""Expose the combined Davide, Khaled, and Francesco watermark pipeline."""
 
 from __future__ import annotations
 

@@ -14,7 +14,7 @@ services:
       - ${RMAP_KEYS_HOST_DIR:-./rmap-keys}:/app/rmap-keys:ro
     environment:
       - PYTHONUNBUFFERED=1
-      # DB connection details for future use by the API
+      # Configure the application database connection.
       - DB_HOST=db
       - DB_PORT=3306
       - DB_NAME=tatou

@@ -1,4 +1,4 @@
-"""Drawing of the watermark: the opaque QR code, its placement and the visible labels"""
+"""Drawing of the watermark: the opaque QR code, its placement and the visible labels."""
 
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 Box = tuple[float, float, float, float]
 
-# ~10% of the shortest page dimension (about 2 cm on A4): at 6% a code has
-# fewer than 2 pixels per module at the 300 DPI read resolution and did not decode reliably
+# ~10% of the shortest page dimension (about 2 cm on A4): at 6% a code has fewer than 2 pixels
+# per module at the 300 DPI read resolution and did not decode reliably.
 DEFAULT_QR_FRACTION: Final[float] = 0.10
 DEFAULT_VISIBLE_TEXT_COUNT: Final[int] = 6
 VISIBLE_TEXT_ALPHA: Final[int] = 110
@@ -26,14 +26,11 @@ VISIBLE_WRAPPED_TEXT_ALPHA: Final[int] = 180
 
 
 def _rng(seed_material: bytes, label: bytes) -> random.Random:
-    # placement only, nothing secret depends on it: the same copy gets the same layout
+    # Placement only, nothing secret depends on it: the same copy gets the same layout.
     seed = hashlib.sha256(seed_material + label).digest()[:8]
     return random.Random(int.from_bytes(seed, "big"))  # noqa: S311
 
 
-# -----------------------------------------------------------------------------
-# Geometry & collision avoidance
-# -----------------------------------------------------------------------------
 def collect_page_content_boxes(page: fitz.Page, padding: float = 8.0) -> list[Box]:
     """Return padded boxes for existing text, images, and vector drawings."""
     bounds = page.rect
@@ -74,7 +71,7 @@ def boxes_overlap(box1: Box, box2: Box, min_gap: float) -> bool:
 
 
 def _overlaps(cands: np.ndarray, boxes, min_gap: float) -> np.ndarray:
-    """boxes_overlap of every candidate (rows) with every box (columns)"""
+    """Return an overlap matrix for candidate rows and exclusion-box columns."""
     if not len(boxes):
         return np.zeros((len(cands), 0), dtype=bool)
     other = np.asarray(boxes, dtype=float)
@@ -84,14 +81,11 @@ def _overlaps(cands: np.ndarray, boxes, min_gap: float) -> np.ndarray:
              | (other[None, :, 3] + min_gap <= cands[:, None, 1]))
 
 
-# -----------------------------------------------------------------------------
-# QR code
-# -----------------------------------------------------------------------------
 def build_opaque_qr_bytes(payload: str, target_pixel_size: int = 240) -> bytes:
     """Generate an opaque QR code (maximum scanner contrast) as PNG bytes."""
     barcode = zxingcpp.create_barcode(payload, zxingcpp.BarcodeFormat.QRCode, ec_level="H")
-    # Integer pixels per module: resizing to an arbitrary size makes modules
-    # uneven, and about half of the codes then failed to decode at 300 DPI.
+    # Integer pixels per module: resizing to an arbitrary size makes modules uneven, and about
+    # half of the codes then failed to decode at 300 DPI.
     modules = barcode.to_image(scale=1).shape[0]
     raw_img = barcode.to_image(scale=max(1, target_pixel_size // modules))
     qr_mask = Image.fromarray(raw_img).convert("L")
@@ -118,10 +112,9 @@ def random_qr_rect(
     min_gap: float = 8.0,
     qr_fraction: float = DEFAULT_QR_FRACTION,
 ) -> Box:
-    """A random QR box along the page border that does not touch `placed_boxes`.
+    """Choose a border rectangle that avoids existing content and placed boxes.
 
-    Existing content boxes are hard constraints: if there is no free border
-    position, fail instead of covering page content.
+    Raise an error when no free border position fits.
     """
     rng = _rng(seed_material, b"/qr")
     qr_side = min(page_width, page_height) * qr_fraction
@@ -131,14 +124,14 @@ def random_qr_rect(
 
     for _attempt in range(500):
         edge = rng.randrange(4)
-        if edge == 0:  # top
+        if edge == 0:  # Top.
             x0, y0 = rng.uniform(edge_inset, page_width - qr_side - edge_inset), edge_inset
-        elif edge == 1:  # bottom
+        elif edge == 1:  # Bottom.
             x0 = rng.uniform(edge_inset, page_width - qr_side - edge_inset)
             y0 = page_height - qr_side - edge_inset
-        elif edge == 2:  # left
+        elif edge == 2:  # Left.
             x0, y0 = edge_inset, rng.uniform(edge_inset, page_height - qr_side - edge_inset)
-        else:  # right
+        else:  # Right.
             x0 = page_width - qr_side - edge_inset
             y0 = rng.uniform(edge_inset, page_height - qr_side - edge_inset)
         candidate = (x0, y0, x0 + qr_side, y0 + qr_side)
@@ -154,7 +147,7 @@ def corner_qr_rect(
     seed_material: bytes,
     qr_fraction: float = DEFAULT_QR_FRACTION,
 ) -> Box:
-    """A QR box flush to a random page corner, allowed to cover content."""
+    """Choose a random corner rectangle, allowing overlap with page content."""
     if page_width <= 0 or page_height <= 0 or not 0 < qr_fraction <= 0.5:
         raise ValueError("Invalid page dimensions or QR placement parameters")
     side = min(page_width, page_height) * qr_fraction
@@ -163,9 +156,6 @@ def corner_qr_rect(
     return (x, y, x + side, y + side)
 
 
-# -----------------------------------------------------------------------------
-# Visible labels
-# -----------------------------------------------------------------------------
 def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
     """Load a monospaced font or fall back to PIL's default."""
     try:
@@ -174,12 +164,12 @@ def load_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
         return ImageFont.load_default(size=size)
 
 
-@lru_cache(maxsize=32)  # same label on every page: render it once
+@lru_cache(maxsize=32)  # Same label on every page: render it once.
 def _label_png(
     label: str, fontsize: float, rotate: int, alpha: int = VISIBLE_TEXT_ALPHA,
 ) -> tuple[bytes, float, float]:
-    """The label as a rotated transparent PNG, and its size in points"""
-    scale = 6  # render at 6x the point size, so the label stays sharp when zoomed
+    """Return a rotated transparent label PNG and its dimensions in points."""
+    scale = 6  # Render at 6x the point size, so the label stays sharp when zoomed.
     font = load_font(max(1, round(fontsize * scale)))
     padding = max(4, round(fontsize * scale * 0.25))
     spacing = max(1, round(fontsize * scale * 0.25))
@@ -221,7 +211,7 @@ def _wrap_visible_label(label: str, fontsize: float, max_width: float) -> str:
     if " - " not in label:
         return "\n".join(textwrap.wrap(label, max_chars, break_long_words=True))
 
-    group, payload = label.split(" - ", maxsplit=1)
+    group, payload = label.rsplit(" - ", maxsplit=1)
     heading = textwrap.wrap(f"{group} -", max_chars, break_long_words=True)
     chunk_count = max(1, math.ceil(len(payload) / max_chars))
     chunk_size = math.ceil(len(payload) / chunk_count)
@@ -239,11 +229,10 @@ def stamp_random_native_visible_text(
     seed_material: bytes = b"",
     min_gap: float = 8.0,
 ) -> list[Box]:
-    """Stamp semi-transparent labels as images, without adding PDF text operators.
+    """Stamp transparent label images within page bounds and outside exclusion boxes.
 
-    The supplied boxes are hard exclusions, normally the QR area. Labels may
-    cross document content, but never each other or the page boundary. Long
-    labels wrap horizontally so their encrypted payload stays readable.
+    Labels may cross document content but cannot overlap each other. Wrap long encrypted
+    payloads into readable horizontal lines.
     """
     width, height = page.rect.width, page.rect.height
     protected_boxes = tuple(placed_boxes)
@@ -281,15 +270,15 @@ def stamp_random_native_visible_text(
         best_box: Box | None = None
         best_score = (-float("inf"), -1.0)
 
-        # 1000 random candidates, scored at once with numpy (same choice as a loop)
+        # 1000 random candidates, scored at once with numpy (same choice as a loop).
         points = np.array([(rng.uniform(margin_x, max_x), rng.uniform(margin_y, max_y))
                            for _attempt in range(1000)])
         cands = np.column_stack((points[:, 0] - 10.0, points[:, 1] - 10.0,
                                  points[:, 0] + span_x + 10.0, points[:, 1] + span_y + 10.0))
         valid = ~_overlaps(cands, (*protected_boxes, *chosen_boxes), min_gap).any(axis=1)
         if valid.any():
-            # Prefer whitespace, then spread the labels that fit without
-            # colliding. On dense pages, content remains a soft exclusion.
+            # Prefer whitespace, then spread the labels that fit without colliding. On dense
+            # pages, content remains a soft exclusion.
             hits = _overlaps(cands, content_boxes, 0).sum(axis=1)
             center_x, center_y = (cands[:, 0] + cands[:, 2]) / 2, (cands[:, 1] + cands[:, 3]) / 2
             if chosen_boxes:

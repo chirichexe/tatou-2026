@@ -1,6 +1,9 @@
-"""End-to-end coverage for the thin HTTP integration around RMAP."""
+"""Verify RMAP configuration and in-process HTTP handshake behavior."""
 
 import secrets
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import fitz
 import pytest
@@ -10,6 +13,144 @@ from sqlalchemy import create_engine, text
 
 from watermarking_method import WatermarkingError
 from watermarking_utils import read_watermark
+
+
+@pytest.fixture
+def rmap_startup(tmp_path, monkeypatch):
+    """Create an isolated configuration fixture without performing a PGP handshake."""
+    from server import create_app
+
+    monkeypatch.setenv("SECRET_KEY", secrets.token_hex(32))
+    monkeypatch.setenv("STORAGE_DIR", str(tmp_path / "storage"))
+    for name, value in {
+        "RMAP_SERVER_PUBLIC_KEY_PATH": str(tmp_path / "public.asc"),
+        "RMAP_SERVER_PRIVATE_KEY_PATH": str(tmp_path / "private.asc"),
+        "RMAP_CLIENT_KEYS_DIR": str(tmp_path / "clients"),
+        "RMAP_DOCUMENT_ID": "1",
+        "RMAP_WATERMARK_METHOD": "group13-watermark",
+        "RMAP_WATERMARK_KEY": "synthetic-watermark-key",
+    }.items():
+        monkeypatch.setenv(name, value)
+    for name in ("RMAP_SERVER_KEY_PASSPHRASE", "RMAP_SERVER_KEY_PASSPHRASE_FILE", "RMAP_WATERMARK_POSITION"):
+        monkeypatch.delenv(name, raising=False)
+    constructor = Mock()
+    monkeypatch.setattr("server.RMAPServer", constructor)
+    return SimpleNamespace(create_app=create_app, constructor=constructor)
+
+
+@pytest.mark.parametrize("missing", [
+    "RMAP_SERVER_PUBLIC_KEY_PATH", "RMAP_SERVER_PRIVATE_KEY_PATH", "RMAP_CLIENT_KEYS_DIR",
+])
+def test_rmap_rejects_partial_key_configuration(rmap_startup, monkeypatch, missing):
+    monkeypatch.delenv(missing)
+
+    with pytest.raises(RuntimeError):
+        rmap_startup.create_app()
+
+    rmap_startup.constructor.assert_not_called()
+
+
+@pytest.mark.parametrize("document_id", ["", "0", "-1", "not-an-integer"])
+def test_rmap_rejects_invalid_source_document(rmap_startup, monkeypatch, document_id):
+    monkeypatch.setenv("RMAP_DOCUMENT_ID", document_id)
+
+    with pytest.raises(RuntimeError):
+        rmap_startup.create_app()
+
+    rmap_startup.constructor.assert_not_called()
+
+
+@pytest.mark.parametrize("passphrase", [" caf\u00e9-X \t", "\ncaf\u00e9X", "caf\u00e9X"])
+def test_rmap_reads_utf8_passphrase_preserving_significant_characters(
+    rmap_startup, monkeypatch, tmp_path, caplog, passphrase,
+):
+    passphrase_file = tmp_path / "passphrase"
+    passphrase_file.write_bytes((passphrase + "\r\n").encode("utf-8"))
+    passphrase_file.chmod(0o600)
+    monkeypatch.setenv("RMAP_SERVER_KEY_PASSPHRASE_FILE", str(passphrase_file))
+    real_read_text = Path.read_text
+
+    def ascii_default_read(path, *args, **kwargs):
+        if path == passphrase_file and kwargs.get("encoding") is None:
+            kwargs["encoding"] = "ascii"
+        return real_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", ascii_default_read)
+
+    app = rmap_startup.create_app()
+
+    rmap_startup.constructor.assert_called_once()
+    assert rmap_startup.constructor.call_args.kwargs["passphrase"] == passphrase
+    assert app.config["RMAP_SERVER"] is rmap_startup.constructor.return_value
+    assert passphrase not in caplog.text
+
+
+@pytest.mark.parametrize("key", [None, ""], ids=["missing", "empty"])
+def test_rmap_requires_a_watermark_key(rmap_startup, monkeypatch, key):
+    if key is None:
+        monkeypatch.delenv("RMAP_WATERMARK_KEY")
+    else:
+        monkeypatch.setenv("RMAP_WATERMARK_KEY", key)
+
+    with pytest.raises(RuntimeError):
+        rmap_startup.create_app()
+
+    rmap_startup.constructor.assert_not_called()
+
+
+@pytest.mark.parametrize("passphrase", [" caf\u00e9-X \t", "\ncaf\u00e9X"])
+def test_rmap_uses_environment_passphrase(rmap_startup, monkeypatch, caplog, passphrase):
+    monkeypatch.setenv("RMAP_SERVER_KEY_PASSPHRASE", passphrase)
+
+    app = rmap_startup.create_app()
+
+    assert app.config["RMAP_SERVER_KEY_PASSPHRASE"] == passphrase
+    assert rmap_startup.constructor.call_args.kwargs["passphrase"] == passphrase
+    assert passphrase not in caplog.text
+
+
+@pytest.mark.parametrize("value,expected", [
+    (None, "group13-watermark"), ("  ", "group13-watermark"), (" toy-eof ", "toy-eof"),
+])
+def test_rmap_uses_configured_or_default_method(rmap_startup, monkeypatch, value, expected):
+    if value is None:
+        monkeypatch.delenv("RMAP_WATERMARK_METHOD")
+    else:
+        monkeypatch.setenv("RMAP_WATERMARK_METHOD", value)
+
+    app = rmap_startup.create_app()
+
+    assert app.config["RMAP_WATERMARK_METHOD"] == expected
+
+
+@pytest.mark.parametrize("value,expected", [(None, None), ("", None), (" top-right ", "top-right")])
+def test_rmap_uses_configured_or_default_position(rmap_startup, monkeypatch, value, expected):
+    if value is None:
+        monkeypatch.delenv("RMAP_WATERMARK_POSITION", raising=False)
+    else:
+        monkeypatch.setenv("RMAP_WATERMARK_POSITION", value)
+
+    app = rmap_startup.create_app()
+
+    assert app.config["RMAP_WATERMARK_POSITION"] == expected
+
+
+def test_rmap_rejects_conflicting_passphrase_sources(rmap_startup, monkeypatch, tmp_path, caplog):
+    environment_secret = "synthetic-environment-passphrase"
+    file_secret = "synthetic-file-passphrase"
+    passphrase_file = tmp_path / "passphrase"
+    passphrase_file.write_text(file_secret, encoding="utf-8")
+    passphrase_file.chmod(0o600)
+    monkeypatch.setenv("RMAP_SERVER_KEY_PASSPHRASE", environment_secret)
+    monkeypatch.setenv("RMAP_SERVER_KEY_PASSPHRASE_FILE", str(passphrase_file))
+
+    with pytest.raises(RuntimeError) as error:
+        rmap_startup.create_app()
+
+    rmap_startup.constructor.assert_not_called()
+    for secret in (environment_secret, file_secret):
+        assert secret not in str(error.value)
+        assert secret not in caplog.text
 
 
 def _write_keypair(directory, stem, name, passphrase=None):
@@ -54,6 +195,7 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
     monkeypatch.setenv("RMAP_DOCUMENT_ID", "1")
     monkeypatch.setenv("RMAP_WATERMARK_METHOD", "group13-watermark")
     monkeypatch.setenv("RMAP_WATERMARK_KEY", "test-watermark-key")
+    monkeypatch.setenv("RMAP_WATERMARK_POSITION", "top-right")
     from server import create_app
 
     app = create_app()
@@ -81,6 +223,10 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
         )
     app.config.update(TESTING=True, _ENGINE=engine)
 
+    import server
+
+    watermark = Mock(wraps=server.WMUtils.apply_watermark)
+    monkeypatch.setattr("server.WMUtils.apply_watermark", watermark)
     try:
         http = app.test_client()
         links = []
@@ -107,6 +253,8 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
             assert version.intended_for == "Group_01"
             assert version.secret == link
             assert version.method == "group13-watermark"
+            assert version.position == "top-right"
+            assert watermark.call_args.kwargs["position"] == "top-right"
             assert read_watermark("group13-watermark", version.path, "test-watermark-key") == version.secret
             assert read_watermark("khaled-text-spacing-watermark", version.path, "test-watermark-key") == version.secret
 
@@ -126,10 +274,9 @@ def test_rmap_handshake_returns_a_link_to_the_identity_version(tmp_path, monkeyp
                 assert response.status_code == 400
                 assert "payload" not in response.get_json()
 
-        # A failing watermark (generic error, or the method refusing the source)
-        # must never produce a link, a version row or a stored file. The error
-        # body differs (handled vs. the app's generic 500 handler); the
-        # invariant does not.
+        # A failing watermark (generic error, or the method refusing the source) must never
+        # produce a link, a version row or a stored file. The error body differs (handled vs.
+        # the app's generic 500 handler); the invariant does not.
         for failure in (RuntimeError("test failure"), WatermarkingError("no usable image")):
             failing_client = RMAPClient("Group_01", client_private, server_public)
             response = http.post("/api/rmap-initiate", json=failing_client.build_msg1())

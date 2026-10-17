@@ -1,8 +1,7 @@
-"""Keyed, blind PDF text-gap watermark.
+"""Embed authenticated secrets by shifting the middle glyph of text triples.
 
-Each bit moves only the middle glyph of a three-glyph group. The two PDF TJ
-adjustments have opposite changes, so the line's later glyphs stay in place.
-The reader deliberately supports only simple horizontal, one-byte text.
+Opposing TJ adjustments preserve later glyph positions. Extraction supports strict
+carriers and authenticated compatibility reads of older geometry.
 """
 
 from __future__ import annotations
@@ -36,7 +35,7 @@ TAG_BYTES = 16
 STEP_PT = 0.16
 _AAD = [b"tatou:text-gap:v2"]
 _CODEC = RSCodec(PARITY_BYTES)
-_CODEC_LOCK = Lock()  # reedsolo uses module-level Galois-field tables
+_CODEC_LOCK = Lock()  # Reedsolo uses module-level Galois-field tables.
 
 
 def _keys(key: str) -> tuple[bytes, bytes, bytes]:
@@ -126,7 +125,7 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
     @classmethod
     def is_watermark_applicable(cls, pdf: PdfSource, position: str | None = None,
                                 *, tolerant: bool = True) -> bool:
-        """tolerant=False: only the strict parsing, as before the fallback"""
+        """Collect strict carriers unless tolerant fallback is explicitly enabled."""
         if position not in (None, "", "auto"):
             return False
         needed = (MAX_SECRET_BYTES + TAG_BYTES + PARITY_BYTES) * 8
@@ -147,7 +146,7 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
         with _CODEC_LOCK:
             packet = bytes(_CODEC.encode(bytearray(ciphertext)))
         source = load_pdf_bytes(pdf)
-        # strict parsing whenever it fits, so documents it handled are unchanged
+        # Strict parsing whenever it fits, so documents it handled are unchanged.
         tolerant = cls._capacity(source, False) < len(packet) * 8
 
         try:
@@ -200,13 +199,14 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
     def read_secret(cls, pdf: PdfSource, key: str) -> str:
         cipher_key, order_key, dither_key = _keys(key)
         data = load_pdf_bytes(pdf)
-        # strict first (older copies), then the tolerant parsing
-        for tolerant in (False, True):
+        # The legacy geometry is read-only and still requires AES-SIV authentication.
+        for tolerant, legacy in ((False, False), (True, False), (True, True)):
             try:
                 with fitz.open(stream=data, filetype="pdf") as doc:
                     if doc.is_encrypted:
                         raise SecretNotFoundError("No readable text watermark")
-                    selected = _ordered(carriers(collect_runs(doc, tolerant)), order_key)
+                    runs = collect_runs(doc, tolerant, legacy_horizontal_scale=legacy)
+                    selected = _ordered(carriers(runs), order_key)
                     bits = [_read_bit(item, dither_key) for item in selected[:
                         (MAX_SECRET_BYTES + TAG_BYTES + PARITY_BYTES) * 8]]
             except (RuntimeError, fitz.FileDataError, UnsupportedText):
@@ -218,7 +218,7 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
 
 
 def _decode(bits: list[int], cipher_key: bytes) -> str | None:
-    """The secret in the first carrier bits, None if no length authenticates."""
+    """Return a secret from the carrier prefix, or None when no length authenticates."""
     for length in range(1, MAX_SECRET_BYTES + 1):
         needed = (length + TAG_BYTES + PARITY_BYTES) * 8
         if len(bits) < needed:

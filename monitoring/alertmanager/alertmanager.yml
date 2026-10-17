@@ -13,14 +13,8 @@ receivers:
     webhook_configs:
       - url: 'http://alert-logger:9095/alert'
         send_resolved: true
-
-    # =========================================================================
-    # Configurazione per canale Telegram
-    # =========================================================================
-    # Per attivare le notifiche Telegram, decommenta le righe seguenti e inserisci:
-    # 1. bot_token: il token fornito da @BotFather
-    # 2. chat_id: l'ID del canale o gruppo (es. -1001234567890)
-    # =========================================================================
+    # Configure native Telegram notifications when needed.
+    # Enable the native receiver only after setting its bot token and chat or channel ID.
     # telegram_configs:
     #   - bot_token: '<YOUR_TELEGRAM_BOT_TOKEN>'
     #     chat_id: <YOUR_TELEGRAM_CHAT_ID>

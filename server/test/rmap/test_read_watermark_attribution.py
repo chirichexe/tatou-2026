@@ -1,7 +1,10 @@
-"""read-watermark adds leak attribution only for the RMAP service account."""
+"""Read-watermark adds leak attribution only for the RMAP service account."""
 
 import io
+import os
 import secrets
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import fitz
 import numpy as np
@@ -10,13 +13,171 @@ from itsdangerous import URLSafeTimedSerializer
 from PIL import Image
 from rmap.keygen import generate_keypair
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.pool import StaticPool
 
+from watermarking_method import SecretNotFoundError
 from watermarking_utils import apply_watermark
 
 pytestmark = pytest.mark.usefixtures("toy_eof_method")
 
 METHOD = "toy-eof"
 KEY = "test-watermark-key"
+SENSITIVE_CANARY = "synthetic-scoring-key-do-not-disclose"
+
+
+def _seed_scoring_database(engine, storage):
+    """Create temporary attribution tables for SQLite or case-sensitive MariaDB."""
+    with engine.begin() as conn:
+        conn.execute(text("""
+            CREATE TEMPORARY TABLE Documents (
+                id INTEGER PRIMARY KEY, name TEXT, path TEXT, ownerid INTEGER
+            )
+        """))
+        conn.execute(text("""
+            CREATE TEMPORARY TABLE Versions (
+                id INTEGER PRIMARY KEY, documentid INTEGER,
+                intended_for TEXT, link TEXT, secret TEXT, method TEXT
+            )
+        """))
+        for doc_id, name in ((1, "source.pdf"), (2, "leaked.pdf")):
+            conn.execute(text("""
+                INSERT INTO Documents (id, name, path, ownerid)
+                VALUES (:id, :name, :path, 1)
+            """), {"id": doc_id, "name": name, "path": str(storage / name)})
+        conn.execute(text("""
+            INSERT INTO Versions (id, documentid, intended_for, link, secret, method) VALUES
+            (1, 1, 'first', 'first-link', 'first-secret', 'test-scoring'),
+            (2, 1, 'winner', 'winner-link', 'winner-secret', 'test-scoring')
+        """))
+
+
+@pytest.fixture
+def scoring_app(tmp_path, monkeypatch):
+    """Exercise server selection without depending on image robustness or PGP."""
+    import server
+
+    monkeypatch.setenv("SECRET_KEY", secrets.token_hex(32))
+    monkeypatch.setenv("STORAGE_DIR", str(tmp_path / "storage"))
+    for name, value in {
+        "RMAP_SERVER_PUBLIC_KEY_PATH": "synthetic-public",
+        "RMAP_SERVER_PRIVATE_KEY_PATH": "synthetic-private",
+        "RMAP_CLIENT_KEYS_DIR": "synthetic-clients",
+        "RMAP_DOCUMENT_ID": "1", "RMAP_WATERMARK_METHOD": "test-scoring",
+        "RMAP_WATERMARK_KEY": SENSITIVE_CANARY,
+    }.items():
+        monkeypatch.setenv(name, value)
+    for name in ("RMAP_SERVER_KEY_PASSPHRASE", "RMAP_SERVER_KEY_PASSPHRASE_FILE"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(server, "RMAPServer", Mock())
+    method = SimpleNamespace(
+        name="test-scoring", ATTRIBUTION_THRESHOLD=6.0,
+        read_secret=Mock(side_effect=SecretNotFoundError(SENSITIVE_CANARY)),
+        score_recipients=Mock(return_value={"first-secret": 1.0, "winner-secret": 7.0}),
+    )
+    monkeypatch.setitem(server.WMUtils.METHODS, method.name, method)
+    app = server.create_app()
+    storage = app.config["STORAGE_DIR"]
+    _pdf(storage / "source.pdf")
+    _pdf(storage / "leaked.pdf")
+    engine = create_engine("sqlite://", poolclass=StaticPool)
+    _seed_scoring_database(engine, storage)
+    app.config.update(TESTING=True, _ENGINE=engine)
+
+    def read():
+        return app.test_client().post(
+            "/api/read-watermark/2", headers=_auth_headers(app)(1),
+            json={"method": method.name, "key": SENSITIVE_CANARY},
+        )
+
+    try:
+        yield SimpleNamespace(app=app, engine=engine, storage=storage, method=method, read=read)
+    finally:
+        engine.dispose()
+
+
+@pytest.mark.parametrize("winner", ["first", "winner"])
+def test_fingerprint_selection_uses_highest_score(scoring_app, winner):
+    scoring_app.method.score_recipients.return_value = {
+        "first-secret": 7.0 if winner == "first" else 1.0,
+        "winner-secret": 7.0 if winner == "winner" else 1.0,
+    }
+
+    response = scoring_app.read()
+
+    assert response.status_code == 201
+    assert response.get_json()["secret"] is None
+    assert response.get_json()["attribution"] == {"intended_for": winner, "link": f"{winner}-link"}
+
+
+@pytest.mark.parametrize("score,status", [(5.99, 400), (6.0, 201), (6.01, 201)])
+def test_fingerprint_selection_respects_threshold(scoring_app, score, status):
+    scoring_app.method.score_recipients.return_value = {"first-secret": 1.0, "winner-secret": score}
+
+    response = scoring_app.read()
+
+    assert response.status_code == status
+    assert response.get_json().get("attribution") == (
+        {"intended_for": "winner", "link": "winner-link"} if status == 201 else None
+    )
+
+
+@pytest.mark.parametrize("scores", [{}, {"first-secret": 1.0}])
+def test_fingerprint_does_not_attribute_missing_or_low_scores(scoring_app, scores):
+    scoring_app.method.score_recipients.return_value = scores
+
+    response = scoring_app.read()
+
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "could not read watermark"}
+
+
+def test_fingerprint_without_issued_versions_skips_scoring(scoring_app):
+    with scoring_app.engine.begin() as conn:
+        conn.execute(text("DELETE FROM Versions"))
+
+    response = scoring_app.read()
+
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "could not read watermark"}
+    scoring_app.method.score_recipients.assert_not_called()
+
+
+def test_fingerprint_scoring_error_is_sanitized(scoring_app, caplog):
+    scoring_app.method.score_recipients.side_effect = RuntimeError(SENSITIVE_CANARY)
+
+    response = scoring_app.read()
+
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "could not read watermark"}
+    assert SENSITIVE_CANARY not in response.get_data(as_text=True)
+    assert SENSITIVE_CANARY not in caplog.text
+    assert str(scoring_app.storage) not in caplog.text
+    assert "Traceback" not in caplog.text
+
+
+def test_fingerprint_query_with_case_sensitive_mariadb(scoring_app, monkeypatch):
+    connection_url = os.environ.get("TATOU_TEST_MARIADB_URL")
+    if not connection_url:
+        pytest.skip("Set TATOU_TEST_MARIADB_URL to a dedicated tatou_test_* MariaDB database")
+    url = make_url(connection_url)
+    assert url.get_backend_name() in ("mysql", "mariadb")
+    assert url.database and url.database.startswith("tatou_test_"), "Use a dedicated test database"
+    engine = create_engine(url, poolclass=StaticPool, connect_args={"connect_timeout": 5})
+    try:
+        with engine.connect() as conn:
+            assert conn.execute(text("SELECT @@lower_case_table_names")).scalar_one() == 0, (
+                "This check requires case-sensitive MariaDB table names"
+            )
+        _seed_scoring_database(engine, scoring_app.storage)
+        monkeypatch.setitem(scoring_app.app.config, "_ENGINE", engine)
+
+        response = scoring_app.read()
+
+        assert response.status_code == 201
+        assert response.get_json()["attribution"] == {"intended_for": "winner", "link": "winner-link"}
+    finally:
+        engine.dispose()
 
 
 def _pdf(path, secret=None):
@@ -90,7 +251,7 @@ def attribution_app(tmp_path, monkeypatch):
     engine = create_engine("sqlite://")
     with engine.begin() as conn:
         _create_schema(conn)
-        # user 1 = RMAP service account (owns RMAP_DOCUMENT_ID); user 2 = normal user
+        # User 1 = RMAP service account (owns RMAP_DOCUMENT_ID); user 2 = normal user.
         conn.execute(text("""
             INSERT INTO Documents (id, name, path, ownerid) VALUES
             (1, 'source.pdf', :src, 1),
@@ -136,12 +297,11 @@ def test_normal_user_gets_no_attribution_field(attribution_app):
         "method": METHOD, "position": None,
     }
 
-
 DAVIDE_METHOD = "davide-watermark"
 
 
 def _image_pdf(seed):
-    """One-page PDF whose content is a textured photo-like JPEG."""
+    """Create a one-page PDF containing a textured JPEG."""
     rng = np.random.default_rng(seed)
     y, x = np.mgrid[0:512, 0:512]
     base = 96 + 60 * np.sin(x / 31.0) * np.cos(y / 19.0)
@@ -182,10 +342,9 @@ def _cropped(pdf):
 
 
 def _averaged(a, b):
-    """Two recipients combine their copies to hide who leaked."""
+    """Average two recipient copies to simulate collusion."""
     mix = (np.asarray(_photo(a), dtype=np.float64) + np.asarray(_photo(b), dtype=np.float64)) / 2
     return _with_photo(a, Image.fromarray(mix.round().astype(np.uint8)))
-
 
 # Four copies of the same source: two for Group_07, one each for Group_12 and Group_21.
 ISSUED = [
@@ -218,7 +377,7 @@ def fingerprint_app(tmp_path, monkeypatch):
     engine = create_engine("sqlite://")
     with engine.begin() as conn:
         _create_schema(conn)
-        # user 1 = RMAP service account (owns documents 1-7); user 2 = normal user
+        # User 1 = RMAP service account (owns documents 1-7); user 2 = normal user.
         documents = [
             (1, "source.pdf", 1), (2, "cropped.pdf", 1), (3, "unrelated.pdf", 1),
             (4, "cropped.pdf", 2), (5, "source.pdf", 1), (6, "averaged.pdf", 1),

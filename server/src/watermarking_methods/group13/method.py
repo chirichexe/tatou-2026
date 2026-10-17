@@ -1,13 +1,7 @@
-"""group13-watermark: the three methods of the group, one after the other
+"""Combine image, text-spacing, and QR watermarks using shared recipient secrets.
 
-It contains no watermarking code: it calls the public methods of
-davide-watermark, khaled-text-spacing-watermark and francesco-watermark with
-the same secret and key. Every method is also registered on its own, so a
-PDF can be marked with one of them or with all three, and read back by the
-same method or by this one.
-
-The layers fail under different attacks (image processing, text rewriting,
-overlay removal), so a leak must defeat all of them to become anonymous.
+At least one invisible carrier must fit. Optional layers may be skipped, and extraction
+accepts any surviving authenticated component layer.
 """
 
 from __future__ import annotations
@@ -29,25 +23,24 @@ from watermarking_methods.khaled.method import MAX_SECRET_BYTES as KHALED_MAX_SE
 
 logger = logging.getLogger(__name__)
 
-# the layers keep their original criteria (no scanned-page or tolerant-text
-# fallback), so group13 copies, RMAP included, are marked exactly as before
+# Keep Group13 carrier selection strict; component fallbacks apply only to standalone methods.
 
 DAVIDE = DavideWatermark()
 KHALED = KhaledTextSpacingWatermark()
 FRANCESCO = FrancescoWatermark()
-_FRANCESCO_MAX_PAGES = 10  # francesco's page limit before it was raised
+_FRANCESCO_MAX_PAGES = 10  # Group13 limits the QR layer to ten pages.
 
-# the smallest limit among the methods (khaled): a secret fits every layer
+# Use the smallest component secret limit so the payload fits every layer.
 MAX_SECRET_BYTES = KHALED_MAX_SECRET_BYTES
 
-# errors of a layer that is missing or damaged: the other layers still count
+# Errors of a layer that is missing or damaged: the other layers still count.
 _LAYER_ERRORS = (WatermarkingError, ValueError, RuntimeError, OSError)
 
 
 class Group13Watermark(WatermarkingMethod):
     name = "group13-watermark"
 
-    # attribution without a readable secret is davide's fingerprint
+    # Use Davide fingerprint scores when the secret is unreadable.
     ATTRIBUTION_THRESHOLD = DavideWatermark.ATTRIBUTION_THRESHOLD
 
     @staticmethod
@@ -57,7 +50,7 @@ class Group13Watermark(WatermarkingMethod):
 
     @classmethod
     def is_watermark_applicable(cls, pdf: PdfSource, position: str | None = None) -> bool:
-        # at least one invisible layer must fit: a large image or enough simple text
+        # At least one invisible layer must fit: a large image or enough simple text.
         try:
             data = load_pdf_bytes(pdf)
         except (TypeError, ValueError, OSError):
@@ -81,12 +74,10 @@ class Group13Watermark(WatermarkingMethod):
         data = load_pdf_bytes(pdf)
         applied: list[WatermarkingMethod] = []
 
-        # ---- 1. davide: encrypted secret + recipient fingerprint in the images
         if DAVIDE.is_watermark_applicable(data, scans=False):
             data = DAVIDE.add_watermark(data, secret, key)
             applied.append(DAVIDE)
 
-        # ---- 2. khaled: encrypted secret in the spacing of the text
         if KHALED.is_watermark_applicable(data, tolerant=False):
             data = KHALED.add_watermark(data, secret, key)
             applied.append(KHALED)
@@ -94,17 +85,13 @@ class Group13Watermark(WatermarkingMethod):
         if not applied:
             raise WatermarkingError("PDF has neither a large enough image nor enough simple text")
 
-        # ---- 3. francesco: QR codes and visible labels drawn on top. Last,
-        # otherwise davide would re-encode its pictures; optional, because
-        # only here we learn if the page borders have room for the QR codes
         if FRANCESCO.is_watermark_applicable(data, max_pages=_FRANCESCO_MAX_PAGES):
             try:
                 data = FRANCESCO.add_watermark(data, secret, key, intended_for=intended_for)
                 applied.append(FRANCESCO)
             except ValueError as error:
-                logger.warning("group13-watermark: %s skipped: %s", FRANCESCO.name, error)
+                logger.warning("group13-watermark: %s skipped: %s", FRANCESCO.name, type(error).__name__)
 
-        # ---- every layer must still be readable in the final PDF
         for layer in applied:
             if layer.read_secret(data, key) != secret:
                 raise WatermarkingError(f"{layer.name} did not survive the other layers")
@@ -116,14 +103,14 @@ class Group13Watermark(WatermarkingMethod):
             raise InvalidKeyError("Key must not be empty")
         data = load_pdf_bytes(pdf)
 
-        # cheapest first: text (instant), images, QR codes (slowest).
-        # Nobody can forge AES-SIV without the key, so the first secret found
-        # is a real recipient, even when a leak mixes pages of two copies
+        # Cheapest first: text (instant), images, QR codes (slowest). Nobody can forge AES-SIV
+        # without the key, so the first secret found is a real recipient, even when a leak mixes
+        # pages of two copies.
         for layer in (KHALED, DAVIDE, FRANCESCO):
             try:
                 return layer.read_secret(data, key)
             except _LAYER_ERRORS as error:
-                logger.debug("group13-watermark: %s not read: %s", layer.name, error)
+                logger.debug("group13-watermark: %s not read: %s", layer.name, type(error).__name__)
         raise SecretNotFoundError("No watermark found")
 
     @classmethod
@@ -133,7 +120,7 @@ class Group13Watermark(WatermarkingMethod):
 
     @classmethod
     def embedded_layers(cls, pdf: PdfSource, key: str, secret: str) -> list[str]:
-        """Names of the methods whose layer in `pdf` carries `secret` (diagnostics)"""
+        """Return the component names whose layer authenticates the expected secret."""
         data = load_pdf_bytes(pdf)
         found = []
         for layer in (DAVIDE, KHALED, FRANCESCO):

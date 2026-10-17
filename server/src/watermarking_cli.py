@@ -1,29 +1,8 @@
-"""watermarking_cli.py
+"""Embed, verify, and inspect PDF watermarks from the command line.
 
-Command-line interface for the PDF watermarking toolkit.
-
-Usage examples
---------------
-
-List available methods:
-    python -m watermarking_cli methods
-
-Explore a PDF and write a JSON node tree:
-    python -m watermarking_cli explore input.pdf --out tree.json
-
-Embed a secret using the default method (toy-eof) and write a new PDF:
-    python -m watermarking_cli embed input.pdf output.pdf --key-prompt --secret "hello"
-
-Verify that a watermark can be authenticated without revealing its secret:
-    python -m watermarking_cli extract input.watermarked.pdf --key-prompt
-
-Exit codes
-----------
-0   success
-2   invalid usage / bad input
-3   secret not found
-4   invalid key / authentication failed
-5   other watermarking error
+Exit codes: 0 for success, 2 for invalid input, 3 for missing secrets, 4 for invalid
+keys, and 5 for other watermarking errors. Extraction verifies authentication without
+printing the recovered secret.
 """
 from __future__ import annotations
 
@@ -54,10 +33,6 @@ class SafeArgumentParser(argparse.ArgumentParser):
         self.exit(2, f"{self.prog}: error: invalid arguments\n")
 
 
-# --------------------
-# Helpers
-# --------------------
-
 def _read_text_from_file(path: str) -> str:
     with open(path, encoding="utf-8") as fh:
         return fh.read()
@@ -77,7 +52,7 @@ def _resolve_secret(args: argparse.Namespace) -> str:
         return _read_text_from_file(args.secret_file)
     if args.secret_stdin:
         return _read_text_from_stdin()
-    # Interactive fallback
+
     return getpass.getpass("Secret: ")
 
 
@@ -90,13 +65,9 @@ def _resolve_key(args: argparse.Namespace) -> str:
         return _read_text_from_stdin().strip("\n\r")
     if args.key_prompt:
         return getpass.getpass("Key: ")
-    # If nothing provided, still prompt (safer default)
+
     return getpass.getpass("Key: ")
 
-
-# --------------------
-# Subcommand handlers
-# --------------------
 
 def cmd_methods(_args: argparse.Namespace) -> int:
     for name in sorted(METHODS):
@@ -142,10 +113,6 @@ def cmd_extract(args: argparse.Namespace) -> int:
     return 0
 
 
-# --------------------
-# Argument parser
-# --------------------
-
 def build_parser() -> argparse.ArgumentParser:
     p = SafeArgumentParser(
         prog="pdfwm",
@@ -155,11 +122,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    # methods
     p_methods = sub.add_parser("methods", help="List available watermarking methods")
     p_methods.set_defaults(func=cmd_methods)
 
-    # explore
     p_explore = sub.add_parser(
         "explore",
         help="Explore a PDF and print a JSON tree of nodes"
@@ -168,14 +133,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_explore.add_argument("--out", help="Output JSON file (default: stdout)")
     p_explore.set_defaults(func=cmd_explore)
 
-    # embed
     p_embed = sub.add_parser("embed", help="Embed a secret into a PDF")
     p_embed.add_argument("input", help="Input PDF path")
     p_embed.add_argument("output", help="Output (watermarked) PDF path")
     p_embed.add_argument(
         "--method",
-        default="toy-eof",
-        help="Watermarking method name (default: toy-eof)"
+        required=True,
+        help="Watermarking method name (see: pdfwm methods)"
     )
     p_embed.add_argument("--position", help="Optional position hint", default=None)
 
@@ -196,7 +160,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_embed.set_defaults(func=cmd_embed)
 
-    # extract
     p_extract = sub.add_parser(
         "extract",
         help="Verify a watermark without revealing its secret",
@@ -204,8 +167,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_extract.add_argument("input", help="Input PDF path (possibly watermarked)")
     p_extract.add_argument(
         "--method",
-        default="toy-eof",
-        help="Watermarking method name (default: toy-eof)"
+        required=True,
+        help="Watermarking method name (see: pdfwm methods)"
     )
 
     g_key2 = p_extract.add_argument_group("key input")
@@ -218,10 +181,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     return p
 
-
-# --------------------
-# Entrypoint
-# --------------------
 
 def main(argv: Iterable[str] | None = None) -> int:
     parser = build_parser()
@@ -244,7 +203,6 @@ def main(argv: Iterable[str] | None = None) -> int:
     except Exception:  # CLI boundary must not emit tracebacks.
         print("watermarking failed", file=sys.stderr)
         return 5
-
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -1,9 +1,4 @@
-"""Putting a leaked image back onto the pixels of the original
-
-The fingerprint can only be compared if the leak lies on the original within
-a pixel or two. The leaker may have mirrored, rotated, cropped and resized
-the picture, so these edits are searched and undone
-"""
+"""Align transformed leaked images with the original for fingerprint comparison."""
 
 from __future__ import annotations
 
@@ -12,23 +7,19 @@ from PIL import Image, ImageFilter, ImageOps
 
 
 def align(leak: Image.Image, original: Image.Image) -> list[Image.Image]:
-    """The leak on the original's pixels in two ways: a plain resize (it also
-    covers changed proportions) and the full registration"""
+    """Return resized and registered leaks on the original image grid."""
     return [leak.resize(original.size, Image.BICUBIC), register(leak, original)]
 
 
 def register(leak: Image.Image, original: Image.Image) -> Image.Image:
-    """
-    Find mirror, angle and scale of the leak, then paste it over the original
+    """Align a leak using a coarse search followed by local refinement.
 
-    A coarse grid of guesses on small images, then a pattern search: move to
-    the best of the 3x3 neighbours, halve the steps when the current guess is
-    already the best. Only image similarity chooses the guess, never the
-    secrets, so the scores of innocent recipients are not affected
+    Choose mirror, angle, and scale by image similarity alone so recipient secrets do not
+    influence alignment or innocent-recipient scores.
     """
     side = max(original.size)
     if max(leak.size) > 1.5 * side:
-        # e.g. a whole page: the extra pixels only slow the search down
+        # e.g. a whole page: the extra pixels only slow the search down.
         k = 1.5 * side / max(leak.size)
         leak = leak.resize((round(leak.width * k), round(leak.height * k)), Image.BICUBIC)
 
@@ -42,14 +33,14 @@ def register(leak: Image.Image, original: Image.Image) -> Image.Image:
         flip, angle, scale = guess
         neighbours = [(flip, angle + i * angle_step, scale * (1 + j * scale_step))
                       for i in (-1, 0, 1) for j in (-1, 0, 1)]
-        # a tiny scale would blow the leak up to a huge image
+        # A tiny scale would blow the leak up to a huge image.
         neighbours = [(f, a, s) for f, a, s in neighbours if abs(a) <= 6 and 0.2 <= s <= 1.5] or [guess]
         best = _best(leak, original, min(1.0, (256 if angle_step > 0.3 else 512) / side), neighbours)
         if best == guess:
             angle_step, scale_step = angle_step / 2, scale_step / 2
         guess = best
 
-    # the part that was cut away stays as in the original, so it counts as unchanged
+    # The part that was cut away stays as in the original, so it counts as unchanged.
     piece = _undo(leak.convert("RGB"), *guess)
     mask = _undo(Image.new("L", leak.size, 255), *guess)
     target = _gray(original)
@@ -60,7 +51,7 @@ def register(leak: Image.Image, original: Image.Image) -> Image.Image:
 
 
 def _undo(img: Image.Image, flip: bool, angle: float, scale: float) -> Image.Image:
-    """Undo a mirror, a rotation and a resize (scale = leak size / original size)"""
+    """Undo a mirror, a rotation and a resize (scale = leak size / original size)."""
     if flip:
         img = ImageOps.mirror(img)
     if angle:
@@ -69,8 +60,7 @@ def _undo(img: Image.Image, flip: bool, angle: float, scale: float) -> Image.Ima
 
 
 def _best(leak: Image.Image, original: Image.Image, size: float, guesses: list) -> tuple:
-    """The (flip, angle, scale) guess that makes the leak most similar to the
-    original, working at `size` times the resolution"""
+    """Return the mirror, angle, and scale with the highest image similarity."""
     target = _details(original, size)
     target_fft = np.fft.fft2(target - target.mean())
     leak = Image.fromarray(_gray(leak, size).astype(np.uint8))
@@ -78,7 +68,7 @@ def _best(leak: Image.Image, original: Image.Image, size: float, guesses: list) 
 
 
 def _similarity(original: np.ndarray, original_fft: np.ndarray, piece: np.ndarray) -> float:
-    """Correlation between the piece and the part of the original under it"""
+    """Return correlation between the piece and its overlapping original region."""
     dy, dx = _offset(original_fft, piece, whiten=0.5)
     y0, x0 = max(dy, 0), max(dx, 0)
     y1, x1 = min(dy + piece.shape[0], original.shape[0]), min(dx + piece.shape[1], original.shape[1])
@@ -95,12 +85,10 @@ def _similarity(original: np.ndarray, original_fft: np.ndarray, piece: np.ndarra
 
 
 def _offset(original_fft: np.ndarray, piece: np.ndarray, whiten: float) -> tuple[int, int]:
-    """
-    (dy, dx) of the piece inside the original, by phase correlation
+    """Return the piece offset as (dy, dx) using phase correlation.
 
-    whiten = 1 gives a very sharp peak, used for the final placement.
-    whiten = 0.5 still finds the peak when scale or angle are a few percent
-    off, which the search needs
+    Use whiten=1 for final placement and whiten=0.5 during approximate scale and angle
+    searches.
     """
     canvas = np.zeros(original_fft.shape)
     h, w = min(piece.shape[0], canvas.shape[0]), min(piece.shape[1], canvas.shape[1])
@@ -109,7 +97,7 @@ def _offset(original_fft: np.ndarray, piece: np.ndarray, whiten: float) -> tuple
     peak = np.fft.ifft2(cross / (np.abs(cross) + 1e-9) ** whiten).real
     dy, dx = np.unravel_index(np.argmax(peak), peak.shape)
     h, w = peak.shape
-    # past the middle means a negative shift
+    # Past the middle means a negative shift.
     return int(dy - h if dy > h // 2 else dy), int(dx - w if dx > w // 2 else dx)
 
 
@@ -121,6 +109,6 @@ def _gray(img: Image.Image, size: float = 1.0) -> np.ndarray:
 
 
 def _details(img: Image.Image, size: float = 1.0) -> np.ndarray:
-    """Edges and texture (image minus its blur): they make the match precise"""
+    """Extract edges and texture by subtracting a blurred image."""
     small = Image.fromarray(_gray(img, size).astype(np.uint8))
     return _gray(small) - _gray(small.filter(ImageFilter.GaussianBlur(3)))

@@ -33,7 +33,6 @@ class UploadTooLargeError(Exception):
 def create_app():
     app = Flask(__name__)
 
-    # --- Config ---
     secret_key = os.environ.get("SECRET_KEY", "").strip()
 
     if not secret_key or secret_key == "dev-secret-change-me":  # noqa: S105 - rejects the old sample value
@@ -144,7 +143,6 @@ def create_app():
         rmap_server = None
     app.config["RMAP_SERVER"] = rmap_server
 
-    # --- DB engine only (no Table metadata) ---
     def db_url() -> str:
         return (
             f"mysql+pymysql://{app.config['DB_USER']}:{app.config['DB_PASSWORD']}"
@@ -158,7 +156,6 @@ def create_app():
             app.config["_ENGINE"] = eng
         return eng
 
-    # --- Helpers ---
     def _serializer():
         return URLSafeTimedSerializer(app.config["SECRET_KEY"], salt="tatou-auth")
 
@@ -268,12 +265,7 @@ def create_app():
         _log_internal_failure("unhandled request", error)
         return jsonify({"error": "internal server error"}), 500
 
-    # No CSRF header check: authentication is a bearer token in the
-    # Authorization header (no cookies), which a browser never attaches to a
-    # cross-site request on its own, and no CORS headers are emitted.  Requiring
-    # an extra header would also break spec clients (API.md, the course bench).
-
-    # --- Routes ---
+    # Browsers do not attach bearer Authorization headers to cross-site requests automatically.
 
     @app.route("/<path:filename>")
     def static_files(filename):
@@ -296,9 +288,9 @@ def create_app():
     def _rmap_unavailable_response():
         return jsonify({"error": "RMAP is not configured"}), 503
 
-    # RMAP message 1: encrypted {identity, nonceClient} -> encrypted
-    # {nonceClient, nonceServer}.  The RMAP package owns all PGP handling and
-    # handshake state; this application only exposes its HTTP boundary.
+    # RMAP message 1: encrypted {identity, nonceClient} -> encrypted {nonceClient, nonceServer}.
+    # The RMAP package owns all PGP handling and handshake state; this application only exposes
+    # its HTTP boundary.
     @app.post("/api/rmap-initiate")
     def rmap_initiate():
         if rmap_server is None:
@@ -313,8 +305,8 @@ def create_app():
             return jsonify({"error": "invalid RMAP message"}), 400
         return jsonify(response), 200
 
-    # RMAP message 2: create a fresh, watermarked copy of the confidential
-    # document and record it under the completed protocol link.
+    # RMAP message 2: create a fresh, watermarked copy of the confidential document and record
+    # it under the completed protocol link.
     @app.post("/api/rmap-get-link")
     def rmap_get_link():
         if rmap_server is None:
@@ -413,7 +405,6 @@ def create_app():
 
         return jsonify(response), 200
 
-    # POST /api/create-user {email, login, password}
     @app.post("/api/create-user")
     def create_user():
         payload = request.get_json(silent=True) or {}
@@ -446,7 +437,6 @@ def create_app():
 
         return jsonify({"id": row.id, "email": row.email, "login": row.login}), 201
 
-    # POST /api/login {login, password}
     @app.post("/api/login")
     def login():
         payload = request.get_json(silent=True) or {}
@@ -472,12 +462,12 @@ def create_app():
                 "service temporarily unavailable", 503,
             )
 
-        # Known accounts use their numeric ID, including database-collation
-        # aliases of the email. Unknown accounts receive the same failure budget.
+        # Known accounts use their numeric ID, including database-collation aliases of the
+        # email. Unknown accounts receive the same failure budget.
         account = f"user:{row.id}" if row else f"email:{email.casefold()}"
         try:
-            # The deployment connects directly to Gunicorn. Do not trust
-            # client-supplied X-Forwarded-For / X-Real-IP headers.
+            # The deployment connects directly to Gunicorn. Do not trust client-supplied
+            # X-Forwarded-For / X-Real-IP headers.
             with login_limiter.attempt(account, request.remote_addr or "unknown") as attempt:
                 if not row or not check_password_hash(row.hpassword, password):
                     attempt.failed = True
@@ -497,7 +487,6 @@ def create_app():
         token = _serializer().dumps({"uid": int(row.id), "login": row.login, "email": row.email})
         return jsonify({"token": token, "token_type": "bearer", "expires_in": app.config["TOKEN_TTL_SECONDS"]}), 200
 
-    # POST /api/upload-document  (multipart/form-data)
     @app.post("/api/upload-document")
     @require_auth
     def upload_document():
@@ -545,8 +534,8 @@ def create_app():
             stored_path = _safe_resolve_under_storage(
                 user_dir / stored_name, user_dir,
             )
-            # A same-filesystem hard link publishes the complete validated
-            # file atomically and refuses to overwrite an existing UUID path.
+            # A same-filesystem hard link publishes the complete validated file atomically and
+            # refuses to overwrite an existing UUID path.
             os.link(temporary_path, stored_path)
             stored_path_reserved = True
             temporary_path.unlink()
@@ -599,7 +588,6 @@ def create_app():
             "size": int(row.size),
         }), 201
 
-    # GET /api/list-documents
     @app.get("/api/list-documents")
     @require_auth
     def list_documents():
@@ -629,14 +617,11 @@ def create_app():
         } for r in rows]
         return jsonify({"documents": docs}), 200
 
-
-
-    # GET /api/list-versions
     @app.get("/api/list-versions")
     @app.get("/api/list-versions/<int:document_id>")
     @require_auth
     def list_versions(document_id: int | None = None):
-        # Support both path param and ?id=/ ?documentid=
+        # Support both path param and ?id=/ ?documentid=.
         if document_id is None:
             document_id = request.args.get("id") or request.args.get("documentid")
             try:
@@ -672,8 +657,6 @@ def create_app():
         } for r in rows]
         return jsonify({"versions": versions}), 200
 
-
-    # GET /api/list-all-versions
     @app.get("/api/list-all-versions")
     @require_auth
     def list_all_versions():
@@ -704,13 +687,11 @@ def create_app():
         } for r in rows]
         return jsonify({"versions": versions}), 200
 
-    # GET /api/get-document or /api/get-document/<id>  → returns the PDF (inline)
     @app.get("/api/get-document")
     @app.get("/api/get-document/<int:document_id>")
     @require_auth
     def get_document(document_id: int | None = None):
-
-        # Support both path param and ?id=/ ?documentid=
+        # Support both path param and ?id=/ ?documentid=.
         if document_id is None:
             document_id = request.args.get("id") or request.args.get("documentid")
             try:
@@ -735,7 +716,7 @@ def create_app():
                 "service temporarily unavailable", 503,
             )
 
-        # Don't leak whether a doc exists for another user
+        # Do not disclose documents owned by other users.
         if not row:
             return jsonify({"error": "document not found"}), 404
 
@@ -749,27 +730,25 @@ def create_app():
         if not file_path.is_file():
             return jsonify({"error": "file missing on disk"}), 410
 
-        # Serve inline with caching hints + ETag based on stored sha256
+        # Serve inline with caching hints + ETag based on stored sha256.
         resp = send_file(
             file_path,
             mimetype="application/pdf",
             as_attachment=False,
             download_name=row.name if row.name.lower().endswith(".pdf") else f"{row.name}.pdf",
-            conditional=True,   # enables 304 if If-Modified-Since/Range handling
+            conditional=True,   # Enables 304 if If-Modified-Since/Range handling.
             max_age=0,
             last_modified=file_path.stat().st_mtime,
         )
-        # Strong validator
+
         if isinstance(row.sha256_hex, str) and row.sha256_hex:
             resp.set_etag(row.sha256_hex.lower())
 
         resp.headers["Cache-Control"] = "private, max-age=0, must-revalidate"
         return resp
 
-    # GET /api/get-version/<link>  → returns the watermarked PDF (inline)
     @app.get("/api/get-version/<link>")
     def get_version(link: str):
-
         try:
             with get_engine().connect() as conn:
                 row = conn.execute(
@@ -787,7 +766,7 @@ def create_app():
                 "service temporarily unavailable", 503,
             )
 
-        # Don't leak whether a doc exists for another user
+        # Do not disclose documents owned by other users.
         if not row:
             return jsonify({"error": "document not found"}), 404
 
@@ -801,13 +780,13 @@ def create_app():
         if not file_path.is_file():
             return jsonify({"error": "file missing on disk"}), 410
 
-        # Serve inline with caching hints + ETag based on stored sha256
+        # Serve inline with caching hints + ETag based on stored sha256.
         resp = send_file(
             file_path,
             mimetype="application/pdf",
             as_attachment=False,
             download_name=row.link if row.link.lower().endswith(".pdf") else f"{row.link}.pdf",
-            conditional=True,   # enables 304 if If-Modified-Since/Range handling
+            conditional=True,   # Enables 304 if If-Modified-Since/Range handling.
             max_age=0,
             last_modified=file_path.stat().st_mtime,
         )
@@ -815,7 +794,7 @@ def create_app():
         resp.headers["Cache-Control"] = "private, max-age=0"
         return resp
 
-    # Helper: resolve path safely under STORAGE_DIR (handles absolute/relative)
+    # Helper: resolve path safely under STORAGE_DIR (handles absolute/relative).
     def _safe_resolve_under_storage(p: str | Path, storage_root: Path) -> Path:
         if not isinstance(p, (str, Path)) or not str(p) or "\x00" in str(p):
             raise ValueError("invalid storage path")
@@ -828,12 +807,10 @@ def create_app():
             raise ValueError("path must stay inside the storage directory")
         return fp
 
-    # DELETE /api/delete-document  (and variants)
-    @app.route("/api/delete-document", methods=["DELETE", "POST"])  # POST supported for convenience
+    @app.route("/api/delete-document", methods=["DELETE", "POST"])  # POST supported for convenience.
     @app.route("/api/delete-document/<document_id>", methods=["DELETE"])
     @require_auth
     def delete_document(document_id: int | None = None):
-        # accept id from path, query (?id= / ?documentid=), or JSON body on POST
         if document_id is None:
             document_id = (
                 request.args.get("id")
@@ -857,7 +834,6 @@ def create_app():
         except (TypeError, ValueError):
             return jsonify({"error": "document id required"}), 400
 
-        # Fetch the document (enforce ownership)
         try:
             with get_engine().connect() as conn:
                 row = conn.execute(
@@ -879,10 +855,9 @@ def create_app():
             )
 
         if not row:
-            # Don't reveal others' docs—just say not found
+            # Return the same response for missing and unauthorized documents.
             return jsonify({"error": "document not found"}), 404
 
-        # Resolve and delete file (best effort)
         storage_root = Path(app.config["STORAGE_DIR"])
         file_deleted = False
         file_missing = False
@@ -903,12 +878,9 @@ def create_app():
         except (RuntimeError, ValueError, OSError):
             return jsonify({"error": "document path invalid"}), 500
 
-        # Delete DB row (will cascade to Version if FK has ON DELETE CASCADE)
+        # Delete DB row (will cascade to Version if FK has ON DELETE CASCADE).
         try:
             with get_engine().begin() as conn:
-                # If your schema does NOT have ON DELETE CASCADE on Version.documentid,
-                # uncomment the next line first:
-                # conn.execute(text("DELETE FROM Version WHERE documentid = :id"), {"id": doc_id})
                 result = conn.execute(
                     text("""
                         DELETE FROM Documents
@@ -934,13 +906,10 @@ def create_app():
             "note": delete_note,
         }), 200
 
-
-    # POST /api/create-watermark or /api/create-watermark/<id>  → create watermarked pdf and returns metadata
     @app.post("/api/create-watermark")
     @app.post("/api/create-watermark/<int:document_id>")
     @require_auth
     def create_watermark(document_id: int | None = None):
-        # accept id from path, query (?id= / ?documentid=), or JSON body on GET
         if not document_id:
             document_id = (
                 request.args.get("id")
@@ -953,14 +922,13 @@ def create_app():
             return jsonify({"error": "document id required"}), 400
 
         payload = request.get_json(silent=True) or {}
-        # allow a couple of aliases for convenience
+
         method = payload.get("method")
         intended_for = payload.get("intended_for")
         position = payload.get("position") or None
         secret = payload.get("secret")
         key = payload.get("key")
 
-        # validate input
         try:
             doc_id = int(doc_id)
         except (TypeError, ValueError):
@@ -973,7 +941,6 @@ def create_app():
             return jsonify({"error": "invalid intended_for"}), 400
         visible_intended_for = " ".join(intended_for.split())[:60]
 
-        # lookup the document; enforce ownership
         try:
             with get_engine().connect() as conn:
                 row = conn.execute(
@@ -1003,7 +970,6 @@ def create_app():
         if not file_path.is_file():
             return jsonify({"error": "file missing on disk"}), 410
 
-        # check watermark applicability
         try:
             applicable = WMUtils.is_watermarking_applicable(
                 method=method,
@@ -1018,7 +984,6 @@ def create_app():
                 "invalid watermarking request", 400,
             )
 
-        # apply watermark → bytes
         try:
             wm_bytes: bytes = WMUtils.apply_watermark(
                 pdf=str(file_path),
@@ -1052,7 +1017,7 @@ def create_app():
         except (RuntimeError, ValueError, OSError):
             return jsonify({"error": "could not store watermarked file"}), 500
 
-        # unguessable download link, same 40 hex format as before
+        # Generate an unpredictable 40-character download link.
         link_token = secrets.token_hex(20)
 
         try:
@@ -1074,7 +1039,7 @@ def create_app():
                 )
                 vid = int(conn.execute(text("SELECT LAST_INSERT_ID()")).scalar())
         except SQLAlchemyError as error:
-            # best-effort cleanup if DB insert fails
+            # Best-effort cleanup if DB insert fails.
             try:
                 _safe_resolve_under_storage(
                     dest_path, app.config["STORAGE_DIR"],
@@ -1097,7 +1062,6 @@ def create_app():
             "size": len(wm_bytes),
         }), 201
 
-
     @app.post("/api/load-plugin")
     @require_auth
     def load_plugin():
@@ -1105,13 +1069,9 @@ def create_app():
             "error": "Loading plugin files is no longer supported"
         }), 410
 
-
-    # GET /api/get-watermarking-methods -> {"methods":[{"name":..., "description":...}, ...], "count":N}
     @app.get("/api/get-watermarking-methods")
     def get_watermarking_methods():
-        # One method per member, plus group13-watermark (the three combined),
-        # which RMAP uses to watermark its copies: it must be listed so a leak
-        # can be read/attributed with the same method it was written with.
+        # Expose component methods and the combined method used by RMAP.
         method_names = (
             "davide-watermark",
             "francesco-watermark",
@@ -1128,11 +1088,10 @@ def create_app():
         return jsonify({"methods": methods, "count": len(methods)}), 200
 
     def _fingerprint_attribution(method, key: str, leaked_path: Path):
-        """Best-matching RMAP version by fingerprint, or None.
+        """Return the best matching RMAP version, or None when no score qualifies.
 
-        Only methods exposing ``score_recipients`` support this. The leak is
-        compared with the RMAP source document and every version issued with
-        the same method; SQLAlchemy errors are left to the caller.
+        Compare the leak against the RMAP source and versions issued with the same method.
+        Database errors propagate to the caller.
         """
         try:
             impl = WMUtils.get_method(method)
@@ -1176,12 +1135,10 @@ def create_app():
             return None
         return best
 
-    # POST /api/read-watermark
     @app.post("/api/read-watermark")
     @app.post("/api/read-watermark/<int:document_id>")
     @require_auth
     def read_watermark(document_id: int | None = None):
-        # accept id from path, query (?id= / ?documentid=), or JSON body on POST
         if not document_id:
             document_id = (
                 request.args.get("id")
@@ -1194,12 +1151,11 @@ def create_app():
             return jsonify({"error": "document id required"}), 400
 
         payload = request.get_json(silent=True) or {}
-        # allow a couple of aliases for convenience
+
         method = payload.get("method")
         position = payload.get("position") or None
         key = payload.get("key")
 
-        # validate input
         try:
             doc_id = int(doc_id)
         except (TypeError, ValueError):
@@ -1207,7 +1163,6 @@ def create_app():
         if not method or not isinstance(key, str):
             return jsonify({"error": "method, and key are required"}), 400
 
-        # lookup the document; enforce ownership
         try:
             with get_engine().connect() as conn:
                 row = conn.execute(
@@ -1219,8 +1174,8 @@ def create_app():
                     """),
                     {"id": doc_id, "uid": int(g.user["id"])},
                 ).first()
-                # Only the RMAP service account (owner of RMAP_DOCUMENT_ID)
-                # gets leak attribution; everyone else keeps the plain response.
+                # Only the RMAP service account (owner of RMAP_DOCUMENT_ID) gets leak
+                # attribution; everyone else keeps the plain response.
                 is_rmap_service = False
                 if rmap_server is not None:
                     is_rmap_service = conn.execute(
@@ -1284,8 +1239,8 @@ def create_app():
                             """),
                             {"docid": app.config["RMAP_DOCUMENT_ID"], "secret": secret},
                         ).first()
-                # The blind read failed or matched nothing: fall back to the
-                # fingerprint, for methods that support informed detection.
+                # The blind read failed or matched nothing: fall back to the fingerprint, for
+                # methods that support informed detection.
                 if version is None:
                     version = _fingerprint_attribution(method, key, file_path)
             except SQLAlchemyError as error:
@@ -1306,8 +1261,7 @@ def create_app():
 
     return app
 
-
-# WSGI entrypoint
+# WSGI entrypoint.
 app = create_app()
 
 if __name__ == "__main__":

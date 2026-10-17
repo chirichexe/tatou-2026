@@ -1,27 +1,14 @@
-"""Shared fixtures and constants for Francesco watermark tests."""
+"""Shared PDF fixtures for Francesco watermark tests."""
 
 from __future__ import annotations
 
 import pymupdf as fitz
 import pytest
 
-KEY = "0123456789abcdef" * 4
-OTHER_KEY = "fedcba9876543210" * 4
-
-
-@pytest.fixture
-def master_key() -> str:
-    return KEY
-
-
-@pytest.fixture
-def other_key() -> str:
-    return OTHER_KEY
-
 
 @pytest.fixture
 def pdf_bytes() -> bytes:
-    """Single-page test PDF with vector text."""
+    """Create a single-page PDF containing vector text."""
     with fitz.open() as document:
         page = document.new_page(width=595, height=842)
         page.insert_text((72, 72), "A document with a table and a photograph")
@@ -30,7 +17,7 @@ def pdf_bytes() -> bytes:
 
 @pytest.fixture
 def structural_carrier_pdf() -> bytes:
-    """PDF with a photo and text for the dual watermark test with DavideWatermark."""
+    """Create photo and text carriers for combined Davide and Francesco tests."""
     import io
 
     import numpy as np

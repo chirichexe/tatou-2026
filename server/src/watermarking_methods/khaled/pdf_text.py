@@ -1,8 +1,4 @@
-"""Conservative reader/editor for simple PDF text-showing content streams.
-
-Only the operand of a supported Tj/TJ operation is rewritten. In particular,
-this does not parse and reserialize unrelated page drawing instructions.
-"""
+"""Read and edit supported PDF text-showing operands without rewriting other content."""
 
 from __future__ import annotations
 
@@ -44,7 +40,7 @@ def _literal(data: bytes, start: int) -> tuple[bytes, int]:
     while i < len(data):
         ch = data[i]
         i += 1
-        if ch == 92:  # backslash
+        if ch == 92:  # Backslash.
             if i >= len(data):
                 raise UnsupportedText("unfinished PDF string escape")
             ch = data[i]
@@ -82,8 +78,8 @@ def _literal(data: bytes, start: int) -> tuple[bytes, int]:
 def tokenize(data: bytes) -> list[Token]:
     """Tokenize enough PDF syntax to locate intact Tj/TJ operands.
 
-    Inline images are deliberately unsupported because their data is not
-    lexically a sequence of PDF tokens.
+    Inline images are deliberately unsupported because their data is not lexically a
+    sequence of PDF tokens.
     """
     tokens: list[Token] = []
     i = 0
@@ -91,7 +87,7 @@ def tokenize(data: bytes) -> list[Token]:
         if data[i] in _WHITE:
             i += 1
             continue
-        if data[i] == 37:  # comment
+        if data[i] == 37:
             while i < len(data) and data[i] not in b"\r\n":
                 i += 1
             continue
@@ -123,7 +119,7 @@ def tokenize(data: bytes) -> list[Token]:
             i += 1
             tokens.append(Token("symbol", data[start:i], start, i))
             continue
-        if ch == 47:  # name
+        if ch == 47:
             i += 1
             while i < len(data) and data[i] not in _DELIMITERS:
                 i += 1
@@ -168,8 +164,10 @@ def _unicode_map(doc: fitz.Document, font_xref: int) -> dict[int, str] | None:
             match = _HEX_PAIR.fullmatch(line)
             if match:
                 code = int(match[1], 16)
-                with contextlib.suppress(UnicodeError):
+                try:
                     mapping[code] = bytes.fromhex(match[2].decode()).decode("utf-16-be")
+                except (ValueError, UnicodeError):
+                    continue
         elif mode == "range":
             match = _HEX_RANGE.fullmatch(line)
             if match:
@@ -189,8 +187,8 @@ def _letter_codes(doc: fitz.Document, page: fitz.Page,
             continue
         mapping = _unicode_map(doc, xref)
         if mapping is None:
-            # tolerant: a Type1 font without /Encoding uses its built-in one,
-            # Latin letters for text fonts (the extracted-text check guards it)
+            # Tolerant: a Type1 font without /Encoding uses its built-in one, Latin letters for
+            # text fonts (the extracted-text check guards it).
             if encoding not in ("WinAnsiEncoding", "StandardEncoding") and not (
                     tolerant and font_type == "Type1" and not encoding):
                 continue
@@ -253,7 +251,7 @@ class TextRun:
     end: int
     font_size: float
     chars: bytes
-    gaps: list[float]  # PDF TJ numbers, zero at implicit within-string gaps
+    gaps: list[float]  # PDF TJ numbers, zero at implicit within-string gaps.
     prefix: float
     suffix: float
     letters: set[int]
@@ -278,15 +276,12 @@ def _scaling_cm(tokens: list[Token], i: int) -> bool:
 
 
 def _page_transformed(doc: fitz.Document, page: fitz.Page) -> bool:
-    """Whether a non-translation cm may apply to the page's text.
+    """Detect unsupported transformations that affect text placement.
 
-    Pages with transformed drawing need a graphics state interpreter: the
-    method only accepts translations. A cm inside a q ... Q group without any
-    text (an image or a QR code drawn on top) cannot move the text and is
-    ignored, so the answer is the same whether the overlays are separate
-    streams or a resave merged every stream of the page into one.
+    Ignore transformations inside balanced q/Q groups without text, including image
+    overlays. Preserve the result when page streams are merged.
     """
-    groups: list[list[bool]] = []  # [has text, has scaling cm] per open q
+    groups: list[list[bool]] = []  # [has text, has scaling cm] per open q.
     for xref in page.get_contents():
         tokens = tokenize(doc.xref_stream(xref))
         for i, token in enumerate(tokens):
@@ -308,7 +303,7 @@ def _page_transformed(doc: fitz.Document, page: fitz.Page) -> bool:
 
 
 def _axis_scale(tokens: list[Token], i: int) -> float | None:
-    """The horizontal scale of an ``a 0 0 d x y`` matrix (a, d > 0), else None."""
+    """Return positive horizontal scaling for an axis-aligned matrix, or None."""
     values = [_num(tokens, i - 6 + j) for j in range(4)] if i >= 6 else [None]
     if any(v is None for v in values):
         return None
@@ -318,27 +313,25 @@ def _axis_scale(tokens: list[Token], i: int) -> float | None:
     return a
 
 
-def collect_runs(doc: fitz.Document, tolerant: bool = False) -> list[TextRun]:
-    """Text runs that can carry bits.
+def collect_runs(doc: fitz.Document, tolerant: bool = False, *, legacy_horizontal_scale: bool = False) -> list[TextRun]:
+    """Collect text runs that satisfy strict or tolerant carrier policies.
 
-    The default (strict) mode only accepts simple text. ``tolerant`` also
-    accepts scaled, axis-aligned text and page matrices (``1 Tf`` +
-    ``a 0 0 d x y Tm``, ``0.1 0 0 0.1 0 0 cm``), non-default Tc/Tw/Tz/Ts/Tr
-    and fonts with a built-in encoding, and skips pages it cannot parse
-    instead of rejecting the document. Bits stay in the same TJ gaps: only
-    the set of accepted runs changes.
+    Strict mode accepts simple text. Tolerant mode also accepts positive axis-aligned text
+    and page scaling, extra text state, and built-in font encodings, skipping unsupported
+    pages. Both modes use the same TJ gaps for carrier bits.
     """
+    # Legacy geometry is reserved for authenticated reads of pre-fix copies.
     runs: list[TextRun] = []
     seen_xrefs: set[int] = set()
-    # Carriers are numbered by text page, not by page: dropping or adding a
-    # page without carriers (a cover, a blank page) keeps every identity.
+    # Carriers are numbered by text page, not by page: dropping or adding a page without
+    # carriers (a cover, a blank page) keeps every identity.
     page_no = 0
     for page in doc:
         if page.rotation:
             continue
         found = len(runs)
         try:
-            page_runs = _page_runs(doc, page, page_no, seen_xrefs, tolerant)
+            page_runs = _page_runs(doc, page, page_no, seen_xrefs, tolerant, legacy_horizontal_scale)
         except UnsupportedText:
             if not tolerant:
                 raise
@@ -350,26 +343,25 @@ def collect_runs(doc: fitz.Document, tolerant: bool = False) -> list[TextRun]:
 
 
 def _page_runs(doc: fitz.Document, page: fitz.Page, page_no: int,
-               seen_xrefs: set[int], tolerant: bool) -> list[TextRun]:
+               seen_xrefs: set[int], tolerant: bool, legacy_horizontal_scale: bool = False) -> list[TextRun]:
     runs: list[TextRun] = []
     seen_here: set[int] = set()
     fonts = _letter_codes(doc, page, tolerant)
     ordinal = 0
-    # tolerant mode follows the scale of axis-aligned cm instead
+    # Tolerant mode follows the scale of axis-aligned cm instead.
     transformed = False if tolerant else _page_transformed(doc, page)
-    # The font is graphics state: it outlives BT/ET and the stream, and
-    # only Q restores it. Resetting it at BT made text that inherits its
-    # font invisible until a resave (clean=True) wrote Tf again.
+    # Font state survives BT/ET and stream boundaries; only Q restores the saved state.
     font_name: bytes | None = None
     font_size = 0.0
-    # horizontal scale of the text matrix and of the CTM (tolerant mode only)
+    # Horizontal scale of the text matrix and of the CTM (tolerant mode only).
     text_scale = 1.0
-    ctm_scale: float | None = 1.0  # None: rotated or skewed
-    fonts_saved: list[tuple[bytes | None, float, float | None]] = []
+    ctm_scale: float | None = 1.0  # None: rotated or skewed.
+    horizontal_scale: float | None = 1.0
+    fonts_saved: list[tuple[bytes | None, float, float | None, float | None]] = []
     for stream_no, xref in enumerate(page.get_contents()):
-        # A resave with garbage collection merges identical streams (e.g. the
-        # q/Q wrappers of overlays). A shared stream still counts towards the
-        # ordinals, but only its first occurrence yields carriers.
+        # A resave with garbage collection merges identical streams (e.g. the q/Q wrappers of
+        # overlays). A shared stream still counts towards the ordinals, but only its first
+        # occurrence yields carriers.
         shared = xref in seen_xrefs or xref in seen_here
         seen_here.add(xref)
         data = doc.xref_stream(xref)
@@ -391,9 +383,9 @@ def _page_runs(doc: fitz.Document, page: fitz.Page, page_no: int,
         for i, token in enumerate(tokens):
             word = token.value if token.kind == "word" else None
             if word == b"q":
-                fonts_saved.append((font_name, font_size, ctm_scale))
+                fonts_saved.append((font_name, font_size, ctm_scale, horizontal_scale))
             elif word == b"Q" and fonts_saved:
-                font_name, font_size, ctm_scale = fonts_saved.pop()
+                font_name, font_size, ctm_scale, horizontal_scale = fonts_saved.pop()
             elif word == b"cm" and tolerant:
                 scale = _axis_scale(tokens, i)
                 ctm_scale = None if scale is None or ctm_scale is None else ctm_scale * scale
@@ -413,10 +405,9 @@ def _page_runs(doc: fitz.Document, page: fitz.Page, page_no: int,
                 if _num(tokens, i - 1) is None or (
                         abs(float(tokens[i - 1].value)) > 1e-9 and not tolerant):
                     simple_state = False
-            elif word == b"Tz" and inside:
-                if _num(tokens, i - 1) is None or (
-                        abs(float(tokens[i - 1].value) - 100) > 1e-9 and not tolerant):
-                    simple_state = False
+            elif word == b"Tz":
+                value = _num(tokens, i - 1)
+                horizontal_scale = value / 100 if value is not None and value > 0 else None
             elif word == b"Tm" and inside:
                 scale = _axis_scale(tokens, i) if tolerant else None
                 if scale is not None:
@@ -426,7 +417,10 @@ def _page_runs(doc: fitz.Document, page: fitz.Page, page_no: int,
             elif word in (b"Tj", b"TJ", b"'", b'"'):
                 if inside:
                     ordinal += 1
-                size = font_size * text_scale * (ctm_scale or 0.0)
+                scale = 1.0 if legacy_horizontal_scale else horizontal_scale
+                size = font_size * text_scale * (ctm_scale or 0.0) * (scale or 0.0)
+                if not tolerant and (scale is None or abs(scale - 1) > 1e-11):
+                    continue
                 if not inside or not simple_state or font_name not in fonts or not 8 <= size <= 30:
                     continue
                 show = _show_data(tokens, i, array_open)
@@ -448,7 +442,7 @@ def carriers(runs: list[TextRun]) -> list[Carrier]:
         while i + 2 < len(run.chars):
             if all(code in run.letters for code in run.chars[i:i + 3]):
                 result.append(Carrier(run, i + 1))
-                i += 2  # no gap belongs to two carriers
+                i += 2  # No gap belongs to two carriers.
             else:
                 i += 1
     return result
