@@ -102,7 +102,7 @@ class Group13Watermark(WatermarkingMethod):
                 data = FRANCESCO.add_watermark(data, secret, key, intended_for=intended_for)
                 applied.append(FRANCESCO)
             except ValueError as error:
-                logger.warning("group13-watermark: %s skipped: %s", FRANCESCO.name, error)
+                logger.warning("group13-watermark: %s skipped: %s", FRANCESCO.name, type(error).__name__)
 
         # ---- every layer must still be readable in the final PDF
         for layer in applied:
@@ -123,7 +123,7 @@ class Group13Watermark(WatermarkingMethod):
             try:
                 return layer.read_secret(data, key)
             except _LAYER_ERRORS as error:
-                logger.debug("group13-watermark: %s not read: %s", layer.name, error)
+                logger.debug("group13-watermark: %s not read: %s", layer.name, type(error).__name__)
         raise SecretNotFoundError("No watermark found")
 
     @classmethod

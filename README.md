@@ -334,6 +334,23 @@ Layers that do not fit the PDF are skipped, and the combined reader can still
 read copies carrying a compatible component layer. The fingerprint attributes
 cropped, rescaled or screenshotted leaks through `read-watermark`.
 `toy-eof` is easily stripped and kept only for the test suite.
+
+For the local watermarking CLI, select a method explicitly for both embedding
+and verification; there is no default method. List available methods first:
+
+```sh
+pdfwm methods
+pdfwm embed input.pdf marked.pdf --method group13-watermark --key-prompt --secret "example"
+pdfwm extract marked.pdf --method group13-watermark --key-prompt
+```
+
+Omitting `--method` exits with usage status 2 before prompting for secrets.
+
+`pdfwm explore input.pdf --out tree.json` exports document, page and object
+metadata. Native object fingerprints preserve Unicode names with UTF-8;
+non-ASCII object hashes differ from the former lossy Latin-1 representation.
+Document identifiers and ASCII object hashes are unchanged. These fingerprints
+are diagnostic values, not authentication tokens.
 Removal-attack tests are included under `server/test/watermarking/`; there is no
 separate `server/test_robustness/` directory in this checkout.
 

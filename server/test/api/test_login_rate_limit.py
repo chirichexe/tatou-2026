@@ -1,6 +1,12 @@
 """Login throttling must bound guesses without extending a user's cooldown."""
 
+import sqlite3
+import stat
+import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from textwrap import dedent
 from types import SimpleNamespace
 
 import pytest
@@ -158,6 +164,72 @@ def test_concurrent_attempts_cannot_overrun_limit(tmp_path):
     with ThreadPoolExecutor(max_workers=10) as pool:
         results = list(pool.map(try_login, range(20)))
     assert sum(results) == 5
+
+
+def test_limiter_creates_missing_parents_and_reopens_storage(tmp_path):
+    from login_rate_limit import LoginRateLimiter
+
+    path = tmp_path / "missing" / "private" / "limits.sqlite3"
+    for _ in range(2):
+        with LoginRateLimiter(path, "storage-test-key").attempt("user:1", "192.0.2.1") as attempt:
+            attempt.failed = True
+
+    with sqlite3.connect(path) as conn:
+        assert conn.execute("SELECT COUNT(*) FROM login_attempts").fetchone()[0] == 2
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX directory permissions")
+def test_limiter_creates_private_directory_with_permissive_umask(tmp_path):
+    path = tmp_path / "private" / "limits.sqlite3"
+    script = dedent("""
+        import os
+        import sys
+        from pathlib import Path
+
+        sys.path.insert(0, sys.argv[1])
+        from login_rate_limit import LoginRateLimiter
+
+        os.umask(0o022)
+        with LoginRateLimiter(Path(sys.argv[2]), "permissions-test-key").attempt("user:1", "192.0.2.1"):
+            pass
+    """)
+    subprocess.run(
+        [sys.executable, "-B", "-c", script, str(Path(__file__).resolve().parents[2] / "src"), str(path)],
+        check=True, capture_output=True, text=True, timeout=15,
+    )
+    assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
+
+
+@pytest.mark.parametrize("account,ip", [("user:1", "198.51.100.1"), ("user:2", "192.0.2.1")],
+                         ids=["account-budget", "ip-budget"])
+def test_limiter_preserves_preexisting_failure_budgets(tmp_path, monkeypatch, account, ip):
+    import login_rate_limit
+
+    monkeypatch.setattr(login_rate_limit.time, "time", lambda: 1000.0)
+    path = tmp_path / "limits.sqlite3"
+    # Frozen records from the existing storage format: do not derive these
+    # identifiers with the implementation under test, or namespace changes
+    # would silently reset both the fixture and the reader together.
+    account_key = "1bae20179b953feac264a5373b5080011b58d693a853a025190c44a6854bd0a6"
+    ip_key = "e6f77eda15b022f618c1b684d5e01a3309e0fd320fd19a2b7559d62d9ff28423"
+    with sqlite3.connect(path) as conn:
+        conn.execute("""CREATE TABLE login_attempts (
+            id TEXT PRIMARY KEY, account_key TEXT NOT NULL,
+            ip_key TEXT NOT NULL, expires REAL NOT NULL
+        )""")
+        conn.executemany(
+            "INSERT INTO login_attempts VALUES (?, ?, ?, ?)",
+            [(f"saved-{n}", account_key, ip_key, 1060.0) for n in range(5)],
+        )
+
+    limiter = login_rate_limit.LoginRateLimiter(path, "persistent-budget-test-key")
+    with pytest.raises(login_rate_limit.LoginRateLimited) as blocked, limiter.attempt(account, ip):
+        pytest.fail("a persisted failure budget must block a new attempt")
+    assert blocked.value.retry_after == 60
+
+    # Neither account nor IP is blocked globally by the pre-existing records.
+    with limiter.attempt("unrelated-user", "203.0.113.1"):
+        pass
 
 
 @pytest.mark.parametrize("payload", [[], ["invalid"], {"email": 7, "password": "x"},

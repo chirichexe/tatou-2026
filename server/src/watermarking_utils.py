@@ -197,7 +197,10 @@ def explore_pdf(pdf: PdfSource) -> dict[str, Any]:
                 s = doc.xref_object(xref, compressed=False) or ""
             except (RuntimeError, ValueError, AttributeError):
                 s = ""
-            s_bytes = s.encode("latin-1", "replace") if isinstance(s, str) else b""
+            # Preserve the native object's text, including escaped PDF names
+            # decoded to lone surrogates by the backend. Replacement encoding
+            # would give distinct objects the same content fingerprint.
+            s_bytes = s.encode("utf-8", "surrogatepass") if isinstance(s, str) else b""
             # Type detection
             m = _TYPE_RE.search(s_bytes)
             pdf_type = m.group(1).decode("ascii", "replace") if m else "Object"
