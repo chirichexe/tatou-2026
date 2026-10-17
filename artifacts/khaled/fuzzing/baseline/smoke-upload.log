@@ -1,3 +1,0 @@
-warning: The `fitz` API is deprecated and will be removed in future. Use `import pymupdf` instead.
-HTTP status: 201
-Smoke check passed: PDF uploaded and stored correctly.
