@@ -624,3 +624,29 @@ def test_existing_stored_paths_still_download_and_delete(file_app, relative):
             assert response.data == PDF
     assert env.client.delete("/api/delete-document/42", headers=env.headers()).status_code == 200
     assert not env.original.exists()
+
+
+def test_upload_rejects_malformed_page_tree(file_app):
+    env = file_app
+    malformed_pdf = (
+        Path(__file__).parent / "fixtures" / "malformed-page-tree.pdf"
+    ).read_bytes()
+
+    response = upload(env, filename="malformed.pdf", content=malformed_pdf)
+
+    assert response.status_code == 400
+    assert response.get_json() == {"error": "invalid PDF document"}
+
+    assert env.original.read_bytes() == PDF
+    assert env.outside.read_bytes() == b"outside sentinel"
+    assert {p for p in env.storage.rglob("*") if p.is_file()} == {
+        env.original
+    }
+
+    with env.engine.connect() as connection:
+        assert connection.execute(
+            text("SELECT COUNT(*) FROM Documents")
+        ).scalar_one() == 1
+        assert connection.execute(
+            text("SELECT COUNT(*) FROM Versions")
+        ).scalar_one() == 1

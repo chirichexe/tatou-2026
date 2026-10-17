@@ -20,6 +20,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "pytest-cov>=5.0.0",
     "ruff==0.16.10"
 ]
 
@@ -42,6 +43,8 @@ select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "C4", "RUF"]
 known-third-party = ["rmap"]
 
 [tool.ruff.lint.per-file-ignores]
+# Fuzzing scripts use assertions and a local dummy authentication key.
+"fuzzing/**" = ["S101", "S105"]
 # tests use assert, fixed dummy passwords, temp paths and local tools
 "test/**" = ["S101", "S105", "S106", "S107", "S108", "S603", "S607"]
 

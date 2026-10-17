@@ -13,8 +13,19 @@ git clone https://github.com/nharrand/tatou-2026.git
 
 Note that you should probably fork the repo and clone your own repo.
 
+### Contributing
 
-### Run python unit tests
+`main` is protected: do not push to it directly. Work on a separate branch
+named after its purpose, with one of these prefixes:
+
+- `feat/<name>` for a new feature (e.g. `feat/davide-watermark-rmap`)
+- `fix/<name>` for a bug fix (e.g. `fix/expose-group13-watermark`)
+- `docs/<name>` for documentation only changes
+- `chore/<name>` for maintenance, dependencies, CI
+
+Open a pull request against `main`; CI (lint and tests) must pass before merging.
+
+### Setup
 
 ```bash
 cd tatou/server
@@ -25,17 +36,39 @@ python3 -m venv .venv
 # Activate your virtual environement
 . .venv/bin/activate
 
-# Install the necessary dependencies
+# Install the necessary dependencies (editable install, with dev extras)
 python -m pip install -e ".[dev]"
+```
 
-# Run the unit tests
+### Run unit and API tests
+
+```bash
 export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_hex(32))')"
+
+# Run everything under server/test (unit tests in test/watermarking,
+# HTTP API tests in test/api, RMAP protocol tests in test/rmap)
 python -m pytest
+
+# Run only the HTTP API tests
+python -m pytest test/api
+
+# Run only the RMAP protocol tests
+python -m pytest test/rmap
 
 # Run the end-to-end tests (real server image + MariaDB in Docker, test keys only)
 python -m pytest test_e2e
 ```
 See `server/test_e2e/README.md` for what the end-to-end suite covers.
+
+### Run coverage analysis
+
+```bash
+# Per-file report in the terminal
+python -m pytest --cov=src --cov-report=term-missing
+
+# HTML report under server/htmlcov/index.html
+python -m pytest --cov=src --cov-report=html
+```
 
 ### Add a watermarking method
 

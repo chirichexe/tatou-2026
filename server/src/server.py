@@ -10,6 +10,7 @@ from uuid import uuid4
 import fitz
 from flask import Flask, g, jsonify, request, send_file
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from pymupdf.mupdf import FzErrorFormat
 from rmap import RMAPError, RMAPServer
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -230,10 +231,17 @@ def create_app():
                     try:
                         document.load_page(page_number)
                         return True
-                    except (RuntimeError, ValueError):
+                    except (RuntimeError, ValueError, FzErrorFormat):
                         continue
                 return False
-        except (fitz.EmptyFileError, fitz.FileDataError, OSError, RuntimeError, ValueError):
+        except (
+            fitz.EmptyFileError,
+            fitz.FileDataError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            FzErrorFormat,
+        ):
             return False
 
     def _remove_file(path: Path | None) -> None:
