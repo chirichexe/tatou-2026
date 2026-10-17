@@ -168,8 +168,10 @@ def _unicode_map(doc: fitz.Document, font_xref: int) -> dict[int, str] | None:
             match = _HEX_PAIR.fullmatch(line)
             if match:
                 code = int(match[1], 16)
-                with contextlib.suppress(UnicodeError):
+                try:
                     mapping[code] = bytes.fromhex(match[2].decode()).decode("utf-16-be")
+                except (ValueError, UnicodeError):
+                    continue
         elif mode == "range":
             match = _HEX_RANGE.fullmatch(line)
             if match:
@@ -318,7 +320,7 @@ def _axis_scale(tokens: list[Token], i: int) -> float | None:
     return a
 
 
-def collect_runs(doc: fitz.Document, tolerant: bool = False) -> list[TextRun]:
+def collect_runs(doc: fitz.Document, tolerant: bool = False, *, legacy_horizontal_scale: bool = False) -> list[TextRun]:
     """Text runs that can carry bits.
 
     The default (strict) mode only accepts simple text. ``tolerant`` also
@@ -328,6 +330,7 @@ def collect_runs(doc: fitz.Document, tolerant: bool = False) -> list[TextRun]:
     instead of rejecting the document. Bits stay in the same TJ gaps: only
     the set of accepted runs changes.
     """
+    # Legacy geometry is reserved for authenticated reads of pre-fix copies.
     runs: list[TextRun] = []
     seen_xrefs: set[int] = set()
     # Carriers are numbered by text page, not by page: dropping or adding a
@@ -338,7 +341,7 @@ def collect_runs(doc: fitz.Document, tolerant: bool = False) -> list[TextRun]:
             continue
         found = len(runs)
         try:
-            page_runs = _page_runs(doc, page, page_no, seen_xrefs, tolerant)
+            page_runs = _page_runs(doc, page, page_no, seen_xrefs, tolerant, legacy_horizontal_scale)
         except UnsupportedText:
             if not tolerant:
                 raise
@@ -350,7 +353,7 @@ def collect_runs(doc: fitz.Document, tolerant: bool = False) -> list[TextRun]:
 
 
 def _page_runs(doc: fitz.Document, page: fitz.Page, page_no: int,
-               seen_xrefs: set[int], tolerant: bool) -> list[TextRun]:
+               seen_xrefs: set[int], tolerant: bool, legacy_horizontal_scale: bool = False) -> list[TextRun]:
     runs: list[TextRun] = []
     seen_here: set[int] = set()
     fonts = _letter_codes(doc, page, tolerant)
@@ -365,7 +368,8 @@ def _page_runs(doc: fitz.Document, page: fitz.Page, page_no: int,
     # horizontal scale of the text matrix and of the CTM (tolerant mode only)
     text_scale = 1.0
     ctm_scale: float | None = 1.0  # None: rotated or skewed
-    fonts_saved: list[tuple[bytes | None, float, float | None]] = []
+    horizontal_scale: float | None = 1.0
+    fonts_saved: list[tuple[bytes | None, float, float | None, float | None]] = []
     for stream_no, xref in enumerate(page.get_contents()):
         # A resave with garbage collection merges identical streams (e.g. the
         # q/Q wrappers of overlays). A shared stream still counts towards the
@@ -391,9 +395,9 @@ def _page_runs(doc: fitz.Document, page: fitz.Page, page_no: int,
         for i, token in enumerate(tokens):
             word = token.value if token.kind == "word" else None
             if word == b"q":
-                fonts_saved.append((font_name, font_size, ctm_scale))
+                fonts_saved.append((font_name, font_size, ctm_scale, horizontal_scale))
             elif word == b"Q" and fonts_saved:
-                font_name, font_size, ctm_scale = fonts_saved.pop()
+                font_name, font_size, ctm_scale, horizontal_scale = fonts_saved.pop()
             elif word == b"cm" and tolerant:
                 scale = _axis_scale(tokens, i)
                 ctm_scale = None if scale is None or ctm_scale is None else ctm_scale * scale
@@ -413,10 +417,9 @@ def _page_runs(doc: fitz.Document, page: fitz.Page, page_no: int,
                 if _num(tokens, i - 1) is None or (
                         abs(float(tokens[i - 1].value)) > 1e-9 and not tolerant):
                     simple_state = False
-            elif word == b"Tz" and inside:
-                if _num(tokens, i - 1) is None or (
-                        abs(float(tokens[i - 1].value) - 100) > 1e-9 and not tolerant):
-                    simple_state = False
+            elif word == b"Tz":
+                value = _num(tokens, i - 1)
+                horizontal_scale = value / 100 if value is not None and value > 0 else None
             elif word == b"Tm" and inside:
                 scale = _axis_scale(tokens, i) if tolerant else None
                 if scale is not None:
@@ -426,7 +429,10 @@ def _page_runs(doc: fitz.Document, page: fitz.Page, page_no: int,
             elif word in (b"Tj", b"TJ", b"'", b'"'):
                 if inside:
                     ordinal += 1
-                size = font_size * text_scale * (ctm_scale or 0.0)
+                scale = 1.0 if legacy_horizontal_scale else horizontal_scale
+                size = font_size * text_scale * (ctm_scale or 0.0) * (scale or 0.0)
+                if not tolerant and (scale is None or abs(scale - 1) > 1e-11):
+                    continue
                 if not inside or not simple_state or font_name not in fonts or not 8 <= size <= 30:
                     continue
                 show = _show_data(tokens, i, array_open)

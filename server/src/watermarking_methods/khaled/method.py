@@ -200,13 +200,14 @@ class KhaledTextSpacingWatermark(WatermarkingMethod):
     def read_secret(cls, pdf: PdfSource, key: str) -> str:
         cipher_key, order_key, dither_key = _keys(key)
         data = load_pdf_bytes(pdf)
-        # strict first (older copies), then the tolerant parsing
-        for tolerant in (False, True):
+        # The legacy geometry is read-only and still requires AES-SIV authentication.
+        for tolerant, legacy in ((False, False), (True, False), (True, True)):
             try:
                 with fitz.open(stream=data, filetype="pdf") as doc:
                     if doc.is_encrypted:
                         raise SecretNotFoundError("No readable text watermark")
-                    selected = _ordered(carriers(collect_runs(doc, tolerant)), order_key)
+                    runs = collect_runs(doc, tolerant, legacy_horizontal_scale=legacy)
+                    selected = _ordered(carriers(runs), order_key)
                     bits = [_read_bit(item, dither_key) for item in selected[:
                         (MAX_SECRET_BYTES + TAG_BYTES + PARITY_BYTES) * 8]]
             except (RuntimeError, fitz.FileDataError, UnsupportedText):

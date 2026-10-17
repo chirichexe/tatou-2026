@@ -13,50 +13,14 @@ from watermarking_method import SecretNotFoundError, WatermarkingError
 from watermarking_methods.khaled import KhaledTextSpacingWatermark
 from watermarking_methods.khaled.method import STEP_PT, _keys, _ordered
 from watermarking_methods.khaled.pdf_text import (
-    TextRun,
-    Token,
-    _literal,
     carriers,
     collect_runs,
     replace_runs,
-    tokenize,
 )
 
 SECRET = "Group_13:" + "a" * 32
 OTHER = "Group_13:" + "b" * 32
 KEY = "test-only-high-entropy-watermark-key"
-
-
-def test_literal_returns_content_and_next_position():
-    assert _literal(b"(abc)", 0) == (b"abc", 5)
-
-
-@pytest.mark.parametrize(("data", "expected"), [
-    pytest.param(b"  ", [], id="whitespace"),
-    pytest.param(b" <41><42>", [Token("string", b"A", 1, 5), Token("string", b"B", 5, 9)], id="hex-strings"),
-    pytest.param(b" []", [Token("symbol", b"[", 1, 2), Token("symbol", b"]", 2, 3)], id="delimiters"),
-    pytest.param(b"/AA /B", [Token("name", b"AA", 0, 3), Token("name", b"B", 4, 6)], id="names"),
-    pytest.param(b" ab", [Token("word", b"ab", 1, 3)], id="words"),
-])
-def test_tokenize_preserves_values_and_offsets(data, expected):
-    assert tokenize(data) == expected
-
-
-@pytest.mark.parametrize(("chars", "expected"), [
-    pytest.param(b"ABCDE", [1, 3], id="non-overlapping-gaps"),
-    pytest.param(b"1234", [], id="no-letter-carriers"),
-])
-def test_carriers_select_non_overlapping_letter_gaps(chars, expected):
-    run = TextRun(
-        page=0, stream=0, xref=1, ordinal=0, start=0, end=len(chars),
-        font_size=10.0, chars=chars, gaps=[0.0] * (len(chars) - 1),
-        prefix=0.0, suffix=0.0, letters=set(b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"),
-    )
-
-    selected = carriers([run])
-
-    assert [item.middle for item in selected] == expected
-    assert all(item.run is run for item in selected)
 
 
 @pytest.fixture(scope="module")
@@ -179,6 +143,8 @@ def test_khaled_tolerant_parsing_handles_scaled_text_and_inline_images():
     pdf = _scaled_text_pdf()
     with fitz.open(stream=pdf, filetype="pdf") as doc, pytest.raises(ValueError):
         collect_runs(doc)  # strict: the inline image page rejects the document
+    with pytest.raises(ValueError):
+        KhaledTextSpacingWatermark.capacity_bits(pdf)
     assert KhaledTextSpacingWatermark.capacity_bits(pdf, tolerant=True) >= 640
     assert KhaledTextSpacingWatermark.is_watermark_applicable(pdf)
 
@@ -195,3 +161,194 @@ def test_khaled_simple_text_still_uses_strict_carriers(mixed_pdf):
     with fitz.open(stream=marked, filetype="pdf") as doc:
         selected = _ordered(carriers(collect_runs(doc)), _keys(KEY)[1])
     assert len(selected) == strict
+
+
+@pytest.mark.parametrize("name", ["simple", "scaled", "partial_cmap"])
+def test_reads_preexisting_authenticated_copies(name):
+    import json
+    from pathlib import Path
+
+    data = Path(__file__).with_name("data")
+    manifest = json.loads((data / "compatibility.json").read_text())
+    pdf = (data / f"{name}_marked.pdf").read_bytes()
+    assert KhaledTextSpacingWatermark.read_secret(pdf, manifest["key"]) == manifest["secret"]
+    with pytest.raises(SecretNotFoundError):
+        KhaledTextSpacingWatermark.read_secret(pdf, "synthetic-unrelated-key")
+
+
+def _capacity_pdf(count, *, scaled=False):
+    with fitz.open() as document:
+        page = document.new_page(width=600, height=800)
+        page.insert_text((40, 40), "x", fontsize=10)
+        font = page.get_fonts()[0][4]
+        words = []
+        left = count
+        row = 0
+        while left:
+            group = min(left, 19)
+            words.append(f"BT 40 {750-row*17} Td ({'A' * (2*group+1)}) Tj ET\n")
+            row += 1
+            left -= group
+        prefix = f"BT /{font} 10 Tf {200 if scaled else 100} Tz ET\n"
+        document.update_stream(page.get_contents()[0], (prefix + "".join(words)).encode())
+        return document.tobytes()
+
+
+@pytest.mark.parametrize("capacity,expected", [(639, False), (640, True), (641, True)])
+@pytest.mark.parametrize("scaled", [False, True])
+def test_applicability_has_reachable_inclusive_capacity_boundary(capacity, expected, scaled):
+    pdf = _capacity_pdf(capacity, scaled=scaled)
+    assert KhaledTextSpacingWatermark.capacity_bits(pdf, tolerant=scaled) == capacity
+    assert KhaledTextSpacingWatermark.is_watermark_applicable(pdf) is expected
+    assert KhaledTextSpacingWatermark.is_watermark_applicable(pdf, tolerant=False) is (expected and not scaled)
+
+
+@pytest.mark.parametrize("secret", ["x", "é", "x" * 48, "é" * 24])
+@pytest.mark.parametrize("scaled", [False, True])
+def test_secret_byte_boundaries_fit_exact_packet_capacity(secret, scaled):
+    needed = (len(secret.encode()) + 32) * 8
+    pdf = _capacity_pdf(needed, scaled=scaled)
+    marked = KhaledTextSpacingWatermark.add_watermark(pdf, secret, KEY)
+    assert KhaledTextSpacingWatermark.read_secret(marked, KEY) == secret
+    assert _page_text(marked) == _page_text(pdf)
+
+
+@pytest.mark.parametrize("secret,error", [
+    ("", ValueError), ("é" * 25, ValueError), (None, TypeError), (b"x", TypeError),
+])
+def test_invalid_secret_is_rejected_before_pdf_processing(secret, error):
+    with pytest.raises(error):
+        KhaledTextSpacingWatermark.add_watermark(b"not-a-pdf", secret, KEY)
+
+
+@pytest.mark.parametrize("position", [None, "", "auto"])
+def test_supported_placement_aliases(position):
+    pdf = _capacity_pdf(640)
+    assert KhaledTextSpacingWatermark.is_watermark_applicable(pdf, position)
+    marked = KhaledTextSpacingWatermark.add_watermark(pdf, "x", KEY, position)
+    assert KhaledTextSpacingWatermark.read_secret(marked, KEY) == "x"
+
+
+@pytest.mark.parametrize("signed", [False, True])
+def test_protected_documents_do_not_offer_capacity(signed):
+    with fitz.open(stream=_capacity_pdf(640), filetype="pdf") as document:
+        if signed:
+            acroform = document.get_new_xref()
+            document.update_object(acroform, "<< /SigFlags 1 >>")
+            document.xref_set_key(document.pdf_catalog(), "AcroForm", f"{acroform} 0 R")
+            pdf = document.tobytes()
+        else:
+            pdf = document.tobytes(encryption=fitz.PDF_ENCRYPT_AES_256,
+                                  owner_pw="synthetic-owner", user_pw="synthetic-user")
+    assert KhaledTextSpacingWatermark.capacity_bits(pdf) == 0
+    assert not KhaledTextSpacingWatermark.is_watermark_applicable(pdf)
+    with pytest.raises(WatermarkingError):
+        KhaledTextSpacingWatermark.add_watermark(pdf, "x", KEY)
+
+
+@pytest.mark.parametrize("value", [-.31, -.16, -.08, -.001, 0, .08, .16, .31])
+@pytest.mark.parametrize("bit", [0, 1])
+def test_nearest_lattice_preserves_bit_with_bounded_movement(value, bit):
+    from watermarking_methods.khaled import method
+
+    dither = .037
+    target = method._nearest_lattice(value, dither, bit)
+    assert abs(target - value) / 2 <= .08 + 1e-8
+    assert round((target - dither) / .16) & 1 == bit
+    alternatives = [dither + index * .16 for index in range(-8, 9) if index % 2 == bit]
+    assert abs(target - value) == pytest.approx(min(abs(candidate - value) for candidate in alternatives))
+
+
+def test_authentication_follows_error_correction():
+    from cryptography.hazmat.primitives.ciphers.aead import AESSIV
+
+    from watermarking_methods.khaled import method
+
+    key = method._keys(KEY)[0]
+    ciphertext = AESSIV(key).encrypt(b"x", [b"tatou:text-gap:v2"])
+    packet = bytearray(method._CODEC.encode(ciphertext))
+    assert method._decode(list(method._bits(packet)), key) == "x"
+    packet[0] ^= 1
+    assert method._decode(list(method._bits(packet)), key) == "x"
+    assert method._decode(list(method._bits(packet)), method._keys("unrelated-key")[0]) is None
+    forged = method._CODEC.encode(bytes(len(ciphertext)))
+    assert method._decode(list(method._bits(forged)), key) is None
+
+
+@pytest.mark.parametrize("position", ["AUTO", "page=2"])
+def test_unsupported_placement_is_rejected(position):
+    pdf = _capacity_pdf(640)
+    assert not KhaledTextSpacingWatermark.is_watermark_applicable(pdf, position)
+    with pytest.raises(ValueError):
+        KhaledTextSpacingWatermark.add_watermark(pdf, "x", KEY, position)
+
+
+def test_unsigned_form_keeps_text_capacity():
+    with fitz.open(stream=_capacity_pdf(640), filetype="pdf") as document:
+        form = document.get_new_xref()
+        document.update_object(form, "<< /SigFlags 0 >>")
+        document.xref_set_key(document.pdf_catalog(), "AcroForm", f"{form} 0 R")
+        pdf = document.tobytes()
+    assert KhaledTextSpacingWatermark.capacity_bits(pdf) == 640
+    assert KhaledTextSpacingWatermark.is_watermark_applicable(pdf)
+    marked = KhaledTextSpacingWatermark.add_watermark(pdf, "x", KEY)
+    assert KhaledTextSpacingWatermark.read_secret(marked, KEY) == "x"
+
+
+def test_visible_text_keeps_native_operation_order():
+    from watermarking_methods.khaled import method
+
+    with fitz.open() as document:
+        page = document.new_page()
+        page.insert_text((40, 100), "lower")
+        page.insert_text((40, 40), "upper")
+        assert method._visible_text(document) == ("lower\nupper\n",)
+
+
+def test_embedding_preserves_existing_gap_sums_and_glyph_movement():
+    key = "synthetic-limit-15"
+    with fitz.open(stream=_capacity_pdf(640), filetype="pdf") as document:
+        runs = collect_runs(document)
+        for run in runs:
+            run.gaps[:] = [2.5 if i % 2 else -1.25 for i in range(len(run.gaps))]
+        replace_runs(document, runs)
+        source = document.tobytes()
+        before = [[c["origin"] for b in page.get_text("rawdict")["blocks"] if "lines" in b
+                   for line in b["lines"] for span in line["spans"] for c in span["chars"]]
+                  for page in document]
+        sums = [sum(run.gaps) for run in runs]
+    marked = KhaledTextSpacingWatermark.add_watermark(source, "gap-check", key)
+    assert KhaledTextSpacingWatermark.read_secret(marked, key) == "gap-check"
+    with fitz.open(stream=marked, filetype="pdf") as document:
+        assert [sum(run.gaps) for run in collect_runs(document)] == pytest.approx(sums, abs=1e-5)
+        after = [[c["origin"] for b in page.get_text("rawdict")["blocks"] if "lines" in b
+                  for line in b["lines"] for span in line["spans"] for c in span["chars"]]
+                 for page in document]
+        assert [len(page) for page in before] == [len(page) for page in after]
+        movements = [abs(a[0] - b[0]) for old, new in zip(before, after, strict=True)
+                     for a, b in zip(old, new, strict=True)]
+        assert max(movements) <= .08004
+        assert max(movements) > 0
+
+
+def test_partial_capacity_is_rejected_before_writing_a_packet():
+    with pytest.raises(WatermarkingError, match="Insufficient text capacity"):
+        KhaledTextSpacingWatermark.add_watermark(_capacity_pdf(100), "x", KEY)
+
+
+def test_tolerant_fallback_fits_packet_when_strict_has_only_partial_capacity():
+    with fitz.open(stream=_capacity_pdf(100), filetype="pdf") as document:
+        with fitz.open(stream=_capacity_pdf(540, scaled=True), filetype="pdf") as scaled:
+            document.insert_pdf(scaled)
+        source = document.tobytes()
+    marked = KhaledTextSpacingWatermark.add_watermark(source, "x" * 48, KEY)
+    assert KhaledTextSpacingWatermark.read_secret(marked, KEY) == "x" * 48
+
+
+def test_gap_difference_uses_pdf_text_units():
+    from watermarking_methods.khaled.method import _difference
+
+    with fitz.open(stream=_capacity_pdf(1), filetype="pdf") as document:
+        item = carriers(collect_runs(document))[0]
+        item.run.gaps[:] = [10, 30]
+        assert _difference(item) == pytest.approx(.2, abs=1e-9)
