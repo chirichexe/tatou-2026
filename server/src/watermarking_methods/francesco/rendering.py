@@ -221,7 +221,7 @@ def _wrap_visible_label(label: str, fontsize: float, max_width: float) -> str:
     if " - " not in label:
         return "\n".join(textwrap.wrap(label, max_chars, break_long_words=True))
 
-    group, payload = label.split(" - ", maxsplit=1)
+    group, payload = label.rsplit(" - ", maxsplit=1)
     heading = textwrap.wrap(f"{group} -", max_chars, break_long_words=True)
     chunk_count = max(1, math.ceil(len(payload) / max_chars))
     chunk_size = math.ceil(len(payload) / chunk_count)
