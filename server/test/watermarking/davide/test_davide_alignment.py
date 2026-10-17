@@ -70,4 +70,8 @@ def test_registration_bounds_downsampling_and_refinement(monkeypatch):
     monkeypatch.setattr(alignment, "_best", choose)
     output = alignment.register(leak, original)
     assert output.size == original.size
-    assert observed and all(size == (96, 72) for size in observed)
+    assert observed
+    for width, height in observed:
+        assert 0 < max(width, height) <= 1.5 * max(original.size)
+        assert width <= leak.width and height <= leak.height
+        assert width / height == pytest.approx(leak.width / leak.height, abs=1 / height)

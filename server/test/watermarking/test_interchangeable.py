@@ -65,6 +65,51 @@ def test_every_method_of_the_group_is_registered(monkeypatch, replace_existing):
     assert registry == {**METHODS, method.name: method}
 
 
+def test_get_method_accepts_an_existing_instance():
+    method = AddAfterEOF()
+    assert get_method(method) is method
+
+
+def test_get_method_rejects_unknown_names_with_key_error(monkeypatch):
+    monkeypatch.setattr(utils, "METHODS", METHODS.copy())
+    with pytest.raises(KeyError):
+        get_method("unregistered-test-method")
+
+
+@pytest.mark.parametrize("name,accepts_recipient", [
+    ("davide-watermark", False), ("khaled-text-spacing-watermark", False),
+    ("francesco-watermark", True), ("group13-watermark", True),
+])
+def test_apply_helper_forwards_inputs_to_selected_method(monkeypatch, name, accepts_recipient):
+    method = METHODS[name]
+    calls = []
+
+    def embed(**kwargs):
+        calls.append(kwargs)
+        return b"%PDF-result"
+
+    monkeypatch.setattr(method, "add_watermark", embed)
+    assert apply_watermark(name, b"%PDF-input", "secret", "key", "position", "Group_13") == b"%PDF-result"
+    expected = {"pdf": b"%PDF-input", "secret": "secret", "key": "key", "position": "position"}
+    if accepts_recipient:
+        expected["intended_for"] = "Group_13"
+    assert calls == [expected]
+
+
+@pytest.mark.parametrize("applicable", [False, True])
+def test_applicability_helper_forwards_input_and_position(monkeypatch, applicable):
+    method = METHODS["davide-watermark"]
+    calls = []
+
+    def check(**kwargs):
+        calls.append(kwargs)
+        return applicable
+
+    monkeypatch.setattr(method, "is_watermark_applicable", check)
+    assert is_watermarking_applicable(method.name, b"%PDF-input", "position") is applicable
+    assert calls == [{"pdf": b"%PDF-input", "position": "position"}]
+
+
 @pytest.mark.parametrize("name", GROUP)
 def test_same_interface_for_every_method(name, source, marked):
     assert is_watermarking_applicable(name, source)
