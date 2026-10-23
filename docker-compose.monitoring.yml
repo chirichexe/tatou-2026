@@ -65,7 +65,7 @@ services:
       - ALERT_LOG_PATH=/alerts/alerts.log
     volumes:
       - ./monitoring/alertmanager/webhook.py:/app/webhook.py:ro
-      - ./monitoring/alertmanager/alerts.log:/alerts/alerts.log
+      - ${ALERT_LOG_HOST_DIR:-./monitoring/alertmanager/alerts}:/alerts
     deploy:
       resources:
         limits:

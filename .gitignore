@@ -10,6 +10,7 @@ htmlcov/
 .env
 .envrc
 secrets/
+monitoring/alertmanager/alerts/
 Group_13.pdf
 Group_13_text.pdf
 .venv/
