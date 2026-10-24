@@ -87,6 +87,11 @@ def _candidate_payloads(text: str) -> list[str]:
         for fragment_line in [line[header.end():], *lines[index + 1:index + 9]]:
             if _GROUP_HEADER_PATTERN.search(fragment_line):
                 break
+            if fragment_line.strip() == "-":
+                # A wrapped heading (recipient containing " - ") can push its own
+                # trailing hyphen onto its own line; that is the real delimiter.
+                joined = ""
+                continue
             fragment = "".join(fragment_line.split())
             if not re.fullmatch(r"[A-Za-z0-9]{8,120}", fragment):
                 if joined:
